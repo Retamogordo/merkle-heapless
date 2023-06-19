@@ -169,4 +169,89 @@ mod tests {
         assert_eq!(mt.as_ref().unwrap().total_size(), (1 << LAYERS) - 1);
         assert_eq!(mt.unwrap().total_layers(), LAYERS);
     }
+
+    #[test]
+    fn insert_replace() {
+        let mut mt = MerkleTree::<4, 8, DefaultConcatHashes>::try_from(&[
+            b"apple", b"banana", b"kiwi", b"kotleta",
+        ]);
+        let word_index = 2;
+
+        mt.as_mut().unwrap().insert(word_index, b"ciruela");
+
+        let (root, proof) = mt.as_mut().unwrap().generate_proof(word_index);
+        let word = "ciruela";
+        let res = validate_proof::<4, 8, DefaultConcatHashes>(&root, word.as_bytes(), proof);
+        println!(
+            "word: {:?} {} validated, proof was generated for word at index {}",
+            word,
+            if res { "" } else { "NOT" },
+            word_index
+        );
+        assert!(res);
+    }
+
+    #[test]
+    fn insert_append() {
+        let mut mt = MerkleTree::<4, 8, DefaultConcatHashes>::try_from(&[
+            b"apple", b"banana", b"kiwi", b"kotleta",
+        ]);
+        let word_index = 6;
+
+        mt.as_mut().unwrap().insert(word_index, b"ciruela");
+
+        let (root, proof) = mt.as_mut().unwrap().generate_proof(word_index);
+        let word = "ciruela";
+        let res = validate_proof::<4, 8, DefaultConcatHashes>(&root, word.as_bytes(), proof);
+        println!(
+            "word: {:?} {} validated, proof was generated for word at index {}",
+            word,
+            if res { "" } else { "NOT" },
+            word_index
+        );
+        assert!(res);
+    }
+
+    #[test]
+    #[should_panic]
+    fn fail_insertion_out_of_bound() {
+        let mut mt = MerkleTree::<4, 8, DefaultConcatHashes>::try_from(&[
+            b"apple", b"banana", b"kiwi", b"kotleta",
+        ]);
+        let word_index = 8;
+
+        mt.as_mut().unwrap().insert(word_index, b"ciruela");
+    }
+
+    #[test]
+    fn remove() {
+        let mut mt = MerkleTree::<4, 8, DefaultConcatHashes>::try_from(&[
+            b"apple", b"banana", b"kiwi", b"kotleta",
+        ]);
+        let word_index = 0;
+
+        mt.as_mut().unwrap().remove(word_index);
+
+        let (root, proof) = mt.as_mut().unwrap().generate_proof(word_index);
+        let word = "apple";
+        let res = validate_proof::<4, 8, DefaultConcatHashes>(&root, word.as_bytes(), proof);
+        println!(
+            "word: {:?} {} validated, proof was generated for word at index {}",
+            word,
+            if res { "" } else { "NOT" },
+            word_index
+        );
+        assert!(!res);
+
+        let word = ""; // empty string corresponds to empty element in tree
+        let res = validate_proof::<4, 8, DefaultConcatHashes>(&root, word.as_bytes(), proof);
+        println!(
+            "word: {:?} {} validated, proof was generated for word at index {}",
+            word,
+            if res { "" } else { "NOT" },
+            word_index
+        );
+        assert!(res);
+    }
+
 }

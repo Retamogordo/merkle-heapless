@@ -15,8 +15,11 @@ where
 
     fn hash(input: &[u8]) -> Self::Output;
 
+//    fn concat_hashes(hashes: &[&[u8]; 2]) -> Self::Output {
     fn concat_hashes(left: &[u8], right: &[u8]) -> Self::Output {
         let mut h = [u8::default(); 2 * OUTPUT_SIZE];
+        // let left = hashes[0];
+        // let right = hashes[1];
 
         for i in 0..left.len() {
             h[i] = left[i];
@@ -76,13 +79,36 @@ where
         Ok(this)
     }
 
-    pub fn generate_proof(
-        &mut self,
-        index: usize,
-    ) -> (H::Output, [Sibling<H::Output>; LAYERS - 1]) {
+    pub fn generate_proof(&mut self, index: usize) -> (H::Output, [Sibling<H::Output>; LAYERS - 1]) {
         let mut proof = [Sibling::None; LAYERS - 1];
         let root = self.build_path(index, &mut proof);
+
         (root, proof)
+    }
+
+    // panics if index is out of leaf layer bound
+    pub fn insert(&mut self, index: usize, input: &[u8]) {
+        let mut layer_base = 0;
+        let mut index = index;
+
+        self.hashes[index] = H::hash(input);
+
+        for layer in 0..LAYERS - 1 {
+            let parent_merged = self.merged_slice(index - (index % 2), 2 * HASH_OUTPUT_SIZE);
+            // let parent_merged = match index & 1 {
+            //     0 => self.merged_slice(index, 2 * HASH_OUTPUT_SIZE),
+            //     _ => self.merged_slice(index - 1, 2 * HASH_OUTPUT_SIZE)
+            // };
+
+            (index, layer_base) = self.parent_index_and_base(index, layer, layer_base);
+
+            self.hashes[index] = H::hash(&parent_merged);
+        }
+    }
+
+    // panics if index is out of leaf layer bound
+    pub fn remove(&mut self, index: usize) {
+        self.insert(index, &[]);
     }
 
     pub fn total_size(&self) -> usize {
@@ -90,6 +116,9 @@ where
     }
     pub fn total_layers(&self) -> usize {
         LAYERS
+    }
+    pub fn root(&self) -> H::Output {
+        self.hashes[Self::TOTAL_SIZE - 1]
     }
 
     fn fill_layers(&mut self) {
@@ -100,10 +129,9 @@ where
             let mut j = next_layer_ind;
 
             for i in (start_ind..next_layer_ind).step_by(2) {
-                let joined =
-                    Self::merge_adjacent(self.hashes[i].as_ref(), self.hashes[i + 1].as_ref());
+                let merged = self.merged_slice(i, 2 * HASH_OUTPUT_SIZE);
 
-                self.hashes[j] = H::hash(joined);
+                self.hashes[j] = H::hash(merged);
                 j += 1;
             }
             start_ind = next_layer_ind;
@@ -111,37 +139,56 @@ where
         }
     }
 
-    fn merge_adjacent<'a>(left: &'a [u8], right: &'a [u8]) -> &'a [u8] {
-        unsafe { core::slice::from_raw_parts(left.as_ptr(), left.len() + right.len()) }
+    fn merged_slice(&self, start_index: usize, len: usize) -> &[u8] {
+        unsafe { core::slice::from_raw_parts(self.hashes[start_index].as_ref().as_ptr(), len) }
     }
 
     // panics on index out of bounds ( >= leaf number )
-    fn build_path(
-        &mut self,
-        index: usize,
-        proof: &mut [Sibling<H::Output>; LAYERS - 1],
-    ) -> H::Output {
-        let mut proof_ind = 0;
+    fn build_path(&mut self, index: usize, proof: &mut [Sibling<H::Output>; LAYERS - 1]) -> H::Output {
         let mut layer_base = 0;
         let mut index = index;
-        let mut layer_len = 1 << (LAYERS - 1);
 
-        for _ in 0..LAYERS - 1 {
-            proof[proof_ind] = match index & 1 {
+        for layer in 0..LAYERS - 1 {
+            proof[layer] = match index & 1 {
                 0 => Sibling::Right(self.hashes[index + 1]),
                 _ => Sibling::Left(self.hashes[index - 1]),
             };
 
-            proof_ind += 1;
-
-            index = layer_len + (index + layer_base) / 2;
-            layer_base += layer_len;
-            layer_len >>= 1;
+            (index, layer_base) = self.parent_index_and_base(index, layer, layer_base);
         }
         self.hashes[index]
     }
+
+    fn parent_index_and_base(&self, curr_index: usize, layer: usize, layer_base: usize) -> (usize, usize) {
+        let curr_layer_len = 1 << (LAYERS - layer - 1);
+        let parent_index = curr_layer_len + (curr_index + layer_base) / 2;
+        let parent_layer_base = layer_base + curr_layer_len;
+
+        (parent_index, parent_layer_base)
+    }
 }
 
+// pub fn validate_proof<const LAYERS: usize, const HASH_OUTPUT_SIZE: usize, H> (
+//     root: &H::Output,
+//     word: &[u8],
+//     proof: [Sibling<H::Output>; LAYERS - 1],
+// ) -> bool
+// where
+//     [(); 2 * HASH_OUTPUT_SIZE]: Sized,
+//     H: ConcatHashes<HASH_OUTPUT_SIZE>,
+// {
+//     let mut curr_hash = H::hash(&word);
+
+//     for sibling in proof {
+//         let mut hashes_to_concat = [Default::default(); 2];
+//         curr_hash = match sibling {
+//             Sibling::Left(h) => { hashes_to_concat[0] = h.as_ref(); hashes_to_concat[1] = curr_hash.as_ref(); H::concat_hashes(&hashes_to_concat)},
+//             Sibling::Right(h) => { hashes_to_concat[0] = curr_hash.as_ref(); hashes_to_concat[1] = h.as_ref(); H::concat_hashes(&hashes_to_concat)},
+//             Sibling::None => unreachable!("sibling is None"),
+//         };
+//     }
+//     &curr_hash == root
+// }
 pub fn validate_proof<const LAYERS: usize, const HASH_OUTPUT_SIZE: usize, H> (
     root: &H::Output,
     word: &[u8],
