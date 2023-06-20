@@ -1,8 +1,9 @@
-#![cfg_attr(not(test), no_std)] 
+//#![cfg_attr(not(test), no_std)] 
 
 #![allow(incomplete_features)]
 #![feature(generic_const_exprs)]
 
+mod multi_branch;
 mod tests;
 
 use core::hash::Hash;
@@ -15,8 +16,8 @@ where
 
     fn hash(input: &[u8]) -> Self::Output;
 
-//    fn concat_hashes(hashes: &[&[u8]; 2]) -> Self::Output {
-    fn concat_hashes(left: &[u8], right: &[u8]) -> Self::Output {
+//    fn concat_and_hash(hashes: &[&[u8]; 2]) -> Self::Output {
+    fn concat_and_hash(left: &[u8], right: &[u8]) -> Self::Output {
         let mut h = [u8::default(); 2 * OUTPUT_SIZE];
         // let left = hashes[0];
         // let right = hashes[1];
@@ -94,7 +95,8 @@ where
         self.hashes[index] = H::hash(input);
 
         for layer in 0..LAYERS - 1 {
-            let parent_merged = self.merged_slice(index - (index % 2), 2 * HASH_OUTPUT_SIZE);
+//            let parent_merged = self.merged_slice(index - (index % 2), 2 * HASH_OUTPUT_SIZE);
+            let parent_hashed = self.hash_merged_slice(index - (index % 2), 2 * HASH_OUTPUT_SIZE);
             // let parent_merged = match index & 1 {
             //     0 => self.merged_slice(index, 2 * HASH_OUTPUT_SIZE),
             //     _ => self.merged_slice(index - 1, 2 * HASH_OUTPUT_SIZE)
@@ -102,7 +104,8 @@ where
 
             (index, layer_base) = self.parent_index_and_base(index, layer, layer_base);
 
-            self.hashes[index] = H::hash(&parent_merged);
+//            self.hashes[index] = H::hash(&parent_merged);
+            self.hashes[index] = parent_hashed;
         }
     }
 
@@ -129,9 +132,10 @@ where
             let mut j = next_layer_ind;
 
             for i in (start_ind..next_layer_ind).step_by(2) {
-                let merged = self.merged_slice(i, 2 * HASH_OUTPUT_SIZE);
+//                let merged = self.merged_slice(i, 2 * HASH_OUTPUT_SIZE);
 
-                self.hashes[j] = H::hash(merged);
+//                self.hashes[j] = H::hash(merged);
+                self.hashes[j] = self.hash_merged_slice(i, 2 * HASH_OUTPUT_SIZE);
                 j += 1;
             }
             start_ind = next_layer_ind;
@@ -139,8 +143,11 @@ where
         }
     }
 
-    fn merged_slice(&self, start_index: usize, len: usize) -> &[u8] {
-        unsafe { core::slice::from_raw_parts(self.hashes[start_index].as_ref().as_ptr(), len) }
+    fn hash_merged_slice(&self, start_index: usize, len: usize) -> H::Output {
+//        fn hash_merged_slice(&self, start_index: usize, len: usize) -> &[u8] {
+        H::hash(
+            unsafe { core::slice::from_raw_parts(self.hashes[start_index].as_ref().as_ptr(), len) }
+        )
     }
 
     // panics on index out of bounds ( >= leaf number )
@@ -149,7 +156,7 @@ where
         let mut index = index;
 
         for layer in 0..LAYERS - 1 {
-            proof[layer] = match index & 1 {
+            proof[layer] = match index % 2 {
                 0 => Sibling::Right(self.hashes[index + 1]),
                 _ => Sibling::Left(self.hashes[index - 1]),
             };
@@ -182,8 +189,8 @@ where
 //     for sibling in proof {
 //         let mut hashes_to_concat = [Default::default(); 2];
 //         curr_hash = match sibling {
-//             Sibling::Left(h) => { hashes_to_concat[0] = h.as_ref(); hashes_to_concat[1] = curr_hash.as_ref(); H::concat_hashes(&hashes_to_concat)},
-//             Sibling::Right(h) => { hashes_to_concat[0] = curr_hash.as_ref(); hashes_to_concat[1] = h.as_ref(); H::concat_hashes(&hashes_to_concat)},
+//             Sibling::Left(h) => { hashes_to_concat[0] = h.as_ref(); hashes_to_concat[1] = curr_hash.as_ref(); H::concat_and_hash(&hashes_to_concat)},
+//             Sibling::Right(h) => { hashes_to_concat[0] = curr_hash.as_ref(); hashes_to_concat[1] = h.as_ref(); H::concat_and_hash(&hashes_to_concat)},
 //             Sibling::None => unreachable!("sibling is None"),
 //         };
 //     }
@@ -202,8 +209,8 @@ where
 
     for sibling in proof {
         curr_hash = match sibling {
-            Sibling::Left(h) => H::concat_hashes(h.as_ref(), curr_hash.as_ref()),
-            Sibling::Right(h) => H::concat_hashes(curr_hash.as_ref(), h.as_ref()),
+            Sibling::Left(h) => H::concat_and_hash(h.as_ref(), curr_hash.as_ref()),
+            Sibling::Right(h) => H::concat_and_hash(curr_hash.as_ref(), h.as_ref()),
             Sibling::None => unreachable!("sibling is None"),
         };
     }
