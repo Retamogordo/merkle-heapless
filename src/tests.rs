@@ -6,10 +6,9 @@ mod tests {
         hash::{Hash, Hasher},
     };
 
-    use crate::{MerkleTreeBinary};
-    use crate::multi_branch::{HashT, MerkleTree};
+    use crate::{HashT, Tree, BinaryTree};
 
-        //use crate::merkle::{MerkleTree, validate_proof, ConcatHashes};
+        //use crate::merkle::{Tree, validate_proof, ConcatHashes};
 
 
     #[derive(Debug)]
@@ -53,7 +52,7 @@ mod tests {
         const LAYERS: usize = 4;
         const BRANCH_FACTOR: usize = 2;
 
-        let mut mt = MerkleTree::<BRANCH_FACTOR, LAYERS, StdHash>::try_from(&[
+        let mut mt = Tree::<BRANCH_FACTOR, LAYERS, StdHash>::try_from(&[
             b"apple", b"banana", b"kiwi", b"kotleta",
         ]);
         let word_index = 7;
@@ -74,9 +73,8 @@ mod tests {
     #[should_panic]
     fn fail_binary_4layers_std_hash_bad_index() {
         const LAYERS: usize = 4;
-        const BRANCH_FACTOR: usize = 2;
 
-        let mut mt = MerkleTree::<BRANCH_FACTOR, LAYERS, StdHash>::try_from(&[
+        let mut mt = BinaryTree::<LAYERS, StdHash>::try_from(&[
             b"apple", b"banana", b"kiwi", b"kotleta",
         ]);
         let word_index = 8;
@@ -85,7 +83,7 @@ mod tests {
 
     #[test]
     fn validate_default_padding_word_4layers_std_hash() {
-        let mut mt = MerkleTree::<4, 8, StdHash>::try_from(&[
+        let mut mt = Tree::<4, 8, StdHash>::try_from(&[
             b"apple", b"banana", b"kiwi", b"kotleta",
         ]);
         let word_index = 7;
@@ -104,7 +102,7 @@ mod tests {
 
     #[test]
     fn fail_creating_merkle_tree_too_few_layers_for_input() {
-        let mt = MerkleTree::<2, 3, Blake2_256Hash>::try_from(&[
+        let mt = Tree::<2, 3, Blake2_256Hash>::try_from(&[
             b"apple", b"banana", b"kiwi", b"kotleta", b"apple", b"banana", b"kiwi", b"kotleta",
             b"apple",
         ]);
@@ -114,7 +112,7 @@ mod tests {
 
     #[test]
     fn minimal_tree_size() {
-        let mut mt = MerkleTree::<2, 1, Blake2_256Hash>::try_from(&[
+        let mut mt = Tree::<2, 1, Blake2_256Hash>::try_from(&[
             b"apple",
         ]);
 
@@ -136,7 +134,7 @@ mod tests {
 
     #[test]
     fn illegal_branch_factor() {
-        let mut mt = MerkleTree::<3, 1, Blake2_256Hash>::try_from(&[
+        let mt = Tree::<3, 1, Blake2_256Hash>::try_from(&[
             b"apple",
         ]);
 
@@ -147,7 +145,7 @@ mod tests {
     fn insert_replace_binary() {
         const LAYERS: usize = 4;
         const BRANCH_FACTOR: usize = 2;
-        let mut mt = MerkleTree::<BRANCH_FACTOR, LAYERS, StdHash>::try_from(&[
+        let mut mt = Tree::<BRANCH_FACTOR, LAYERS, StdHash>::try_from(&[
             b"apple", b"banana", b"kiwi", b"kotleta",
         ]);
         let word_index = 2;
@@ -170,7 +168,7 @@ mod tests {
     fn insert_append_binary() {
         const LAYERS: usize = 4;
         const BRANCH_FACTOR: usize = 2;
-        let mut mt = MerkleTree::<BRANCH_FACTOR, LAYERS, StdHash>::try_from(&[
+        let mut mt = Tree::<BRANCH_FACTOR, LAYERS, StdHash>::try_from(&[
             b"apple", b"banana", b"kiwi", b"kotleta",
         ]);
         let word_index = 6;
@@ -193,7 +191,7 @@ mod tests {
     fn insert_replace_branch_factor_8() {
         const LAYERS: usize = 4;
         const BRANCH_FACTOR: usize = 8;
-        let mut mt = MerkleTree::<BRANCH_FACTOR, LAYERS, StdHash>::try_from(&[
+        let mut mt = Tree::<BRANCH_FACTOR, LAYERS, StdHash>::try_from(&[
             b"apple", b"banana", b"kiwi", b"kotleta",
         ]);
         let word_index = 2;
@@ -216,7 +214,7 @@ mod tests {
     fn insert_append_branch_factor_8() {
         const LAYERS: usize = 4;
         const BRANCH_FACTOR: usize = 8;
-        let mut mt = MerkleTree::<BRANCH_FACTOR, LAYERS, StdHash>::try_from(&[
+        let mut mt = Tree::<BRANCH_FACTOR, LAYERS, StdHash>::try_from(&[
             b"apple", b"banana", b"kiwi", b"kotleta",
         ]);
         let word_index = 32;
@@ -238,7 +236,7 @@ mod tests {
     //     #[test]
 //     #[should_panic]
 //     fn fail_insertion_out_of_bound() {
-//         let mut mt = MerkleTree::<4, 8, StdHash>::try_from(&[
+//         let mut mt = Tree::<4, 8, StdHash>::try_from(&[
 //             b"apple", b"banana", b"kiwi", b"kotleta",
 //         ]);
 //         let word_index = 8;
@@ -260,7 +258,7 @@ mod tests {
             "banana", "blueberry", "blackberry", "blackcurrant",
             "cherry",
         ];
-        let mut mt = MerkleTree::<BRANCH_FACTOR, LAYERS, StdHash>::try_from(
+        let mut mt = Tree::<BRANCH_FACTOR, LAYERS, StdHash>::try_from(
             &words.iter().map(|w| w.as_bytes()).collect::<Vec<_>>()
         );
 
@@ -287,7 +285,7 @@ mod tests {
             "banana", "blueberry", "blackberry", "blackcurrant",
             "cherry",
         ];
-        let mut mt = MerkleTree::<BRANCH_FACTOR, LAYERS, StdHash>::try_from(
+        let mut mt = Tree::<BRANCH_FACTOR, LAYERS, StdHash>::try_from(
             &words.iter().map(|w| w.as_bytes()).collect::<Vec<_>>()
         );
 
@@ -312,7 +310,7 @@ mod tests {
         let test_words: &[&str] = &[
             "apple",
         ];
-        let mut mt = MerkleTree::<BRANCH_FACTOR, LAYERS, StdHash>::try_from_with_scrambling(
+        let mut mt = Tree::<BRANCH_FACTOR, LAYERS, StdHash>::try_from_with_scrambling(
             &words.iter().map(|w| w.as_bytes()).collect::<Vec<_>>(),
             &[
                 &[0], &[1], &[1, 1], &[2], &[1, 2], &[2, 1], &[2, 2], &[0, 1, 1],
@@ -337,7 +335,7 @@ mod tests {
             "banana", "blueberry", "blackberry", "blackcurrant",
             "cherry",
         ];
-        let mut mt = MerkleTree::<BRANCH_FACTOR, LAYERS, StdHash>::try_from(
+        let mt = Tree::<BRANCH_FACTOR, LAYERS, StdHash>::try_from(
             &words.iter().map(|w| w.as_bytes()).collect::<Vec<_>>()
         );
 
@@ -354,7 +352,7 @@ mod tests {
             "banana", "blueberry", "blackberry", "blackcurrant",
             "cherry",
         ];
-        let mut mt = MerkleTree::<BRANCH_FACTOR, LAYERS, StdHash>::try_from(
+        let mt = Tree::<BRANCH_FACTOR, LAYERS, StdHash>::try_from(
             &words.iter().map(|w| w.as_bytes()).collect::<Vec<_>>()
         );
 
@@ -374,7 +372,7 @@ mod tests {
             "banana", "blueberry", "blackberry", "blackcurrant",
             "cherry",
         ];
-        let mut mt = MerkleTree::<BRANCH_FACTOR, LAYERS, StdHash>::try_from(
+        let mt = Tree::<BRANCH_FACTOR, LAYERS, StdHash>::try_from(
             &words.iter().map(|w| w.as_bytes()).collect::<Vec<_>>()
         );
         println!("{:?}", mt.unwrap());
