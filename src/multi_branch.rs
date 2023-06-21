@@ -3,127 +3,79 @@
 
 use core::fmt::Debug;
 use core::hash::Hash;
+use core::mem::size_of;
 
-#[derive(Debug)]
-pub struct ProofItem1<const HASH_OUTPUT_SIZE: usize, const BRANCH_FACTOR: usize, H> 
-where
-    [(); 2 * HASH_OUTPUT_SIZE]: Sized,
-    H: ConcatHashesMulti<HASH_OUTPUT_SIZE>,
-{
-    hashes: [H::Output; BRANCH_FACTOR],
-    word_index: usize,
-}
-
-impl<const HASH_OUTPUT_SIZE: usize, 
-    const BRANCH_FACTOR: usize, 
-    H: ConcatHashesMulti<HASH_OUTPUT_SIZE>
-> Copy for ProofItem1<HASH_OUTPUT_SIZE, BRANCH_FACTOR, H> 
-where
-    [(); 2 * HASH_OUTPUT_SIZE]: Sized
-{}
-
-impl<const HASH_OUTPUT_SIZE: usize, 
-    const BRANCH_FACTOR: usize, 
-    H: ConcatHashesMulti<HASH_OUTPUT_SIZE>
-> Clone for ProofItem1<HASH_OUTPUT_SIZE, BRANCH_FACTOR, H> 
-where
-    [(); 2 * HASH_OUTPUT_SIZE]: Sized,
-{
-    fn clone(&self) -> Self { 
-        Self {
-            hashes: self.hashes.clone(),
-            word_index: self.word_index.clone(),
-        }
-    }
-}
-
-impl<const HASH_OUTPUT_SIZE: usize, const BRANCH_FACTOR: usize, H> ProofItem1<HASH_OUTPUT_SIZE, BRANCH_FACTOR, H>
-where
-    [(); 2 * HASH_OUTPUT_SIZE]: Sized, 
-    H: ConcatHashesMulti<HASH_OUTPUT_SIZE>,
-{
-    fn hash(mut self, word_hash: H::Output) -> H::Output {
-        self.hashes[self.word_index] = word_hash;
-        hash_merged_slice::<HASH_OUTPUT_SIZE, H>(self.hashes.as_ref(), 0, BRANCH_FACTOR * HASH_OUTPUT_SIZE)
-    }
-}
-
-
-#[derive(Debug)]
-pub struct ProofItem<const HASH_OUTPUT_SIZE: usize, H: ConcatHashesMulti<HASH_OUTPUT_SIZE>> 
-where
-    [(); 2 * HASH_OUTPUT_SIZE]: Sized,
-{
-    left_sibling: Option<H::Output>,
-    word_index: usize,
-    right_sibling: Option<H::Output>,
-}
-
-impl<const HASH_OUTPUT_SIZE: usize, H: ConcatHashesMulti<HASH_OUTPUT_SIZE>> Copy for ProofItem<HASH_OUTPUT_SIZE, H> 
-where
-    [(); 2 * HASH_OUTPUT_SIZE]: Sized,
-{
-}
-impl<const HASH_OUTPUT_SIZE: usize, H: ConcatHashesMulti<HASH_OUTPUT_SIZE>> Clone for ProofItem<HASH_OUTPUT_SIZE, H> 
-where
-    [(); 2 * HASH_OUTPUT_SIZE]: Sized,
-{
-    fn clone(&self) -> Self { 
-        Self {
-            left_sibling: self.left_sibling.clone(),
-            word_index: self.word_index.clone(),
-            right_sibling: self.right_sibling.clone(),
-        }
-    }
-}
-
-impl<const HASH_OUTPUT_SIZE: usize, H> ProofItem<HASH_OUTPUT_SIZE, H>
-where
-    [(); 2 * HASH_OUTPUT_SIZE]: Sized, 
-    H: ConcatHashesMulti<HASH_OUTPUT_SIZE>,
-{
-    fn hash(self, word_hash: H::Output) -> H::Output 
-    {
-        let first_chunk = match self.left_sibling {
-            Some(left) => H::concat_and_hash(&left, &word_hash),
-            None => word_hash,
-        };
-        match self.right_sibling {
-            Some(right) => H::concat_and_hash(&first_chunk, &right),
-            None => first_chunk
-        } 
-    }
-}
-
-pub trait ConcatHashesMulti<const HASH_OUTPUT_SIZE: usize>
-where
-    [(); 2 * HASH_OUTPUT_SIZE]: Sized,
-{
+pub trait HashT {
     type Output: Hash + Default + Copy + AsRef<[u8]> + PartialEq + Debug;
 
     fn hash(input: &[u8]) -> Self::Output;
+}
 
-    fn concat_and_hash(left: &Self::Output, right: &Self::Output) -> Self::Output {
-        let mut h = [u8::default(); 2 * HASH_OUTPUT_SIZE];
+#[derive(Debug)]
+struct ProofItem<const BRANCH_FACTOR: usize, H: HashT> {
+    hashes: Option<[H::Output; BRANCH_FACTOR]>,
+    offset: usize,
+}
 
-        let left = left.as_ref();
-        let right = right.as_ref();
-        for i in 0..left.len() {
-            h[i] = left[i];
+impl<const BRANCH_FACTOR: usize, H: HashT> Copy for ProofItem<BRANCH_FACTOR, H> {}
+
+impl<const BRANCH_FACTOR: usize, H: HashT> Clone for ProofItem<BRANCH_FACTOR, H> {
+    fn clone(&self) -> Self { 
+        Self {
+            hashes: self.hashes.clone(),
+            offset: self.offset.clone(),
         }
-
-        let mut j = left.len();
-        for i in 0..right.len() {
-            h[j] = right[i];
-            j += 1;
-        }
-        Self::hash(&h)
     }
+}
+
+impl<const BRANCH_FACTOR: usize, H: HashT> Default for ProofItem<BRANCH_FACTOR, H> {
+    fn default() -> Self {
+        Self {
+            hashes: Default::default(),
+            offset: Default::default(),
+        }
+    }
+}
+
+impl<const BRANCH_FACTOR: usize, H: HashT> ProofItem<BRANCH_FACTOR, H>
+{
+    const BYTES_IN_CHUNK: usize = BRANCH_FACTOR * size_of::<H::Output>();
+
+    fn hash_with_siblings(mut self, word_hash: H::Output) -> Option<H::Output> {
+        self.hashes
+            .as_mut()
+            .map(|hashes| {
+                hashes[self.offset] = word_hash;
+                hash_merged_slice::<H>(&hashes[0..], Self::BYTES_IN_CHUNK)
+            })
+    }
+}
+
+pub struct Proof<const BRANCH_FACTOR: usize, const LAYERS: usize, H: HashT>
+where [(); LAYERS - 1]: Sized {
+    items: [ProofItem<BRANCH_FACTOR, H>; LAYERS - 1]
+}
+
+impl <const BRANCH_FACTOR: usize, const LAYERS: usize, H: HashT> Proof<BRANCH_FACTOR, LAYERS, H>
+where [(); LAYERS - 1]: Sized {
+    /// verifies that the input was contained in the Merkle tree that generated this proof
+    pub fn validate(self, root: &H::Output, input: &[u8]) -> bool {
+        let mut curr_hash = Some(H::hash(&input));
+        // start from the base layer, 
+        // and for every item in the proof
+        // put the hash derived from input into the proof item
+        // at index stored in the proof item
+        // and hash it with the siblings
+        for item in self.items {
+            curr_hash = curr_hash.and_then(|h| item.hash_with_siblings(h));
+        }
+        // validated iff the resulting hash is identical to the root
+        curr_hash.as_ref() == Some(root)
+    }  
 }
 
 macro_rules! total_size {
     ($branch_factor:expr, $layers:expr) => {
-//        ((($branch_factor << $layers) - 1) / ($branch_factor - 1))
         ((1 << ($branch_factor.trailing_zeros() as usize * $layers)) - 1) / ($branch_factor - 1)
     };
 }
@@ -134,50 +86,54 @@ macro_rules! layer_size {
     };
 }
 
-//#[derive(Debug)]
-pub struct MerkleTreeMulti<const BRANCH_FACTOR: usize, const LAYERS: usize, const HASH_OUTPUT_SIZE: usize, H>
+pub struct MerkleTree<const BRANCH_FACTOR: usize, const LAYERS: usize, H>
 where
-//    [(); ((BRANCH_FACTOR << LAYERS) - 1 / (BRANCH_FACTOR - 1))]: Sized,
     [(); total_size!(BRANCH_FACTOR, LAYERS)]: Sized,
-    [(); 2 * HASH_OUTPUT_SIZE]: Sized,
-    H: ConcatHashesMulti<HASH_OUTPUT_SIZE>,
+    H: HashT,
 {
     hashes: [H::Output; total_size!(BRANCH_FACTOR, LAYERS)],
-    _marker: core::marker::PhantomData<H>,
 }
 
-impl<const BRANCH_FACTOR: usize, const LAYERS: usize, const HASH_OUTPUT_SIZE: usize, H> 
-    MerkleTreeMulti<BRANCH_FACTOR, LAYERS, HASH_OUTPUT_SIZE, H>
+impl<const BRANCH_FACTOR: usize, const LAYERS: usize, H> 
+    MerkleTree<BRANCH_FACTOR, LAYERS,H>
 where
     [(); total_size!(BRANCH_FACTOR, LAYERS)]: Sized,
-    [(); 2 * HASH_OUTPUT_SIZE]: Sized,
-    H: ConcatHashesMulti<HASH_OUTPUT_SIZE>,
+    H: HashT,
 {
     const TOTAL_SIZE: usize = total_size!(BRANCH_FACTOR, LAYERS);
-    const BOTTOM_LAYER_SIZE: usize = layer_size!(BRANCH_FACTOR, LAYERS, 0);
+    const BASE_LAYER_SIZE: usize = layer_size!(BRANCH_FACTOR, LAYERS, 0);
+    const BYTES_IN_CHUNK: usize = BRANCH_FACTOR * size_of::<H::Output>();
+
     // panics if LAYERS == 0
     pub fn try_from(input: &[&[u8]]) -> Result<Self, ()> {
-        println!("total size: {}", Self::TOTAL_SIZE);
-        if input.len() > Self::BOTTOM_LAYER_SIZE {
+//        println!("total size: {}", Self::TOTAL_SIZE);
+        Self::try_from_with_scrambling(input, &[&[]])
+    }
+
+    pub fn try_from_with_scrambling(input: &[&[u8]], scrambling_alphabet: &[&[u8]]) -> Result<Self, ()> {
+        // check input can be hold in base layer and branch factor is of power of 2
+        if input.len() > Self::BASE_LAYER_SIZE 
+            || BRANCH_FACTOR >> BRANCH_FACTOR.trailing_zeros() != 1 {
+//            || (scrambling_alphabet.len() != 1 && scrambling_alphabet.len() < Self::BASE_LAYER_SIZE){
             return Err(());
         }
+
         let mut this = Self {
             hashes: [H::Output::default(); total_size!(BRANCH_FACTOR, LAYERS)],
-            _marker: Default::default(),
         };
+        // fill the base layer
         let mut i = 0;
         for d in input {
-            println!("d: {:?}", d);
+//            println!("d: {:?}", d);
             this.hashes[i] = H::hash(d);
             i += 1;
         }
-        // pad the rest of hashes
-        while i < Self::BOTTOM_LAYER_SIZE {
-            this.hashes[i] = H::hash(&[]);
-            //            this.hashes[i] = H::Output::default();
+        // pad the rest of hashes in the base layer
+        while i < Self::BASE_LAYER_SIZE {
+            this.hashes[i] = H::hash(scrambling_alphabet[i % scrambling_alphabet.len()]);
             i += 1;
         }
-
+        // fill the rest of layers
         this.fill_layers();
 
         Ok(this)
@@ -185,60 +141,86 @@ where
 
     fn fill_layers(&mut self) {
         let mut start_ind = 0;
-        let mut next_layer_ind = Self::BOTTOM_LAYER_SIZE;
+        let mut next_layer_ind = Self::BASE_LAYER_SIZE;
 
         while next_layer_ind < Self::TOTAL_SIZE {
             let mut j = next_layer_ind;
-
-            for i in (start_ind..next_layer_ind).step_by(BRANCH_FACTOR) {
-                self.hashes[j] = hash_merged_slice::<HASH_OUTPUT_SIZE, H>(self.hashes.as_ref(), i, BRANCH_FACTOR * HASH_OUTPUT_SIZE);
+            // hash packed siblings of the current layer and fill the upper layer
+            for i in (start_ind..j).step_by(BRANCH_FACTOR) {
+                // hash concatenated siblings from the contiguous memory
+                // each element has (BRANCH_FACTOR-1) siblings
+                // store it as a parent hash
+                self.hashes[j] = hash_merged_slice::<H>(&self.hashes[i..], Self::BYTES_IN_CHUNK);
 
                 j += 1;
             }
+            // move on to the upper layer
             start_ind = next_layer_ind;
             next_layer_ind = j;
         }
     }
 
-    pub fn generate_proof(&mut self, index: usize) -> (H::Output, [ProofItem1<HASH_OUTPUT_SIZE, BRANCH_FACTOR, H>; LAYERS - 1]) {
-        let mut proof = [
-            ProofItem1 {
-                hashes: [Default::default(); BRANCH_FACTOR],
-                word_index: 0,
-            }; 
-            LAYERS - 1
-        ];
-        let root = self.build_path(index, &mut proof);
+    /// generate proof at given index on base layer
+    /// panics on index out of bounds ( >= leaf number )
+    pub fn generate_proof(&mut self, index: usize) -> (H::Output, Proof<BRANCH_FACTOR, LAYERS, H>) 
+    where [(); LAYERS - 1]: Sized {
+//        pub fn generate_proof(&mut self, index: usize) -> Result<(H::Output, [ProofItem<BRANCH_FACTOR, H>; LAYERS - 1]), ()> {
 
-        (root, proof)
-    }
-    
-    // panics on index out of bounds ( >= leaf number )
-    fn build_path(&mut self, index: usize, proof: &mut [ProofItem1<HASH_OUTPUT_SIZE, BRANCH_FACTOR, H>; LAYERS - 1]) -> H::Output {
+        let mut proof = [ProofItem::default(); LAYERS - 1];
         let mut layer_base = 0;
         let mut index = index;
 
-        println!("build_path -> index: {}", index);
+//        println!("build_path -> index: {}", index);
         for layer in 0..LAYERS - 1 {
-            let index_in_proof_item = index % BRANCH_FACTOR;
-//            let index_aligned = (index / BRANCH_FACTOR) * BRANCH_FACTOR;
-            let index_aligned = index - index_in_proof_item;
+            let offset = index & (BRANCH_FACTOR - 1); // index modulo BRANCH_FACTOR (power of 2)
+            let aligned = index - offset;
 
-            proof[layer] = ProofItem1 {
-                hashes: self.hashes[index_aligned..index_aligned + BRANCH_FACTOR].try_into().unwrap(),
-                word_index: index_in_proof_item,
+            proof[layer] = ProofItem {
+                hashes: self.hashes[aligned..aligned + BRANCH_FACTOR].try_into().ok(),
+                offset,
             };
             
             (index, layer_base) = self.parent_index_and_base(index, layer, layer_base);
-            println!("gen -> index: {}", index);
+//            println!("gen -> index: {}", index);
         }
-        self.hashes[index]
+
+        (self.hashes[index], Proof{ items: proof })
     }
 
+    /// replace an element at index with input
+    /// panics if index is out of leaf layer bound
+    pub fn insert(&mut self, index: usize, input: &[u8]) {
+        let mut layer_base = 0;
+        let mut index = index;
+
+        self.hashes[index] = H::hash(input);
+
+        // start from the base layer and propagate the new hashes upwords
+        for layer in 0..LAYERS - 1 {
+            let offset = index & (BRANCH_FACTOR - 1); // index modulo BRANCH_FACTOR
+            let aligned = index - offset;
+
+            let parent_hashed = hash_merged_slice::<H>(&self.hashes[aligned..], Self::BYTES_IN_CHUNK);
+
+            (index, layer_base) = self.parent_index_and_base(index, layer, layer_base);
+
+            self.hashes[index] = parent_hashed;
+        }
+    }
+
+    // remove element by inserting nothing
+    // panics if index is out of leaf layer bound
+    pub fn remove(&mut self, index: usize) {
+        self.insert(index, &[]);
+    }
+
+    pub fn root(&self) -> H::Output {
+        self.hashes[Self::TOTAL_SIZE - 1]
+    }
+    
     fn parent_index_and_base(&self, curr_index: usize, layer: usize, layer_base: usize) -> (usize, usize) {
-//        let curr_layer_len = 1 << (LAYERS - layer - 1);
         let curr_layer_len = layer_size!(BRANCH_FACTOR, LAYERS, layer);
-        println!("gen -> curr_layer_len: {}", curr_layer_len);
+//        println!("gen -> curr_layer_len: {}", curr_layer_len);
         let parent_layer_base = layer_base + curr_layer_len;
         let parent_index = parent_layer_base + (curr_index - layer_base) / BRANCH_FACTOR;
 
@@ -246,47 +228,45 @@ where
     }
 }
 
-impl <const BRANCH_FACTOR: usize, const LAYERS: usize, const HASH_OUTPUT_SIZE: usize, H> core::fmt::Debug 
-    for MerkleTreeMulti<BRANCH_FACTOR, LAYERS, HASH_OUTPUT_SIZE, H> 
+impl<const BRANCH_FACTOR: usize, const LAYERS: usize, H> Clone for MerkleTree<BRANCH_FACTOR, LAYERS, H> 
 where
     [(); total_size!(BRANCH_FACTOR, LAYERS)]: Sized,
-    [(); 2 * HASH_OUTPUT_SIZE]: Sized,
-    H: ConcatHashesMulti<HASH_OUTPUT_SIZE>,
+    H: HashT,
+{
+    fn clone(&self) -> Self { 
+        Self {
+            hashes: self.hashes.clone(),
+        }
+    }
+}
+
+impl<const BRANCH_FACTOR: usize, const LAYERS: usize, H> PartialEq for MerkleTree<BRANCH_FACTOR, LAYERS, H> 
+where
+    [(); total_size!(BRANCH_FACTOR, LAYERS)]: Sized,
+    H: HashT,
+{
+    fn eq(&self, other: &Self) -> bool { 
+        self.hashes == other.hashes    
+    }
+}
+
+impl <const BRANCH_FACTOR: usize, const LAYERS: usize, H> Debug for MerkleTree<BRANCH_FACTOR, LAYERS, H> 
+where
+    [(); total_size!(BRANCH_FACTOR, LAYERS)]: Sized,
+    H: HashT,
 {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> Result<(), core::fmt::Error> { 
-        writeln!(f, "[branch factor]:   {BRANCH_FACTOR}");
-        writeln!(f, "[layers]:          {LAYERS}");
-        writeln!(f, "[total size]:      {}", Self::TOTAL_SIZE);
-        writeln!(f, "[hash output len]: {HASH_OUTPUT_SIZE} bytes");
+        writeln!(f, "[branch factor]:   {BRANCH_FACTOR}")?;
+        writeln!(f, "[layers]:          {LAYERS}")?;
+        writeln!(f, "[total size]:      {}", Self::TOTAL_SIZE)?;
+        writeln!(f, "[hash output len]: {} bytes", size_of::<H::Output>())?;
         write!(f, "{:?}", self.hashes)
     }
 }
 
-pub fn validate_proof_multi<const BRANCH_FACTOR: usize, const LAYERS: usize, const HASH_OUTPUT_SIZE: usize, H> (
-    root: &H::Output,
-    word: &[u8],
-    proof: [ProofItem1<HASH_OUTPUT_SIZE, BRANCH_FACTOR, H>; LAYERS - 1]
-) -> bool
-where
-    [(); 2 * HASH_OUTPUT_SIZE]: Sized,
-    H: ConcatHashesMulti<HASH_OUTPUT_SIZE>,
-{
-    let mut curr_hash = H::hash(&word);
-
-    for item in proof {
-        curr_hash = item.hash(curr_hash);
-        println!("curr_hash: {:?}", curr_hash);
-    }
-    println!("curr_hash: {:?}, root: {:?}", curr_hash, root);
-    &curr_hash == root
-}  
-
-fn hash_merged_slice<const HASH_OUTPUT_SIZE: usize, H>(contiguous_array: &[H::Output], start_index: usize, len: usize) -> H::Output 
-where
-    [(); 2 * HASH_OUTPUT_SIZE]: Sized,
-    H: ConcatHashesMulti<HASH_OUTPUT_SIZE>,
-{
+// hash combined bytes from a contiguous memory chank
+fn hash_merged_slice<H: HashT>(contiguous_array: &[H::Output], len: usize) -> H::Output {
     H::hash(
-        unsafe { core::slice::from_raw_parts(contiguous_array[start_index].as_ref().as_ptr(), len) }
+        unsafe { core::slice::from_raw_parts(contiguous_array[0].as_ref().as_ptr(), len) }
     )
 }

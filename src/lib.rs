@@ -1,4 +1,4 @@
-//#![cfg_attr(not(test), no_std)] 
+#![cfg_attr(not(test), no_std)] 
 
 #![allow(incomplete_features)]
 #![feature(generic_const_exprs)]
@@ -36,7 +36,7 @@ where
 }
 
 #[derive(Debug)]
-pub struct MerkleTree<const LAYERS: usize, const HASH_OUTPUT_SIZE: usize, H>
+pub struct MerkleTreeBinary<const LAYERS: usize, const HASH_OUTPUT_SIZE: usize, H>
 where
     [(); (1 << LAYERS) - 1]: Sized,
     [(); 2 * HASH_OUTPUT_SIZE]: Sized,
@@ -46,7 +46,7 @@ where
     _marker: core::marker::PhantomData<H>,
 }
 
-impl<const LAYERS: usize, const HASH_OUTPUT_SIZE: usize, H> MerkleTree<LAYERS, HASH_OUTPUT_SIZE, H>
+impl<const LAYERS: usize, const HASH_OUTPUT_SIZE: usize, H> MerkleTreeBinary<LAYERS, HASH_OUTPUT_SIZE, H>
 where
     [(); (1 << LAYERS) - 1]: Sized,
     [(); 2 * HASH_OUTPUT_SIZE]: Sized,
@@ -223,3 +223,8 @@ pub enum Sibling<H> {
     Right(H),
     None,
 }
+
+// impl<H> Sibling<H> {
+//     fn concat_and_hash(&self) {
+//     }
+// }
