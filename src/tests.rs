@@ -1,14 +1,14 @@
 
 #[cfg(test)]
 mod tests {
+    use crate::{HashT, MerkleTree, HeaplessTree, HeaplessBinaryTree, ProofItem};
+    use crate::compactable::{CompactableHeaplessTree};
+    use crate::foo::{Foo};
+
     use std::{
         collections::hash_map::DefaultHasher,
         hash::{Hash, Hasher},
     };
-
-    use crate::{HashT, Tree, BinaryTree};
-
-        //use crate::merkle::{Tree, validate_proof, ConcatHashes};
 
 
     #[derive(Debug)]
@@ -22,12 +22,10 @@ mod tests {
         }
     }
 
-
     #[derive(Debug)]
     struct StdHash;
 
     impl HashT for StdHash {
-//        impl ConcatHashesMulti<8> for StdHash {
         type Output = [u8; 8];
 
         fn hash(input: &[u8]) -> Self::Output {
@@ -49,10 +47,10 @@ mod tests {
 
     #[test]
     fn fail_4layers_std_hash_bad_word() {
-        const LAYERS: usize = 4;
+        const HEIGHT: usize = 4;
         const BRANCH_FACTOR: usize = 2;
 
-        let mut mt = Tree::<BRANCH_FACTOR, LAYERS, StdHash>::try_from(&[
+        let mut mt = HeaplessTree::<BRANCH_FACTOR, HEIGHT, StdHash>::try_from(&[
             b"apple", b"banana", b"kiwi", b"kotleta",
         ]);
         let word_index = 7;
@@ -72,9 +70,9 @@ mod tests {
     #[test]
     #[should_panic]
     fn fail_binary_4layers_std_hash_bad_index() {
-        const LAYERS: usize = 4;
+        const HEIGHT: usize = 4;
 
-        let mut mt = BinaryTree::<LAYERS, StdHash>::try_from(&[
+        let mut mt = HeaplessBinaryTree::<HEIGHT, StdHash>::try_from(&[
             b"apple", b"banana", b"kiwi", b"kotleta",
         ]);
         let word_index = 8;
@@ -83,7 +81,7 @@ mod tests {
 
     #[test]
     fn validate_default_padding_word_4layers_std_hash() {
-        let mut mt = Tree::<4, 8, StdHash>::try_from(&[
+        let mut mt = HeaplessTree::<4, 8, StdHash>::try_from(&[
             b"apple", b"banana", b"kiwi", b"kotleta",
         ]);
         let word_index = 7;
@@ -102,7 +100,7 @@ mod tests {
 
     #[test]
     fn fail_creating_merkle_tree_too_few_layers_for_input() {
-        let mt = Tree::<2, 3, Blake2_256Hash>::try_from(&[
+        let mt = HeaplessBinaryTree::<3, Blake2_256Hash>::try_from(&[
             b"apple", b"banana", b"kiwi", b"kotleta", b"apple", b"banana", b"kiwi", b"kotleta",
             b"apple",
         ]);
@@ -112,7 +110,7 @@ mod tests {
 
     #[test]
     fn minimal_tree_size() {
-        let mut mt = Tree::<2, 1, Blake2_256Hash>::try_from(&[
+        let mut mt = HeaplessBinaryTree::<1, Blake2_256Hash>::try_from(&[
             b"apple",
         ]);
 
@@ -134,7 +132,7 @@ mod tests {
 
     #[test]
     fn illegal_branch_factor() {
-        let mt = Tree::<3, 1, Blake2_256Hash>::try_from(&[
+        let mt = HeaplessTree::<3, 1, Blake2_256Hash>::try_from(&[
             b"apple",
         ]);
 
@@ -143,9 +141,8 @@ mod tests {
 
     #[test]
     fn insert_replace_binary() {
-        const LAYERS: usize = 4;
-        const BRANCH_FACTOR: usize = 2;
-        let mut mt = Tree::<BRANCH_FACTOR, LAYERS, StdHash>::try_from(&[
+        const HEIGHT: usize = 4;
+        let mut mt = HeaplessBinaryTree::<HEIGHT, StdHash>::try_from(&[
             b"apple", b"banana", b"kiwi", b"kotleta",
         ]);
         let word_index = 2;
@@ -166,9 +163,9 @@ mod tests {
 
     #[test]
     fn insert_append_binary() {
-        const LAYERS: usize = 4;
+        const HEIGHT: usize = 4;
         const BRANCH_FACTOR: usize = 2;
-        let mut mt = Tree::<BRANCH_FACTOR, LAYERS, StdHash>::try_from(&[
+        let mut mt = HeaplessTree::<BRANCH_FACTOR, HEIGHT, StdHash>::try_from(&[
             b"apple", b"banana", b"kiwi", b"kotleta",
         ]);
         let word_index = 6;
@@ -189,9 +186,9 @@ mod tests {
 
     #[test]
     fn insert_replace_branch_factor_8() {
-        const LAYERS: usize = 4;
+        const HEIGHT: usize = 4;
         const BRANCH_FACTOR: usize = 8;
-        let mut mt = Tree::<BRANCH_FACTOR, LAYERS, StdHash>::try_from(&[
+        let mut mt = HeaplessTree::<BRANCH_FACTOR, HEIGHT, StdHash>::try_from(&[
             b"apple", b"banana", b"kiwi", b"kotleta",
         ]);
         let word_index = 2;
@@ -212,9 +209,9 @@ mod tests {
 
     #[test]
     fn insert_append_branch_factor_8() {
-        const LAYERS: usize = 4;
+        const HEIGHT: usize = 4;
         const BRANCH_FACTOR: usize = 8;
-        let mut mt = Tree::<BRANCH_FACTOR, LAYERS, StdHash>::try_from(&[
+        let mut mt = HeaplessTree::<BRANCH_FACTOR, HEIGHT, StdHash>::try_from(&[
             b"apple", b"banana", b"kiwi", b"kotleta",
         ]);
         let word_index = 32;
@@ -236,7 +233,7 @@ mod tests {
     //     #[test]
 //     #[should_panic]
 //     fn fail_insertion_out_of_bound() {
-//         let mut mt = Tree::<4, 8, StdHash>::try_from(&[
+//         let mut mt = HeaplessTree::<4, 8, StdHash>::try_from(&[
 //             b"apple", b"banana", b"kiwi", b"kotleta",
 //         ]);
 //         let word_index = 8;
@@ -246,7 +243,7 @@ mod tests {
 
     #[test]
     fn validate_binary_5layers_default() {
-        const LAYERS: usize = 5;
+        const HEIGHT: usize = 5;
         const BRANCH_FACTOR: usize = 2;
         let words: &[&str] = &[
             "apple", "apricot", "asai", "avocado",
@@ -258,7 +255,7 @@ mod tests {
             "banana", "blueberry", "blackberry", "blackcurrant",
             "cherry",
         ];
-        let mut mt = Tree::<BRANCH_FACTOR, LAYERS, StdHash>::try_from(
+        let mut mt = HeaplessTree::<BRANCH_FACTOR, HEIGHT, StdHash>::try_from(
             &words.iter().map(|w| w.as_bytes()).collect::<Vec<_>>()
         );
 
@@ -273,7 +270,7 @@ mod tests {
 
     #[test]
     fn validate_branch_factor4_3layers_default() {
-        const LAYERS: usize = 3;
+        const HEIGHT: usize = 3;
         const BRANCH_FACTOR: usize = 4;
         let words: &[&str] = &[
             "apple", "apricot", "asai", "avocado",
@@ -285,7 +282,7 @@ mod tests {
             "banana", "blueberry", "blackberry", "blackcurrant",
             "cherry",
         ];
-        let mut mt = Tree::<BRANCH_FACTOR, LAYERS, StdHash>::try_from(
+        let mut mt = HeaplessTree::<BRANCH_FACTOR, HEIGHT, StdHash>::try_from(
             &words.iter().map(|w| w.as_bytes()).collect::<Vec<_>>()
         );
 
@@ -302,7 +299,7 @@ mod tests {
 
     #[test]
     fn validate_branch_factor4_3layers_default_with_scrambling() {
-        const LAYERS: usize = 3;
+        const HEIGHT: usize = 3;
         const BRANCH_FACTOR: usize = 4;
         let words: &[&str] = &[
             "apple",
@@ -310,7 +307,7 @@ mod tests {
         let test_words: &[&str] = &[
             "apple",
         ];
-        let mut mt = Tree::<BRANCH_FACTOR, LAYERS, StdHash>::try_from_with_scrambling(
+        let mut mt = HeaplessTree::<BRANCH_FACTOR, HEIGHT, StdHash>::try_from_with_scrambling(
             &words.iter().map(|w| w.as_bytes()).collect::<Vec<_>>(),
             &[
                 &[0], &[1], &[1, 1], &[2], &[1, 2], &[2, 1], &[2, 2], &[0, 1, 1],
@@ -328,14 +325,14 @@ mod tests {
 
     #[test]
     fn clone_tree() {
-        const LAYERS: usize = 3;
+        const HEIGHT: usize = 3;
         const BRANCH_FACTOR: usize = 4;
         let words: &[&str] = &[
             "apple", "apricot", "asai", "avocado",
             "banana", "blueberry", "blackberry", "blackcurrant",
             "cherry",
         ];
-        let mt = Tree::<BRANCH_FACTOR, LAYERS, StdHash>::try_from(
+        let mt = HeaplessTree::<BRANCH_FACTOR, HEIGHT, StdHash>::try_from(
             &words.iter().map(|w| w.as_bytes()).collect::<Vec<_>>()
         );
 
@@ -345,14 +342,14 @@ mod tests {
 
     #[test]
     fn cloned_modified() {
-        const LAYERS: usize = 3;
+        const HEIGHT: usize = 3;
         const BRANCH_FACTOR: usize = 4;
         let words: &[&str] = &[
             "apple", "apricot", "asai", "avocado",
             "banana", "blueberry", "blackberry", "blackcurrant",
             "cherry",
         ];
-        let mt = Tree::<BRANCH_FACTOR, LAYERS, StdHash>::try_from(
+        let mt = HeaplessTree::<BRANCH_FACTOR, HEIGHT, StdHash>::try_from(
             &words.iter().map(|w| w.as_bytes()).collect::<Vec<_>>()
         );
 
@@ -365,17 +362,203 @@ mod tests {
 
     #[test]
     fn print_tree() {
-        const LAYERS: usize = 3;
+        const HEIGHT: usize = 3;
         const BRANCH_FACTOR: usize = 4;
         let words: &[&str] = &[
             "apple", "apricot", "asai", "avocado",
             "banana", "blueberry", "blackberry", "blackcurrant",
             "cherry",
         ];
-        let mt = Tree::<BRANCH_FACTOR, LAYERS, StdHash>::try_from(
+        let mt = HeaplessTree::<BRANCH_FACTOR, HEIGHT, StdHash>::try_from(
             &words.iter().map(|w| w.as_bytes()).collect::<Vec<_>>()
         );
         println!("{:?}", mt.unwrap());
     }
     
+    #[test]
+    fn foo() {
+        const HEIGHT: usize = 3;
+        let mt1 = HeaplessBinaryTree::<HEIGHT, StdHash>::try_from(
+            &[b"apple", b"apricot", b"asai", b"avocado"]
+        ).unwrap();
+
+        let mt2 = HeaplessBinaryTree::<HEIGHT, StdHash>::try_from(
+            &[b"banana", b"blueberry"]
+        ).unwrap();
+        let mut foo = Foo::from_base_trees([mt1, mt2].try_into().unwrap());
+        
+        let (root, proof) = foo.generate_proof(0);
+        let res = proof.validate(&root, b"apple");        
+        assert!(res);
+
+        let (root, proof) = foo.generate_proof(1);
+        let res = proof.validate(&root, b"apricot");        
+        assert!(res);
+
+        let (root, proof) = foo.generate_proof(2);
+        let res = proof.validate(&root, b"asai");        
+        assert!(res);
+
+        let (root, proof) = foo.generate_proof(3);
+        let res = proof.validate(&root, b"avocado");        
+        assert!(res);
+
+        let (root, proof) = foo.generate_proof(4);
+        let res = proof.validate(&root, b"banana");        
+        assert!(res);
+
+        let (root, proof) = foo.generate_proof(5);
+        let res = proof.validate(&root, b"blueberry");        
+        assert!(res);
+    }
+
+    #[test]
+    fn foo1() {
+        const HEIGHT: usize = 3;
+
+        let mut foo = Foo::<2, HEIGHT, StdHash>::try_from(
+            &[b"apple", b"apricot", b"asai", b"avocado", b"banana", b"blueberry"]
+        ).unwrap();
+        
+        let (root, proof) = foo.generate_proof(0);
+        let res = proof.validate(&root, b"apple");        
+        assert!(res);
+
+        let (root, proof) = foo.generate_proof(1);
+        let res = proof.validate(&root, b"apricot");        
+        assert!(res);
+
+        let (root, proof) = foo.generate_proof(2);
+        let res = proof.validate(&root, b"asai");        
+        assert!(res);
+
+        let (root, proof) = foo.generate_proof(3);
+        let res = proof.validate(&root, b"avocado");        
+        assert!(res);
+
+        let (root, proof) = foo.generate_proof(4);
+        let res = proof.validate(&root, b"banana");        
+        assert!(res);
+
+        let (root, proof) = foo.generate_proof(5);
+        let res = proof.validate(&root, b"blueberry");        
+        assert!(res);
+    }
+
+    #[test]
+    fn try_compact() {
+        const HEIGHT: usize = 4;
+        const BRANCH_FACTOR: usize = 2;
+        let cmt = CompactableHeaplessTree::<BRANCH_FACTOR, HEIGHT, StdHash>::try_from(&[
+            b"apple", b"banana", b"kiwi", b"kotleta",
+        ])
+        .unwrap();
+
+        cmt.try_compact().unwrap();
+    }
+
+    #[test]
+    fn too_big_to_compact() {
+        const HEIGHT: usize = 4;
+        const BRANCH_FACTOR: usize = 2;
+        let words: &[&str] = &[
+            "apple", "apricot", "asai", "avocado",
+            "banana", "blueberry", "blackberry", "blackcurrant",
+        ];
+        let cmt = CompactableHeaplessTree::<BRANCH_FACTOR, HEIGHT, StdHash>::try_from(
+            &words.iter().map(|w| w.as_bytes()).collect::<Vec<_>>()
+        )
+        .unwrap();
+
+        assert!(cmt.try_compact().is_err());
+    }
+
+    #[test]
+    fn compact_and_proof() {
+        const HEIGHT: usize = 4;
+        const BRANCH_FACTOR: usize = 2;
+
+        let words: &[&str] = &[
+            "apple", "apricot", "kiwi", "kotleta",
+        ];
+
+        let cmt = CompactableHeaplessTree::<BRANCH_FACTOR, HEIGHT, StdHash>::try_from(
+            &words.iter().map(|w| w.as_bytes()).collect::<Vec<_>>()
+        )
+        .unwrap();
+
+        let mut cmt = cmt.try_compact();
+
+        for (i, w) in words.iter().enumerate() {
+            let (root, proof) = cmt.as_mut().unwrap().generate_proof(i);
+//            println!("testing -> {w}, proof: {:?}", proof);
+            println!("testing -> {w}");
+            let res = proof.validate(&root, w.as_bytes());
+            assert!(res);
+        }
+    }
+
+    #[test]
+    fn remove_and_compact() {
+        const HEIGHT: usize = 4;
+        const BRANCH_FACTOR: usize = 2;
+
+        let words: &[&str] = &[
+            "apple", "apricot", "banana", "kiwi", "kotleta",
+        ];
+        let test_words: &[&str] = &[
+            "apple", "apricot", "kiwi", "kotleta",
+        ];
+
+        let mut cmt = CompactableHeaplessTree::<BRANCH_FACTOR, HEIGHT, StdHash>::try_from(
+            &words.iter().map(|w| w.as_bytes()).collect::<Vec<_>>()
+        )
+        .unwrap();
+
+        cmt.remove(2);
+
+        let mut cmt = cmt.try_compact();
+
+        for (i, w) in test_words.iter().enumerate() {
+            let (root, proof) = cmt.as_mut().unwrap().generate_proof(i);
+//            println!("testing -> {w}, proof: {:?}", proof);
+            println!("testing -> {w}");
+            let res = proof.validate(&root, w.as_bytes());
+            assert!(res);
+        }
+    }
+
+    #[test]
+    fn remove_insert_and_compact() {
+        const HEIGHT: usize = 4;
+        const BRANCH_FACTOR: usize = 2;
+
+        let words: &[&str] = &[
+            "apple", "apricot", "banana", "kiwi", "kotleta",
+        ];
+        let test_words: &[&str] = &[
+            "cherry", "kiwi", "kotleta", "ciruela",
+        ];
+
+        let mut cmt = CompactableHeaplessTree::<BRANCH_FACTOR, HEIGHT, StdHash>::try_from(
+            &words.iter().map(|w| w.as_bytes()).collect::<Vec<_>>()
+        )
+        .unwrap();
+
+        cmt.remove(2); // remove banana
+        cmt.insert(2, b"cherry");
+        cmt.remove(0); // remove apple
+        cmt.remove(1); // remove apricot
+        cmt.insert(7, b"ciruela");
+
+        let mut cmt = cmt.try_compact();
+
+        for (i, w) in test_words.iter().enumerate() {
+            let (root, proof) = cmt.as_mut().unwrap().generate_proof(i);
+//            println!("testing -> {w}, proof: {:?}", proof);
+            println!("testing -> {w}");
+            let res = proof.validate(&root, w.as_bytes());
+            assert!(res);
+        }
+    }
 }
