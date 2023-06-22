@@ -1,9 +1,9 @@
 
 #[cfg(test)]
 mod tests {
-    use crate::{HashT, MerkleTree, HeaplessTree, HeaplessBinaryTree, ProofItem};
+    use crate::{HashT, ProofT, HeaplessTreeT, HeaplessTree, HeaplessBinaryTree};
     use crate::compactable::{CompactableHeaplessTree};
-    use crate::foo::{Foo};
+//    use crate::foo::{Foo};
 
     use std::{
         collections::hash_map::DefaultHasher,
@@ -298,32 +298,6 @@ mod tests {
     }
 
     #[test]
-    fn validate_branch_factor4_3layers_default_with_scrambling() {
-        const HEIGHT: usize = 3;
-        const BRANCH_FACTOR: usize = 4;
-        let words: &[&str] = &[
-            "apple",
-        ];
-        let test_words: &[&str] = &[
-            "apple",
-        ];
-        let mut mt = HeaplessTree::<BRANCH_FACTOR, HEIGHT, StdHash>::try_from_with_scrambling(
-            &words.iter().map(|w| w.as_bytes()).collect::<Vec<_>>(),
-            &[
-                &[0], &[1], &[1, 1], &[2], &[1, 2], &[2, 1], &[2, 2], &[0, 1, 1],
-                &[1, 0, 1], &[1, 1, 1], &[1, 0, 2], &[2, 0, 1], &[2, 0, 2], &[2, 1, 2], &[2, 2, 1], &[2, 2, 2],
-            ]
-        );
-
-        for (i, w) in test_words.iter().enumerate() {
-            let (root, proof) = mt.as_mut().unwrap().generate_proof(i);
-            let res = proof.validate(&root, w.as_bytes());
-            assert!(res);
-        }
-        println!("{:?}", mt.unwrap());
-    }
-
-    #[test]
     fn clone_tree() {
         const HEIGHT: usize = 3;
         const BRANCH_FACTOR: usize = 4;
@@ -375,75 +349,75 @@ mod tests {
         println!("{:?}", mt.unwrap());
     }
     
-    #[test]
-    fn foo() {
-        const HEIGHT: usize = 3;
-        let mt1 = HeaplessBinaryTree::<HEIGHT, StdHash>::try_from(
-            &[b"apple", b"apricot", b"asai", b"avocado"]
-        ).unwrap();
+    // #[test]
+    // fn foo() {
+    //     const HEIGHT: usize = 3;
+    //     let mt1 = HeaplessBinaryTree::<HEIGHT, StdHash>::try_from(
+    //         &[b"apple", b"apricot", b"asai", b"avocado"]
+    //     ).unwrap();
 
-        let mt2 = HeaplessBinaryTree::<HEIGHT, StdHash>::try_from(
-            &[b"banana", b"blueberry"]
-        ).unwrap();
-        let mut foo = Foo::from_base_trees([mt1, mt2].try_into().unwrap());
+    //     let mt2 = HeaplessBinaryTree::<HEIGHT, StdHash>::try_from(
+    //         &[b"banana", b"blueberry"]
+    //     ).unwrap();
+    //     let mut foo = Foo::from_base_trees([mt1, mt2].try_into().unwrap());
         
-        let (root, proof) = foo.generate_proof(0);
-        let res = proof.validate(&root, b"apple");        
-        assert!(res);
+    //     let (root, proof) = foo.generate_proof(0);
+    //     let res = proof.validate(&root, b"apple");        
+    //     assert!(res);
 
-        let (root, proof) = foo.generate_proof(1);
-        let res = proof.validate(&root, b"apricot");        
-        assert!(res);
+    //     let (root, proof) = foo.generate_proof(1);
+    //     let res = proof.validate(&root, b"apricot");        
+    //     assert!(res);
 
-        let (root, proof) = foo.generate_proof(2);
-        let res = proof.validate(&root, b"asai");        
-        assert!(res);
+    //     let (root, proof) = foo.generate_proof(2);
+    //     let res = proof.validate(&root, b"asai");        
+    //     assert!(res);
 
-        let (root, proof) = foo.generate_proof(3);
-        let res = proof.validate(&root, b"avocado");        
-        assert!(res);
+    //     let (root, proof) = foo.generate_proof(3);
+    //     let res = proof.validate(&root, b"avocado");        
+    //     assert!(res);
 
-        let (root, proof) = foo.generate_proof(4);
-        let res = proof.validate(&root, b"banana");        
-        assert!(res);
+    //     let (root, proof) = foo.generate_proof(4);
+    //     let res = proof.validate(&root, b"banana");        
+    //     assert!(res);
 
-        let (root, proof) = foo.generate_proof(5);
-        let res = proof.validate(&root, b"blueberry");        
-        assert!(res);
-    }
+    //     let (root, proof) = foo.generate_proof(5);
+    //     let res = proof.validate(&root, b"blueberry");        
+    //     assert!(res);
+    // }
 
-    #[test]
-    fn foo1() {
-        const HEIGHT: usize = 3;
+    // #[test]
+    // fn foo1() {
+    //     const HEIGHT: usize = 3;
 
-        let mut foo = Foo::<2, HEIGHT, StdHash>::try_from(
-            &[b"apple", b"apricot", b"asai", b"avocado", b"banana", b"blueberry"]
-        ).unwrap();
+    //     let mut foo = Foo::<2, HEIGHT, StdHash>::try_from(
+    //         &[b"apple", b"apricot", b"asai", b"avocado", b"banana", b"blueberry"]
+    //     ).unwrap();
         
-        let (root, proof) = foo.generate_proof(0);
-        let res = proof.validate(&root, b"apple");        
-        assert!(res);
+    //     let (root, proof) = foo.generate_proof(0);
+    //     let res = proof.validate(&root, b"apple");        
+    //     assert!(res);
 
-        let (root, proof) = foo.generate_proof(1);
-        let res = proof.validate(&root, b"apricot");        
-        assert!(res);
+    //     let (root, proof) = foo.generate_proof(1);
+    //     let res = proof.validate(&root, b"apricot");        
+    //     assert!(res);
 
-        let (root, proof) = foo.generate_proof(2);
-        let res = proof.validate(&root, b"asai");        
-        assert!(res);
+    //     let (root, proof) = foo.generate_proof(2);
+    //     let res = proof.validate(&root, b"asai");        
+    //     assert!(res);
 
-        let (root, proof) = foo.generate_proof(3);
-        let res = proof.validate(&root, b"avocado");        
-        assert!(res);
+    //     let (root, proof) = foo.generate_proof(3);
+    //     let res = proof.validate(&root, b"avocado");        
+    //     assert!(res);
 
-        let (root, proof) = foo.generate_proof(4);
-        let res = proof.validate(&root, b"banana");        
-        assert!(res);
+    //     let (root, proof) = foo.generate_proof(4);
+    //     let res = proof.validate(&root, b"banana");        
+    //     assert!(res);
 
-        let (root, proof) = foo.generate_proof(5);
-        let res = proof.validate(&root, b"blueberry");        
-        assert!(res);
-    }
+    //     let (root, proof) = foo.generate_proof(5);
+    //     let res = proof.validate(&root, b"blueberry");        
+    //     assert!(res);
+    // }
 
     #[test]
     fn try_compact() {
@@ -555,10 +529,41 @@ mod tests {
 
         for (i, w) in test_words.iter().enumerate() {
             let (root, proof) = cmt.as_mut().unwrap().generate_proof(i);
-//            println!("testing -> {w}, proof: {:?}", proof);
             println!("testing -> {w}");
             let res = proof.validate(&root, w.as_bytes());
             assert!(res);
         }
     }
+
+    #[test]
+    fn augment_tree() {
+        const HEIGHT: usize = 4;
+        const BRANCH_FACTOR: usize = 2;
+
+        let words: &[&str] = &[
+            "apple", "apricot", "banana", "kiwi", "kotleta",
+        ];
+        let test_words: &[&str] = &[
+            "apple", "apricot", "banana", "kiwi", "kotleta",
+        ];
+
+        let mt = HeaplessTree::<BRANCH_FACTOR, HEIGHT, StdHash>::try_from(
+            &words.iter().map(|w| w.as_bytes()).collect::<Vec<_>>()
+        )
+        .unwrap();
+
+        const NEW_HEIGHT: usize = 5;
+        let mut mt = HeaplessTree::<BRANCH_FACTOR, NEW_HEIGHT, StdHash>::try_from_leaves(
+            &mt.leaves()
+        )
+        .unwrap();
+
+        for (i, w) in test_words.iter().enumerate() {
+            let (root, proof) = mt.generate_proof(i);
+            println!("testing -> {w}");
+            let res = proof.validate(&root, w.as_bytes());
+            assert!(res);
+        }
+    }
+
 }

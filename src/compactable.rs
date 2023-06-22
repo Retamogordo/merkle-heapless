@@ -1,11 +1,12 @@
 use core::fmt::Debug;
 
-use crate::{HashT, MerkleTree,  HeaplessTree, HeaplessBinaryTree, Proof, ProofItem, total_size, layer_size};
+use crate::{HashT, HeaplessTreeT,  HeaplessTree, Proof, total_size, layer_size};
 
 pub struct CompactableHeaplessTree<const BRANCH_FACTOR: usize, const HEIGHT: usize, H>
 where
     [(); total_size!(BRANCH_FACTOR, HEIGHT)]: Sized,
     [(); layer_size!(BRANCH_FACTOR, HEIGHT, 0)]: Sized,
+    [(); HEIGHT - 1]: Sized,
     H: HashT,
 {
     tree: HeaplessTree<BRANCH_FACTOR, HEIGHT, H>,
@@ -17,11 +18,11 @@ impl<const BRANCH_FACTOR: usize, const HEIGHT: usize, H> CompactableHeaplessTree
 where
     [(); total_size!(BRANCH_FACTOR, HEIGHT)]: Sized,
     [(); layer_size!(BRANCH_FACTOR, HEIGHT, 0)]: Sized,
+    [(); HEIGHT - 1]: Sized,
     H: HashT,
 {
     // panics if HEIGHT == 0
     pub fn try_from(input: &[&[u8]]) -> Result<Self, ()> {
-//        println!("total size: {}", Self::TOTAL_SIZE);
         let mut this = Self {
             tree: HeaplessTree::try_from(input)?,
             leaf_number: input.len(),
@@ -49,6 +50,7 @@ where
     where
         [(); total_size!(BRANCH_FACTOR, {HEIGHT - 1})]: Sized,
         [(); layer_size!(BRANCH_FACTOR, {HEIGHT - 1}, 0)]: Sized,
+        [(); {HEIGHT - 1} - 1]: Sized,
         H: HashT, 
     {
         if self.leaf_number > layer_size!(BRANCH_FACTOR, {HEIGHT - 1}, 0) {
@@ -64,12 +66,26 @@ where
             } 
         }
 
-        CompactableHeaplessTree::<BRANCH_FACTOR, {HEIGHT - 1}, H>
-            ::try_from_leaves(&leaves)
+        CompactableHeaplessTree::<BRANCH_FACTOR, {HEIGHT - 1}, H>::try_from_leaves(&leaves)
             .map_err(|_| self)
     }
+}
 
-    pub fn insert(&mut self, index: usize, input: &[u8]) {
+impl<const BRANCH_FACTOR: usize, const HEIGHT: usize, H> HeaplessTreeT<BRANCH_FACTOR, HEIGHT, H> for CompactableHeaplessTree<BRANCH_FACTOR, HEIGHT, H> 
+where
+    [(); total_size!(BRANCH_FACTOR, HEIGHT)]: Sized,
+    [(); layer_size!(BRANCH_FACTOR, HEIGHT, 0)]: Sized,
+    [(); HEIGHT - 1]: Sized,
+    H: HashT,
+{
+    type Proof = Proof<BRANCH_FACTOR, HEIGHT, H> where [(); HEIGHT - 1]: Sized;
+
+    fn generate_proof(&mut self, index: usize) -> (H::Output, Self::Proof) 
+    where [(); HEIGHT - 1]: Sized {
+        self.tree.generate_proof(index)
+    }
+
+    fn insert(&mut self, index: usize, input: &[u8]) {
         self.tree.insert(index, input);
 
         if !self.leaves_present[index] {
@@ -78,7 +94,7 @@ where
         self.leaves_present[index] = true;
     }
 
-    pub fn remove(&mut self, index: usize) {
+    fn remove(&mut self, index: usize) {
         self.tree.remove(index);
 
         if self.leaves_present[index] {
@@ -86,17 +102,24 @@ where
         }
         self.leaves_present[index] = false;
     }
-}
+    fn root(&self) -> H::Output {
+        *self.tree.hashes.iter().last().expect("hashes are not empty. qed")
+    }
 
-impl<const BRANCH_FACTOR: usize, const HEIGHT: usize, H> MerkleTree<BRANCH_FACTOR, HEIGHT, H> for CompactableHeaplessTree<BRANCH_FACTOR, HEIGHT, H> 
-where
-    [(); total_size!(BRANCH_FACTOR, HEIGHT)]: Sized,
-    [(); layer_size!(BRANCH_FACTOR, HEIGHT, 0)]: Sized,
-    H: HashT,
-{
-    fn generate_proof(&mut self, index: usize) -> (H::Output, Proof<BRANCH_FACTOR, HEIGHT, H>) 
-    where [(); HEIGHT - 1]: Sized {
-        self.tree.generate_proof(index)
+    fn leaves(&self) -> &[H::Output] {
+        &self.tree.hashes[..layer_size!(BRANCH_FACTOR, HEIGHT, 0)]
+    }
+
+    fn base_layer_size() -> usize {
+        layer_size!(BRANCH_FACTOR, HEIGHT, 0)
+    }
+    
+    fn branch_factor() -> usize {
+        BRANCH_FACTOR
+    }
+
+    fn height() -> usize {
+        HEIGHT
     }
 }
 
@@ -104,6 +127,7 @@ impl <const BRANCH_FACTOR: usize, const HEIGHT: usize, H> Debug for CompactableH
 where
     [(); total_size!(BRANCH_FACTOR, HEIGHT)]: Sized,
     [(); layer_size!(BRANCH_FACTOR, HEIGHT, 0)]: Sized,
+    [(); HEIGHT - 1]: Sized,
     H: HashT,
 {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> Result<(), core::fmt::Error> { 
