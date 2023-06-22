@@ -536,7 +536,7 @@ mod tests {
     }
 
     #[test]
-    fn augment_tree() {
+    fn augment_tree_from_leaves() {
         const HEIGHT: usize = 4;
         const BRANCH_FACTOR: usize = 2;
 
@@ -566,4 +566,40 @@ mod tests {
         }
     }
 
+    #[test]
+    fn merge_2trees() {
+        const BRANCH_FACTOR: usize = 2;
+        const HEIGHT_1: usize = 3;
+        const HEIGHT_2: usize = 3;
+
+        let words1: &[&str] = &[
+            "apple", "apricot", "banana", "cherry",
+        ];
+        let cmt1 = CompactableHeaplessTree::<BRANCH_FACTOR, HEIGHT_1, StdHash>::try_from(
+            &words1.iter().map(|w| w.as_bytes()).collect::<Vec<_>>()
+        )
+        .unwrap();
+
+        let words2: &[&str] = &[
+            "kiwi", "kotleta",
+        ];
+        let cmt2 = CompactableHeaplessTree::<BRANCH_FACTOR, HEIGHT_2, StdHash>::try_from(
+            &words2.iter().map(|w| w.as_bytes()).collect::<Vec<_>>()
+        )
+        .unwrap();
+
+        let test_words: &[&str] = &[
+            "apple", "apricot", "banana", "cherry", "kiwi", "kotleta",
+        ];
+
+        let mut cmt = cmt1.try_merge(cmt2).unwrap();
+
+        for (i, w) in test_words.iter().enumerate() {
+            let (root, proof) = cmt.generate_proof(i);
+            println!("testing -> {w}");
+            let res = proof.validate(&root, w.as_bytes());
+            assert!(res);
+        }
+        assert_eq!(cmt.height(), HEIGHT_1 + 1);
+    }
 }

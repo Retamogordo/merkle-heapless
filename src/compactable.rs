@@ -53,11 +53,33 @@ where
         [(); {HEIGHT - 1} - 1]: Sized,
         H: HashT, 
     {
-        if self.leaf_number > layer_size!(BRANCH_FACTOR, {HEIGHT - 1}, 0) {
-            return Err(self);
+        // if self.leaf_number > layer_size!(BRANCH_FACTOR, {HEIGHT - 1}, 0) {
+        //     return Err(self);
+        // }
+
+        // let mut leaves = [H::Output::default(); layer_size!(BRANCH_FACTOR, {HEIGHT - 1}, 0)];
+        // let mut j = 0;
+        // for (i, leaf) in self.tree.leaves().iter().enumerate() {
+        //     if self.leaves_present[i] {
+        //         leaves[j] = *leaf;
+        //         j += 1;
+        //     } 
+        // }
+
+        self.compacted_leaves::<{HEIGHT - 1}>()
+            .and_then(|leaves| CompactableHeaplessTree::<BRANCH_FACTOR, {HEIGHT - 1}, H>::try_from_leaves(&leaves))
+            .map_err(|_| self)
+
+        // CompactableHeaplessTree::<BRANCH_FACTOR, {HEIGHT - 1}, H>::try_from_leaves(&leaves)
+        //     .map_err(|_| self)
+    }
+
+    fn compacted_leaves<const EXPECTED_HEIGHT: usize>(&self) -> Result<[H::Output; layer_size!(BRANCH_FACTOR, EXPECTED_HEIGHT, 0)], ()> {
+        if self.leaf_number > layer_size!(BRANCH_FACTOR, EXPECTED_HEIGHT, 0) {
+            return Err(());
         }
 
-        let mut leaves = [H::Output::default(); layer_size!(BRANCH_FACTOR, {HEIGHT - 1}, 0)];
+        let mut leaves = [H::Output::default(); layer_size!(BRANCH_FACTOR, EXPECTED_HEIGHT, 0)];
         let mut j = 0;
         for (i, leaf) in self.tree.leaves().iter().enumerate() {
             if self.leaves_present[i] {
@@ -65,8 +87,37 @@ where
                 j += 1;
             } 
         }
+        Ok(leaves)
+    }
 
-        CompactableHeaplessTree::<BRANCH_FACTOR, {HEIGHT - 1}, H>::try_from_leaves(&leaves)
+    pub fn try_merge<const OTHER_HEIGHT: usize>(self, other: CompactableHeaplessTree<BRANCH_FACTOR, OTHER_HEIGHT, H>) 
+        -> Result<CompactableHeaplessTree<BRANCH_FACTOR, {HEIGHT + 1}, H>, Self> 
+    where
+        [(); total_size!(BRANCH_FACTOR, {HEIGHT + 1})]: Sized,
+        [(); layer_size!(BRANCH_FACTOR, {HEIGHT + 1}, 0)]: Sized,
+        [(); {HEIGHT + 1} - 1]: Sized,
+        [(); total_size!(BRANCH_FACTOR, OTHER_HEIGHT)]: Sized,
+        [(); layer_size!(BRANCH_FACTOR, OTHER_HEIGHT, 0)]: Sized,
+        [(); OTHER_HEIGHT - 1]: Sized,
+        H: HashT, 
+    {
+        // height of other must be no greater than this tree height
+        // so the resulting tree height is safely HEIGHT + 1s
+        if OTHER_HEIGHT > HEIGHT {
+            return Err(self);
+        }
+
+        self.compacted_leaves::<{HEIGHT + 1}>()
+            .and_then(|mut first_leaves| {
+                other.compacted_leaves::<OTHER_HEIGHT>()
+                    .map(|second_leaves| {
+                        for (i, leaf) in second_leaves.iter().enumerate() {
+                            first_leaves[self.leaf_number + i] = *leaf;
+                        }
+                        first_leaves
+                    })
+            })
+            .and_then(|leaves| CompactableHeaplessTree::<BRANCH_FACTOR, {HEIGHT + 1}, H>::try_from_leaves(&leaves))
             .map_err(|_| self)
     }
 }
@@ -110,15 +161,15 @@ where
         &self.tree.hashes[..layer_size!(BRANCH_FACTOR, HEIGHT, 0)]
     }
 
-    fn base_layer_size() -> usize {
+    fn base_layer_size(&self) -> usize {
         layer_size!(BRANCH_FACTOR, HEIGHT, 0)
     }
     
-    fn branch_factor() -> usize {
+    fn branch_factor(&self) -> usize {
         BRANCH_FACTOR
     }
 
-    fn height() -> usize {
+    fn height(&self) -> usize {
         HEIGHT
     }
 }

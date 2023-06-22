@@ -100,9 +100,9 @@ where
     fn remove(&mut self, index: usize);
     fn root(&self) -> H::Output;
     fn leaves(&self) -> &[H::Output];
-    fn base_layer_size() -> usize;
-    fn branch_factor() -> usize;
-    fn height() -> usize;
+    fn base_layer_size(&self) -> usize;
+    fn branch_factor(&self) -> usize;
+    fn height(&self) -> usize;
 } 
 
 pub type HeaplessBinaryTree<const HEIGHT: usize, H> = HeaplessTree<2, HEIGHT, H>;
@@ -133,13 +133,12 @@ where
             hashes: [H::Output::default(); total_size!(BRANCH_FACTOR, HEIGHT)],
         })
     }
-
     // panics if HEIGHT == 0
     pub fn try_from(input: &[&[u8]]) -> Result<Self, ()> {
         let this = Self::create_this(input.len())?;
         Self::try_from_inner(input, this)
     }
-    // panics if HEIGHT == 0
+
     fn try_from_inner(input: &[&[u8]], mut this: Self) -> Result<Self, ()> {
         // check input can be hold in base layer and branch factor is of power of 2
         // fill the base layer
@@ -156,6 +155,7 @@ where
         Ok(this)
     }
     
+    // panics if HEIGHT == 0
     pub fn try_from_leaves(leaves: &[H::Output]) -> Result<Self, ()> {
         let this = Self::create_this(leaves.len())?;
         Self::try_from_leaves_inner(leaves, this)
@@ -195,7 +195,6 @@ where
             next_layer_ind = j;
         }
     }
-
     
     fn parent_index_and_base(&self, curr_index: usize, layer: usize, layer_base: usize) -> (usize, usize) {
         let curr_layer_len = layer_size!(BRANCH_FACTOR, HEIGHT, layer);
@@ -216,7 +215,6 @@ where
     /// generate proof at given index on base layer
     /// panics on index out of bounds ( >= leaf number )
     fn generate_proof(&mut self, index: usize) -> (H::Output, Self::Proof) 
-//    fn generate_proof(&mut self, index: usize) -> (H::Output, Proof<BRANCH_FACTOR, HEIGHT, H>) 
         where [(); HEIGHT - 1]: Sized {
 
         let mut proof = [ProofItem::default(); HEIGHT - 1];
@@ -273,15 +271,15 @@ where
         &self.hashes[..layer_size!(BRANCH_FACTOR, HEIGHT, 0)]
     }
 
-    fn base_layer_size() -> usize {
+    fn base_layer_size(&self) -> usize {
         layer_size!(BRANCH_FACTOR, HEIGHT, 0)
     }
 
-    fn branch_factor() -> usize {
+    fn branch_factor(&self) -> usize {
         BRANCH_FACTOR
     }
 
-    fn height() -> usize {
+    fn height(&self) -> usize {
         HEIGHT
     }
 }
