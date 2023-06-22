@@ -567,7 +567,7 @@ mod tests {
     }
 
     #[test]
-    fn merge_2trees() {
+    fn merge_2trees_same_heights() {
         const BRANCH_FACTOR: usize = 2;
         const HEIGHT_1: usize = 3;
         const HEIGHT_2: usize = 3;
@@ -601,5 +601,120 @@ mod tests {
             assert!(res);
         }
         assert_eq!(cmt.height(), HEIGHT_1 + 1);
+    }
+
+    #[test]
+    fn merge_2trees_different_heights() {
+        const BRANCH_FACTOR: usize = 2;
+        const HEIGHT_1: usize = 4;
+        const HEIGHT_2: usize = 3;
+
+        let words1: &[&str] = &[
+            "apple", "apricot", "banana", "cherry", "blueberry"
+        ];
+        let cmt1 = CompactableHeaplessTree::<BRANCH_FACTOR, HEIGHT_1, StdHash>::try_from(
+            &words1.iter().map(|w| w.as_bytes()).collect::<Vec<_>>()
+        )
+        .unwrap();
+
+        let words2: &[&str] = &[
+            "kiwi", "kotleta",
+        ];
+        let cmt2 = CompactableHeaplessTree::<BRANCH_FACTOR, HEIGHT_2, StdHash>::try_from(
+            &words2.iter().map(|w| w.as_bytes()).collect::<Vec<_>>()
+        )
+        .unwrap();
+
+        let test_words: &[&str] = &[
+            "apple", "apricot", "banana", "cherry", "blueberry", "kiwi", "kotleta",
+        ];
+
+        let mut cmt = cmt1.try_merge(cmt2).unwrap();
+
+        for (i, w) in test_words.iter().enumerate() {
+            let (root, proof) = cmt.generate_proof(i);
+            println!("testing -> {w}");
+            let res = proof.validate(&root, w.as_bytes());
+            assert!(res);
+        }
+        assert_eq!(cmt.height(), HEIGHT_1 + 1);
+    }
+
+    #[test]
+    fn merge_2trees_different_heights_after_removal() {
+        const BRANCH_FACTOR: usize = 2;
+        const HEIGHT_1: usize = 4;
+        const HEIGHT_2: usize = 3;
+
+        let words1: &[&str] = &[
+            "apple", "apricot", "banana", "cherry", "blueberry"
+        ];
+        let mut cmt1 = CompactableHeaplessTree::<BRANCH_FACTOR, HEIGHT_1, StdHash>::try_from(
+            &words1.iter().map(|w| w.as_bytes()).collect::<Vec<_>>()
+        )
+        .unwrap();
+
+        let words2: &[&str] = &[
+            "kiwi", "kompot", "kotleta", "sardina"
+        ];
+        let mut cmt2 = CompactableHeaplessTree::<BRANCH_FACTOR, HEIGHT_2, StdHash>::try_from(
+            &words2.iter().map(|w| w.as_bytes()).collect::<Vec<_>>()
+        )
+        .unwrap();
+
+        let test_words: &[&str] = &[
+            "apple", "apricot", "cherry", "blueberry", "kiwi", "kotleta", "sardina"
+        ];
+
+        cmt1.remove(2);
+        cmt2.remove(1);
+
+        let mut cmt = cmt1.try_merge(cmt2).unwrap();
+
+        for (i, w) in test_words.iter().enumerate() {
+            let (root, proof) = cmt.generate_proof(i);
+            println!("testing -> {w}");
+            let res = proof.validate(&root, w.as_bytes());
+            assert!(res);
+        }
+        assert_eq!(cmt.height(), HEIGHT_1 + 1);
+    }
+
+
+    #[test]
+    fn compact_and_append() {
+        const BRANCH_FACTOR: usize = 2;
+        const HEIGHT_1: usize = 4;
+        const HEIGHT_2: usize = 3;
+
+        let words1: &[&str] = &[
+            "apple", "apricot", "banana", "cherry", "blueberry"
+        ];
+        let cmt1 = CompactableHeaplessTree::<BRANCH_FACTOR, HEIGHT_1, StdHash>::try_from(
+            &words1.iter().map(|w| w.as_bytes()).collect::<Vec<_>>()
+        )
+        .unwrap();
+
+        let words2: &[&str] = &[
+            "kiwi", "kotleta",
+        ];
+        let cmt2 = CompactableHeaplessTree::<BRANCH_FACTOR, HEIGHT_2, StdHash>::try_from(
+            &words2.iter().map(|w| w.as_bytes()).collect::<Vec<_>>()
+        )
+        .unwrap();
+
+        let test_words: &[&str] = &[
+            "apple", "apricot", "banana", "cherry", "blueberry", "kiwi", "kotleta",
+        ];
+
+        let mut cmt = cmt1.try_compact_and_append(cmt2).unwrap();
+
+        for (i, w) in test_words.iter().enumerate() {
+            let (root, proof) = cmt.generate_proof(i);
+            println!("testing -> {w}");
+            let res = proof.validate(&root, w.as_bytes());
+            assert!(res);
+        }
+        assert_eq!(cmt.height(), HEIGHT_1);
     }
 }
