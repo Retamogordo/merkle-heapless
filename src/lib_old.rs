@@ -88,7 +88,7 @@ where
     }
 
     // panics if index is out of leaf layer bound
-    pub fn insert(&mut self, index: usize, input: &[u8]) {
+    pub fn replace(&mut self, index: usize, input: &[u8]) {
         let mut layer_base = 0;
         let mut index = index;
 
@@ -111,7 +111,7 @@ where
 
     // panics if index is out of leaf layer bound
     pub fn remove(&mut self, index: usize) {
-        self.insert(index, &[]);
+        self.replace(index, &[]);
     }
 
     pub fn total_size(&self) -> usize {

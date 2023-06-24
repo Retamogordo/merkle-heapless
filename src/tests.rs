@@ -3,6 +3,7 @@
 mod tests {
     use crate::{HashT, ProofT, HeaplessTreeT, HeaplessTree, HeaplessBinaryTree};
     use crate::compactable::{CompactableHeaplessTree};
+    use crate::peak::{MerklePeak, MerkleMR};
 //    use crate::foo::{Foo};
 
     use std::{
@@ -116,7 +117,7 @@ mod tests {
 
         let word_index = 0;
 
-        mt.as_mut().unwrap().insert(word_index, b"ciruela");
+        mt.as_mut().unwrap().replace(word_index, b"ciruela");
 
         let (root, proof) = mt.as_mut().unwrap().generate_proof(word_index);
         let word = "ciruela";
@@ -147,7 +148,7 @@ mod tests {
         ]);
         let word_index = 2;
 
-        mt.as_mut().unwrap().insert(word_index, b"ciruela");
+        mt.as_mut().unwrap().replace(word_index, b"ciruela");
 
         let (root, proof) = mt.as_mut().unwrap().generate_proof(word_index);
         let word = "ciruela";
@@ -170,7 +171,7 @@ mod tests {
         ]);
         let word_index = 6;
 
-        mt.as_mut().unwrap().insert(word_index, b"ciruela");
+        mt.as_mut().unwrap().replace(word_index, b"ciruela");
 
         let (root, proof) = mt.as_mut().unwrap().generate_proof(word_index);
         let word = "ciruela";
@@ -193,7 +194,7 @@ mod tests {
         ]);
         let word_index = 2;
 
-        mt.as_mut().unwrap().insert(word_index, b"ciruela");
+        mt.as_mut().unwrap().replace(word_index, b"ciruela");
 
         let (root, proof) = mt.as_mut().unwrap().generate_proof(word_index);
         let word = "ciruela";
@@ -216,7 +217,7 @@ mod tests {
         ]);
         let word_index = 32;
 
-        mt.as_mut().unwrap().insert(word_index, b"ciruela");
+        mt.as_mut().unwrap().replace(word_index, b"ciruela");
 
         let (root, proof) = mt.as_mut().unwrap().generate_proof(word_index);
         let word = "ciruela";
@@ -238,7 +239,7 @@ mod tests {
 //         ]);
 //         let word_index = 8;
 
-//         mt.as_mut().unwrap().insert(word_index, b"ciruela");
+//         mt.as_mut().unwrap().replace(word_index, b"ciruela");
 //     }
 
     #[test]
@@ -329,7 +330,7 @@ mod tests {
 
         let mut cloned = mt.as_ref().unwrap().clone();
 
-        cloned.insert(2, b"ciruela");
+        cloned.replace(2, b"ciruela");
 
         assert_ne!(mt.unwrap(), cloned);
     }
@@ -520,10 +521,10 @@ mod tests {
         .unwrap();
 
         cmt.remove(2); // remove banana
-        cmt.insert(2, b"cherry");
+        cmt.replace(2, b"cherry");
         cmt.remove(0); // remove apple
         cmt.remove(1); // remove apricot
-        cmt.insert(7, b"ciruela");
+        cmt.replace(7, b"ciruela");
 
         let mut cmt = cmt.try_compact();
 
@@ -717,4 +718,128 @@ mod tests {
         }
         assert_eq!(cmt.height(), HEIGHT_1);
     }
+
+    #[test]
+    fn try_append() {
+        const BRANCH_FACTOR: usize = 2;
+        const HEIGHT: usize = 4;
+
+        let words1: &[&str] = &[
+            "apple", "apricot", "banana", "cherry", "blueberry"
+        ];
+        let mut cmt = CompactableHeaplessTree::<BRANCH_FACTOR, HEIGHT, StdHash>::try_from(
+            &words1.iter().map(|w| w.as_bytes()).collect::<Vec<_>>()
+        )
+        .unwrap();
+
+        let test_words: &[&str] = &[
+            "apple", "apricot", "banana", "cherry", "blueberry", "kiwi", "kotleta",
+        ];
+
+        cmt.try_append(b"kiwi").unwrap();
+        cmt.try_append(b"kotleta").unwrap();
+
+        for (i, w) in test_words.iter().enumerate() {
+            let (root, proof) = cmt.generate_proof(i);
+            println!("testing -> {w}");
+            let res = proof.validate(&root, w.as_bytes());
+            assert!(res);
+        }
+    }
+
+    #[test]
+    fn fail_try_append_size_exceeded() {
+        const BRANCH_FACTOR: usize = 2;
+        const HEIGHT: usize = 4;
+
+        let words1: &[&str] = &[
+            "apple", "apricot", "banana", "cherry", "blueberry"
+        ];
+        let mut cmt = CompactableHeaplessTree::<BRANCH_FACTOR, HEIGHT, StdHash>::try_from(
+            &words1.iter().map(|w| w.as_bytes()).collect::<Vec<_>>()
+        )
+        .unwrap();
+
+        cmt.try_append(b"kiwi").unwrap();
+        cmt.try_append(b"kotleta").unwrap();
+        cmt.try_append(b"blueberry").unwrap();
+        assert!(cmt.try_append(b"blackberry").is_err());
+    }
+
+    #[test]
+    fn montain_peak_append() {
+        const BRANCH_FACTOR: usize = 2;
+        const FIRST_PEAK_HEIGHT: usize = 3;
+        const PEAKS: usize = 5;
+
+        let words1: &[&str] = &[
+            "apple", "apricot", "banana",
+        ];
+
+        let cmt = CompactableHeaplessTree::<BRANCH_FACTOR, FIRST_PEAK_HEIGHT, StdHash>::try_from(
+            &words1.iter().map(|w| w.as_bytes()).collect::<Vec<_>>()
+        )
+        .unwrap();
+
+        let mut first_peak = MerklePeak::Second(cmt);
+
+        first_peak.try_append(b"kiwi").unwrap();
+        assert_eq!(first_peak.num_of_leaves(), 4);
+
+        let (root, proof) = first_peak.generate_proof(3);
+        let res = proof.validate(&root, b"kiwi");
+
+        let mut mmr = MerkleMR::<PEAKS, StdHash>::from(first_peak);
+
+        assert!(res);
+        // cmt.try_append(b"kiwi").unwrap();
+        // cmt.try_append(b"kotleta").unwrap();
+        // cmt.try_append(b"blueberry").unwrap();
+        // assert!(cmt.try_append(b"blackberry").is_err());
+    }
+
+    #[test]
+    fn montain_try_merge() {
+        const BRANCH_FACTOR: usize = 2;
+        const PEAK_HEIGHT_1: usize = 3;
+        const PEAK_HEIGHT_2: usize = 3;
+
+        let words1: &[&str] = &[
+            "apple", "apricot", "banana",
+        ];
+
+        let cmt1 = CompactableHeaplessTree::<BRANCH_FACTOR, PEAK_HEIGHT_1, StdHash>::try_from(
+            &words1.iter().map(|w| w.as_bytes()).collect::<Vec<_>>()
+        )
+        .unwrap();
+
+        let words2: &[&str] = &[
+            "cherry", "kiwi", 
+        ];
+
+        let cmt2 = CompactableHeaplessTree::<BRANCH_FACTOR, PEAK_HEIGHT_2, StdHash>::try_from(
+            &words2.iter().map(|w| w.as_bytes()).collect::<Vec<_>>()
+        )
+        .unwrap();
+
+        let mut peak1 = MerklePeak::Second(cmt1);
+        let mut peak2 = MerklePeak::Second(cmt2);
+
+        if let Ok(mut new_peak) = peak1.try_merge(peak2) {
+            assert_eq!(new_peak.num_of_leaves(), 5);
+
+            let (root, proof) = new_peak.generate_proof(3);
+            let res = proof.validate(&root, b"cherry");
+            assert!(res);
+        } else {
+            panic!("could not merge");
+        }
+
+
+        // cmt.try_append(b"kiwi").unwrap();
+        // cmt.try_append(b"kotleta").unwrap();
+        // cmt.try_append(b"blueberry").unwrap();
+        // assert!(cmt.try_append(b"blackberry").is_err());
+    }
+
 }

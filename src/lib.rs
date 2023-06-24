@@ -7,6 +7,7 @@ mod tests;
 mod foo;
 mod utils;
 pub mod compactable;
+pub mod peak;
 
 use core::fmt::Debug;
 use core::hash::Hash;
@@ -58,18 +59,43 @@ impl<const BRANCH_FACTOR: usize, H: HashT> ProofItem<BRANCH_FACTOR, H> {
     }
 }
 
-pub trait ProofT<H: HashT> {
-    fn validate(self, root: &H::Output, input: &[u8]) -> bool;
-}
+pub trait ProofT<H: HashT, Item>: Default {
+//    pub trait ProofT<H: HashT, Item>: Default + IntoIterator<Item = Item> {
+//    type Item;
+//    type It: Iterator<Item = Self::Item>;
 
+    fn validate(self, root: &H::Output, input: &[u8]) -> bool;
+//    fn set_item(&mut self, index: usize, item: Self::Item);
+//    fn items_iter(&self) -> Self::It;
+
+    fn push_item(&mut self, item: Item);
+//fn push_item(&mut self, item: Self::Item);
+}
 
 pub struct Proof<const BRANCH_FACTOR: usize, const HEIGHT: usize, H: HashT>
 where [(); HEIGHT - 1]: Sized {
+    curr_index: usize,
+//    items: [<Self as ProofT<H>>::Item; HEIGHT - 1],
     items: [ProofItem<BRANCH_FACTOR, H>; HEIGHT - 1]
 }
 
-impl <const BRANCH_FACTOR: usize, const HEIGHT: usize, H: HashT> ProofT<H> for Proof<BRANCH_FACTOR, HEIGHT, H>
+impl <const BRANCH_FACTOR: usize, const HEIGHT: usize, H: HashT> ProofT<H, ProofItem<BRANCH_FACTOR, H>> for Proof<BRANCH_FACTOR, HEIGHT, H>
 where [(); HEIGHT - 1]: Sized {
+//    type Item = ProofItem<BRANCH_FACTOR, H>;
+//    type It = <[<Self as ProofT<H>>::Item; HEIGHT - 1] as IntoIterator>::IntoIter;
+
+    // fn items_iter(&self) -> Self::It {
+    //     self.items.into_iter()
+    // }
+
+    fn push_item(&mut self, item: ProofItem<BRANCH_FACTOR, H>) {
+//        fn push_item(&mut self, item: Self::Item) {
+        self.items[self.curr_index] = item;
+        self.curr_index += 1;
+    }
+    // fn set_item(&mut self, index: usize, item: Self::Item) {
+    //     self.items[index] = item;
+    // }
     /// verifies that the input was contained in the Merkle tree that generated this proof
     fn validate(self, root: &H::Output, input: &[u8]) -> bool {
         let mut curr_hash = Some(H::hash(&input));
@@ -86,17 +112,33 @@ where [(); HEIGHT - 1]: Sized {
     }  
 }
 
-pub trait HeaplessTreeT<const BRANCH_FACTOR: usize, const HEIGHT: usize, H> 
-where
-    [(); total_size!(BRANCH_FACTOR, HEIGHT)]: Sized,
-    [(); HEIGHT - 1]: Sized,
-    H: HashT,
-{
-    type Proof: ProofT<H>;
+// impl <const BRANCH_FACTOR: usize, const HEIGHT: usize, H: HashT> IntoIterator for Proof<BRANCH_FACTOR, HEIGHT, H>
+// where [(); HEIGHT - 1]: Sized {
+//     type Item = ProofItem<BRANCH_FACTOR, H>;
+//     type IntoIter = <[ProofItem<BRANCH_FACTOR, H>; HEIGHT - 1] as IntoIterator>::IntoIter;
 
-    fn generate_proof(&mut self, index: usize) -> (H::Output, Self::Proof) where [(); HEIGHT - 1]: Sized;
+//     fn into_iter(self) -> <Self as IntoIterator>::IntoIter {
+//         self.items.into_iter()
+//     }
+// }
 
-    fn insert(&mut self, index: usize, input: &[u8]);
+impl <const BRANCH_FACTOR: usize, const HEIGHT: usize, H: HashT> Default for Proof<BRANCH_FACTOR, HEIGHT, H>
+where [(); HEIGHT - 1]: Sized {
+    fn default() -> Self {
+        Self { 
+            curr_index: 0,
+            items: [ProofItem::default(); HEIGHT - 1] 
+        }
+    }
+}
+
+pub trait HeaplessTreeT<H: HashT, ProofItem> {
+    type Proof: ProofT<H, ProofItem>;
+//    type DowngradeTo: HeaplessTreeT<H>;
+
+    fn generate_proof(&mut self, index: usize) -> (H::Output, Self::Proof);
+
+    fn replace(&mut self, index: usize, input: &[u8]);
     fn remove(&mut self, index: usize);
     fn root(&self) -> H::Output;
     fn leaves(&self) -> &[H::Output];
@@ -205,19 +247,19 @@ where
     }
 }
 
-impl<const BRANCH_FACTOR: usize, const HEIGHT: usize, H> HeaplessTreeT<BRANCH_FACTOR, HEIGHT, H> for HeaplessTree<BRANCH_FACTOR, HEIGHT, H> 
+//impl<const BRANCH_FACTOR: usize, const HEIGHT: usize, H> HeaplessTreeT<BRANCH_FACTOR, HEIGHT, H> for HeaplessTree<BRANCH_FACTOR, HEIGHT, H> 
+impl<const BRANCH_FACTOR: usize, const HEIGHT: usize, H> HeaplessTreeT<H, ProofItem<BRANCH_FACTOR, H>> for HeaplessTree<BRANCH_FACTOR, HEIGHT, H> 
 where
     [(); total_size!(BRANCH_FACTOR, HEIGHT)]: Sized,
     [(); HEIGHT - 1]: Sized,
     H: HashT,
 {
     type Proof = Proof<BRANCH_FACTOR, HEIGHT, H> where [(); HEIGHT - 1]: Sized;
+
     /// generate proof at given index on base layer
     /// panics on index out of bounds ( >= leaf number )
-    fn generate_proof(&mut self, index: usize) -> (H::Output, Self::Proof) 
-        where [(); HEIGHT - 1]: Sized {
-
-        let mut proof = [ProofItem::default(); HEIGHT - 1];
+    fn generate_proof(&mut self, index: usize) -> (H::Output, Self::Proof) {
+        let mut proof = Self::Proof::default();
         let mut layer_base = 0;
         let mut index = index;
 
@@ -225,20 +267,21 @@ where
             let offset = index & (BRANCH_FACTOR - 1); // index modulo BRANCH_FACTOR (power of 2)
             let aligned = index - offset;
 
-            proof[layer] = ProofItem {
-                hashes: self.hashes[aligned..aligned + BRANCH_FACTOR].try_into().ok(),
-                offset,
-            };
-            
+            proof.push_item(
+                ProofItem {
+                    hashes: self.hashes[aligned..aligned + BRANCH_FACTOR].try_into().ok(),
+                    offset,
+            });
+
             (index, layer_base) = self.parent_index_and_base(index, layer, layer_base);
         }
 
-        (self.hashes[index], Self::Proof { items: proof })
+        (self.hashes[index], proof)
     }
 
     /// replace an element at index with input
     /// panics if index is out of leaf layer bound
-    fn insert(&mut self, index: usize, input: &[u8]) {
+    fn replace(&mut self, index: usize, input: &[u8]) {
         let mut layer_base = 0;
         let mut index = index;
 
@@ -260,7 +303,7 @@ where
     // remove element by inserting nothing
     // panics if index is out of leaf layer bound
     fn remove(&mut self, index: usize) {
-        self.insert(index, &[]);
+        self.replace(index, &[]);
     }
 
     fn root(&self) -> H::Output {
@@ -295,6 +338,12 @@ where
         }
     }
 }
+
+impl<const BRANCH_FACTOR: usize, const HEIGHT: usize, H> Copy for HeaplessTree<BRANCH_FACTOR, HEIGHT, H> 
+where
+    [(); total_size!(BRANCH_FACTOR, HEIGHT)]: Sized,
+    H: HashT,
+{}
 
 impl<const BRANCH_FACTOR: usize, const HEIGHT: usize, H> PartialEq for HeaplessTree<BRANCH_FACTOR, HEIGHT, H> 
 where

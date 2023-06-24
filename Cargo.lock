@@ -975,6 +975,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "merkle-heapless"
+version = "0.1.0"
+dependencies = [
+ "sp-core",
+]
+
+[[package]]
 name = "merlin"
 version = "2.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -984,13 +991,6 @@ dependencies = [
  "keccak",
  "rand_core 0.5.1",
  "zeroize",
-]
-
-[[package]]
-name = "my-merkle-tree"
-version = "0.1.0"
-dependencies = [
- "sp-core",
 ]
 
 [[package]]
