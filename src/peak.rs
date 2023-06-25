@@ -1,5 +1,5 @@
 use crate::{HashT, HeaplessTreeT,  HeaplessTree, ProofBuilder, ProofItem, Proof, total_size, layer_size};
-use crate::compactable::{CompactableHeaplessTree};
+use crate::compactable::compactable::{CompactableHeaplessTree};
 
 #[macro_export]
 macro_rules! apply {
@@ -76,11 +76,11 @@ macro_rules! apply {
 type PeakProof<H> = Proof<2, 5, H>;
 
 pub enum MerklePeak<H: HashT> {
-    NonMergeable(CompactableHeaplessTree<2, 5, 5, H, PeakProof<H>>),
-    First(CompactableHeaplessTree<2, 4, 5, H, PeakProof<H>>),
-    Second(CompactableHeaplessTree<2, 3, 5, H, PeakProof<H>>),
-    Third(CompactableHeaplessTree<2, 2, 5, H, PeakProof<H>>),
-    Forth(CompactableHeaplessTree<2, 1, 5, H, PeakProof<H>>),
+    NonMergeable(CompactableHeaplessTree<2, 5, H, PeakProof<H>>),
+    First(CompactableHeaplessTree<2, 4, H, PeakProof<H>>),
+    Second(CompactableHeaplessTree<2, 3, H, PeakProof<H>>),
+    Third(CompactableHeaplessTree<2, 2, H, PeakProof<H>>),
+    Forth(CompactableHeaplessTree<2, 1, H, PeakProof<H>>),
 }
 
 impl<H: HashT> Clone for MerklePeak<H> {
@@ -174,7 +174,7 @@ where
     [(); total_size!(2_usize, height_from_num_of_leaves!(2_usize, PEAKS))]: Sized,
 
 {
-    main_tree: HeaplessTree<2, {height_from_num_of_leaves!(2_usize, PEAKS)}, {height_from_num_of_leaves!(2_usize, PEAKS)}, H, Proof<2, 5, H>>,
+    main_tree: HeaplessTree<2, {height_from_num_of_leaves!(2_usize, PEAKS)}, H, Proof<2, 5, H>>,
     peaks: [MerklePeak<H>; PEAKS],
 }
 
@@ -185,7 +185,7 @@ where
 {    
     pub fn from(peak: MerklePeak<H>) -> Self {
         let mut this = Self {
-            main_tree: HeaplessTree::<2, {height_from_num_of_leaves!(2_usize, PEAKS)}, {height_from_num_of_leaves!(2_usize, PEAKS)}, H, Proof<2, 5, H>>::try_from(&[]).unwrap(),
+            main_tree: HeaplessTree::<2, {height_from_num_of_leaves!(2_usize, PEAKS)}, H, Proof<2, 5, H>>::try_from(&[]).unwrap(),
             peaks: [MerklePeak::<H>::default(); PEAKS]
         }; 
         this.peaks[0] = peak;

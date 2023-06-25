@@ -169,9 +169,9 @@ pub trait HeaplessTreeT<H: HashT, PB: ProofBuilder<H>> {
     fn height(&self) -> usize;
 } 
 
-pub type HeaplessBinaryTree<const HEIGHT: usize, H, PB> = HeaplessTree<2, HEIGHT, HEIGHT, H, PB>;
+pub type HeaplessBinaryTree<const HEIGHT: usize, H, PB = Proof<2, HEIGHT, H>> = HeaplessTree<2, HEIGHT, H, PB>;
 
-pub struct HeaplessTree<const BRANCH_FACTOR: usize, const HEIGHT: usize, const MAX_PROOF_HEIGHT: usize, H, PB = Proof<BRANCH_FACTOR, HEIGHT, H>>
+pub struct HeaplessTree<const BRANCH_FACTOR: usize, const HEIGHT: usize, H, PB = Proof<BRANCH_FACTOR, HEIGHT, H>>
 where
     [(); total_size!(BRANCH_FACTOR, HEIGHT)]: Sized,
     H: HashT,
@@ -180,8 +180,8 @@ where
     hashes: [H::Output; total_size!(BRANCH_FACTOR, HEIGHT)],
 }
 
-impl<const BRANCH_FACTOR: usize, const HEIGHT: usize, const MAX_PROOF_HEIGHT: usize, H, PB> 
-    HeaplessTree<BRANCH_FACTOR, HEIGHT, MAX_PROOF_HEIGHT, H, PB>
+impl<const BRANCH_FACTOR: usize, const HEIGHT: usize, H, PB> 
+    HeaplessTree<BRANCH_FACTOR, HEIGHT, H, PB>
 where
     [(); total_size!(BRANCH_FACTOR, HEIGHT)]: Sized,
     H: HashT,
@@ -273,24 +273,24 @@ where
 //     }
 }
 
-impl<const BRANCH_FACTOR: usize, const HEIGHT: usize, const MAX_PROOF_HEIGHT: usize, H, PB> HeaplessTreeT<H, PB> 
-    for HeaplessTree<BRANCH_FACTOR, HEIGHT, MAX_PROOF_HEIGHT, H, PB> 
+impl<const BRANCH_FACTOR: usize, const HEIGHT: usize, H, PB> HeaplessTreeT<H, PB> 
+    for HeaplessTree<BRANCH_FACTOR, HEIGHT, H, PB> 
 //impl<const BRANCH_FACTOR: usize, const HEIGHT: usize, H> HeaplessTreeT<H, ProofItem<BRANCH_FACTOR, H>> for HeaplessTree<BRANCH_FACTOR, HEIGHT, H> 
 where
     [(); total_size!(BRANCH_FACTOR, HEIGHT)]: Sized,
-    [(); MAX_PROOF_HEIGHT - 1]: Sized,
+//    [(); HEIGHT - 1]: Sized,
     H: HashT,
     PB: ProofBuilder<H>,
 {
 //    type Proof = Proof<BRANCH_FACTOR, HEIGHT, H> where [(); HEIGHT - 1]: Sized;
-//    type Proof = Proof<BRANCH_FACTOR, MAX_PROOF_HEIGHT, H> where [(); MAX_PROOF_HEIGHT]: Sized;
+//    type Proof = Proof<BRANCH_FACTOR, H> where [(); MAX_PROOF_HEIGHT]: Sized;
 
     /// generate proof at given index on base layer
     /// panics on index out of bounds ( >= leaf number )
 //    fn generate_proof(&mut self, index: usize, proof: &mut PB) {
     fn generate_proof(&mut self, index: usize) -> PB {
         let mut proof = PB::from_root(self.root());
-        //    type Proof = Proof<BRANCH_FACTOR, MAX_PROOF_HEIGHT, H> where [(); MAX_PROOF_HEIGHT]: Sized;
+        //    type Proof = Proof<BRANCH_FACTOR, H> where [(); MAX_PROOF_HEIGHT]: Sized;
 
         let mut layer_base = 0;
         let mut index = index;
@@ -358,8 +358,8 @@ where
     }
 }
 
-impl<const BRANCH_FACTOR: usize, const HEIGHT: usize, const MAX_PROOF_HEIGHT: usize, H, PB> Clone 
-    for HeaplessTree<BRANCH_FACTOR, HEIGHT, MAX_PROOF_HEIGHT, H, PB> 
+impl<const BRANCH_FACTOR: usize, const HEIGHT: usize, H, PB> Clone 
+    for HeaplessTree<BRANCH_FACTOR, HEIGHT, H, PB> 
 where
     [(); total_size!(BRANCH_FACTOR, HEIGHT)]: Sized,
     H: HashT,
@@ -372,16 +372,16 @@ where
     }
 }
 
-impl<const BRANCH_FACTOR: usize, const HEIGHT: usize, const MAX_PROOF_HEIGHT: usize, H, PB> Copy 
-    for HeaplessTree<BRANCH_FACTOR, HEIGHT, MAX_PROOF_HEIGHT, H, PB> 
+impl<const BRANCH_FACTOR: usize, const HEIGHT: usize, H, PB> Copy 
+    for HeaplessTree<BRANCH_FACTOR, HEIGHT, H, PB> 
 where
     [(); total_size!(BRANCH_FACTOR, HEIGHT)]: Sized,
     H: HashT,
     PB: ProofBuilder<H>,
 {}
 
-impl<const BRANCH_FACTOR: usize, const HEIGHT: usize, const MAX_PROOF_HEIGHT: usize, H, PB> PartialEq 
-    for HeaplessTree<BRANCH_FACTOR, HEIGHT, MAX_PROOF_HEIGHT, H, PB> 
+impl<const BRANCH_FACTOR: usize, const HEIGHT: usize, H, PB> PartialEq 
+    for HeaplessTree<BRANCH_FACTOR, HEIGHT, H, PB> 
 where
     [(); total_size!(BRANCH_FACTOR, HEIGHT)]: Sized,
     H: HashT,
@@ -392,8 +392,8 @@ where
     }
 }
 
-impl <const BRANCH_FACTOR: usize, const HEIGHT: usize, const MAX_PROOF_HEIGHT: usize, H, PB> Debug 
-    for HeaplessTree<BRANCH_FACTOR, HEIGHT, MAX_PROOF_HEIGHT, H, PB> 
+impl <const BRANCH_FACTOR: usize, const HEIGHT: usize, H, PB> Debug 
+    for HeaplessTree<BRANCH_FACTOR, HEIGHT, H, PB> 
 where
     [(); total_size!(BRANCH_FACTOR, HEIGHT)]: Sized,
     H: HashT,

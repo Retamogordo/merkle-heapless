@@ -104,7 +104,7 @@ use std::{
 // use core::fmt::Debug;
 
 use merkle_heapless::{total_size, layer_size, HashT, ProofBuilder, ProofItem, HeaplessTreeT, HeaplessTree, HeaplessBinaryTree};
-use merkle_heapless::compactable::{CompactableHeaplessTree};
+//use merkle_heapless::compactable::{CompactableHeaplessTree};
 
 // fn foo() {
 //     x = Vec::<Box<dyn HeaplessTreeT<H, ProofItem<2, H>>>>::new();
