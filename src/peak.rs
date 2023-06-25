@@ -1,10 +1,90 @@
 use crate::{HashT, HeaplessTreeT,  HeaplessTree, ProofT, ProofItem, total_size, layer_size};
 use crate::compactable::{CompactableHeaplessTree};
 
+#[macro_export]
+macro_rules! apply {
+    ($peak: expr, $func:ident, $($args:expr),*) => {
+        match $peak {
+            Self::Forth(this) => this.$func($($args),*),
+            Self::Third(this) => this.$func($($args),*),
+            Self::Second(this) => this.$func($($args),*),
+            Self::First(this) => this.$func($($args),*),
+            Self::NonMergeable(this) => this.$func($($args),*),
+        }
+    };
+}
+
 pub struct PeakProof<H: HashT> {
-    items: Vec<ProofItem<2, H>>,
-//    items: Vec<<Self as ProofT<H>>::Item>,
-//    items: [ProofItem<BRANCH_FACTOR, H>; HEIGHT - 1]
+    root: H::Output,
+//    items: Vec<ProofItem<2, H>>,
+    items: Vec<<Self as ProofT<H>>::Item>,
+}
+
+impl<H: HashT> PeakProof<H> {
+    fn from_tree_proof<T: ProofT<H, Item = <Self as ProofT<H>>::Item>>(proof: T) -> Self {
+//        fn from_tree_proof<T: ProofT<H, ProofItem<2, H>>>(proof: T) -> Self {
+        let (root, items) = proof.as_raw();
+        Self {
+            root,
+            items: items.to_vec(),
+        }
+    }
+} 
+
+// impl<H: HashT> From<( &[Self::Item], H::Output )> for PeakProof<H> {
+//     fn from(items_and_root: ( &[Self::Item], H::Output )) -> Self {
+//         Self {
+//             root: items_and_root.1,
+//             items: items_and_root.0.into_iter().map(Self::Item::clone).collect(),
+//         }
+//     }
+// }
+// impl<H: HashT> From<( &[ProofItem<2, H>], H::Output )> for PeakProof<H> {
+//     fn from(items_and_root: ( &[ProofItem<2, H>], H::Output )) -> Self {
+//         Self {
+//             root: items_and_root.1,
+//             items: items_and_root.0.into_iter().map(ProofItem::<2, H>::clone).collect(),
+//         }
+//     }
+// }
+
+impl<H: HashT> ProofT<H> for PeakProof<H> {
+    type Item = ProofItem<2, H>;
+
+    fn root(&self) -> H::Output {
+        self.root
+    } 
+    fn set_root(&mut self, root: H::Output) {
+        self.root = root;
+    }
+
+
+//    fn push_item(&mut self, item: ProofItem<2, H>) {
+    fn push_item(&mut self, item: Self::Item) {
+        self.items.push(item);
+    }
+    // SHOULD BE UNIMPLEMENTED
+    fn validate(self, input: &[u8]) -> bool {
+        let mut curr_hash = Some(H::hash(&input));
+        for item in self.items {
+            curr_hash = curr_hash.and_then(|h| item.hash_with_siblings(h));
+        }
+        curr_hash.as_ref() == Some(&self.root)
+    }
+    fn as_raw(&self) -> (H::Output, &[Self::Item]) {
+        (self.root, &self.items[..])
+    }
+
+}
+
+impl<H: HashT> Default for PeakProof<H>
+{
+    fn default() -> Self {
+        Self { 
+            root: Default::default(),
+            items: Default::default(), 
+        }
+    }
 }
 
 pub enum MerklePeak<H: HashT> {
@@ -14,6 +94,10 @@ pub enum MerklePeak<H: HashT> {
     Third(CompactableHeaplessTree<2, 2, H>),
     Forth(CompactableHeaplessTree<2, 1, H>),
 }
+
+// impl<H: HashT> MerklePeak<H> {
+//     fn convert_proof()
+// }
 
 impl<H: HashT> Clone for MerklePeak<H> {
     fn clone(&self) -> Self { 
@@ -36,157 +120,48 @@ impl<H: HashT> Default for MerklePeak<H> {
 
 impl<H: HashT> Copy for MerklePeak<H> {}
 
-// impl<H: HashT> PeakProof<H> {
-//     pub fn next(&self) -> Self 
-// }
-
-impl<H: HashT> ProofT<H, ProofItem<2, H>> for PeakProof<H> {
-
-    fn push_item(&mut self, item: ProofItem<2, H>) {
-//        fn push_item(&mut self, item: Self::Item) {
-        self.items.push(item);
-    }
-    // SHOULD BE UNIMPLEMENTED
-    fn validate(self, root: &H::Output, input: &[u8]) -> bool {
-        let mut curr_hash = Some(H::hash(&input));
-        for item in self.items {
-            curr_hash = curr_hash.and_then(|h| item.hash_with_siblings(h));
-        }
-        curr_hash.as_ref() == Some(root)
-    }
-}
-
-// impl <H: HashT> IntoIterator for PeakProof<H> {
-//     type Item = ProofItem<2, H>;
-//     type IntoIter = <Vec<ProofItem<2, H>> as IntoIterator>::IntoIter;
-
-//     fn into_iter(self) -> <Self as IntoIterator>::IntoIter {
-//         self.items.into_iter()
-//     }
-// }
-
-
-impl<H: HashT> Default for PeakProof<H>
-{
-    fn default() -> Self {
-        Self { 
-            items: Default::default(), 
-        }
-    }
-}
-
-#[macro_export]
-macro_rules! apply {
-    ($peak: expr, $func:ident, $($args:expr),*) => {
-        match $peak {
-            Self::Forth(this) => this.$func($($args),*),
-            Self::Third(this) => this.$func($($args),*),
-            Self::Second(this) => this.$func($($args),*),
-            Self::First(this) => this.$func($($args),*),
-            Self::NonMergeable(this) => this.$func($($args),*),
-        }
-    };
-}
-
-impl<H: HashT> HeaplessTreeT<H, ProofItem<2, H>> for MerklePeak<H> 
+impl<H: HashT> HeaplessTreeT<H> for MerklePeak<H> 
 {
     type Proof = PeakProof<H>;
 
-    fn generate_proof(&mut self, index: usize) -> (H::Output, Self::Proof) {
-        let (root, items) = match self {
-            Self::Forth(this) => {
-                let (root, proof) = this.generate_proof(index); 
-                let items = proof.items[..proof.curr_index].into_iter().map(|item| item.clone()).collect();
-                (root, items)
-            },
-            Self::Third(this) => {
-                let (root, proof) = this.generate_proof(index); 
-                let items = proof.items[..proof.curr_index].into_iter().map(|item| item.clone()).collect();
-                (root, items)
-            },
-            Self::Second(this) => {
-                let (root, proof) = this.generate_proof(index); 
-                let items = proof.items[..proof.curr_index].into_iter().map(|item| item.clone()).collect();
-                (root, items)
-            },
-            Self::First(this) => {
-                let (root, proof) = this.generate_proof(index); 
-                let items = proof.items[..proof.curr_index].into_iter().map(|item| item.clone()).collect();
-                (root, items)
-            },
-            Self::NonMergeable(this) => {
-                let (root, proof) = this.generate_proof(index); 
-                let items = proof.items[..proof.curr_index].into_iter().map(|item| item.clone()).collect();
-//                let items = proof.into_iter().collect();
-                (root, items)
-            },
-            _ => unimplemented!(),
-            // Self::Second(this) => this.$func($($args),*),
-            // Self::First(this) => this.$func($($args),*),
-            // Self::NonMergeable(this) => this.$func($($args),*),
-        };
-
-//        let (root, proof) = self.tree().generate_proof(index);
-        (
-            root,
-            Self::Proof { 
-                items,
-            }
-        )
+    fn generate_proof(&mut self, index: usize) -> Self::Proof {
+        use MerklePeak::*;
+        match self {
+            NonMergeable(this) => Self::Proof::from_tree_proof(this.generate_proof(index)),
+            Forth(this) => Self::Proof::from_tree_proof(this.generate_proof(index)),
+            Third(this) => Self::Proof::from_tree_proof(this.generate_proof(index)),
+            Second(this) => Self::Proof::from_tree_proof(this.generate_proof(index)),
+            First(this) => Self::Proof::from_tree_proof(this.generate_proof(index)),
+        }
     }
 
     fn replace(&mut self, index: usize, input: &[u8]) {
-//        self.tree().replace(index, input);
         apply!(self, replace, index, input)
     }
-
     fn remove(&mut self, index: usize) {
-//        self.tree().remove(index);
         apply!(self, remove, index)
     }
     fn root(&self) -> H::Output {
         apply!(self, root,)
-//        self.tree().root()
     }
-
     fn leaves(&self) -> &[H::Output] {
         apply!(self, leaves,)
-//        &self.tree().leaves()
     }
-
     fn base_layer_size(&self) -> usize {
         apply!(self, base_layer_size,)
-//        self.tree().base_layer_size()
-    }
-    
+    }    
     fn branch_factor(&self) -> usize {
         apply!(self, branch_factor,)
-//        self.tree().branch_factor()
     }
-
     fn height(&self) -> usize {
         apply!(self, height,)
-//        self.tree().height()
     }
 }
 
 impl<H: HashT> MerklePeak<H> {
-    pub fn foo(&self) -> usize {
-        apply!(self, height,)
-    }
     pub fn try_append(&mut self, input: &[u8]) -> Result<(), ()> {
         apply!(self, try_append, input)
     }
-    // pub fn try_append(&mut self, input: &[u8]) -> Result<(), ()> {
-    //     use MerklePeak::{*};
-    //     match self {
-    //         Forth(this) => this.try_append(input),
-    //         Third(this) => this.try_append(input),
-    //         Second(this) => this.try_append(input),
-    //         First(this) => this.try_append(input),
-    //         NonMergeable(this) => this.try_append(input),
-    //     }
-    // }
 
     pub fn try_merge(self, other: Self) -> Result<Self, Self> {
         use MerklePeak::{*};

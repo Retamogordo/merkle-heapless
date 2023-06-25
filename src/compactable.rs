@@ -164,7 +164,8 @@ where
     }
 }
 
-impl<const BRANCH_FACTOR: usize, const HEIGHT: usize, H> HeaplessTreeT<H, ProofItem<BRANCH_FACTOR, H>> for CompactableHeaplessTree<BRANCH_FACTOR, HEIGHT, H> 
+impl<const BRANCH_FACTOR: usize, const HEIGHT: usize, H> HeaplessTreeT<H> for CompactableHeaplessTree<BRANCH_FACTOR, HEIGHT, H> 
+//impl<const BRANCH_FACTOR: usize, const HEIGHT: usize, H> HeaplessTreeT<H, ProofItem<BRANCH_FACTOR, H>> for CompactableHeaplessTree<BRANCH_FACTOR, HEIGHT, H> 
 where
     [(); total_size!(BRANCH_FACTOR, HEIGHT)]: Sized,
     [(); layer_size!(BRANCH_FACTOR, HEIGHT, 0)]: Sized,
@@ -173,7 +174,7 @@ where
 {
     type Proof = Proof<BRANCH_FACTOR, HEIGHT, H> where [(); HEIGHT - 1]: Sized;
 
-    fn generate_proof(&mut self, index: usize) -> (H::Output, Self::Proof) {
+    fn generate_proof(&mut self, index: usize) -> Self::Proof {
         self.tree.generate_proof(index)
     }
 

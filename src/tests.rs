@@ -55,9 +55,9 @@ mod tests {
             b"apple", b"banana", b"kiwi", b"kotleta",
         ]);
         let word_index = 7;
-        let (root, proof) = mt.as_mut().unwrap().generate_proof(word_index);
+        let proof = mt.as_mut().unwrap().generate_proof(word_index);
         let word = "kiwi";
-        let res = proof.validate(&root, word.as_bytes());
+        let res = proof.validate(word.as_bytes());
         println!(
             "word: {:?} {} validated, proof was generated for word at index {}",
             word,
@@ -77,7 +77,7 @@ mod tests {
             b"apple", b"banana", b"kiwi", b"kotleta",
         ]);
         let word_index = 8;
-        let (_root, _proof) = mt.as_mut().unwrap().generate_proof(word_index);
+        let _proof = mt.as_mut().unwrap().generate_proof(word_index);
     }
 
     #[test]
@@ -86,9 +86,9 @@ mod tests {
             b"apple", b"banana", b"kiwi", b"kotleta",
         ]);
         let word_index = 7;
-        let (root, proof) = mt.as_mut().unwrap().generate_proof(word_index);
+        let proof = mt.as_mut().unwrap().generate_proof(word_index);
         let word: &str = Default::default();
-        let res = proof.validate(&root, word.as_bytes());
+        let res = proof.validate(word.as_bytes());
         println!(
             "word: {:?} {} validated, proof was generated for word at index {}",
             word,
@@ -119,9 +119,9 @@ mod tests {
 
         mt.as_mut().unwrap().replace(word_index, b"ciruela");
 
-        let (root, proof) = mt.as_mut().unwrap().generate_proof(word_index);
+        let proof = mt.as_mut().unwrap().generate_proof(word_index);
         let word = "ciruela";
-        let res = proof.validate(&root, word.as_bytes());
+        let res = proof.validate(word.as_bytes());
         println!(
             "word: {:?} {} validated, proof was generated for word at index {}",
             word,
@@ -150,9 +150,9 @@ mod tests {
 
         mt.as_mut().unwrap().replace(word_index, b"ciruela");
 
-        let (root, proof) = mt.as_mut().unwrap().generate_proof(word_index);
+        let proof = mt.as_mut().unwrap().generate_proof(word_index);
         let word = "ciruela";
-        let res = proof.validate(&root, word.as_bytes());
+        let res = proof.validate(word.as_bytes());
         println!(
             "word: {:?} {} validated, proof was generated for word at index {}",
             word,
@@ -173,9 +173,9 @@ mod tests {
 
         mt.as_mut().unwrap().replace(word_index, b"ciruela");
 
-        let (root, proof) = mt.as_mut().unwrap().generate_proof(word_index);
+        let proof = mt.as_mut().unwrap().generate_proof(word_index);
         let word = "ciruela";
-        let res = proof.validate(&root, word.as_bytes());
+        let res = proof.validate(word.as_bytes());
         println!(
             "word: {:?} {} validated, proof was generated for word at index {}",
             word,
@@ -196,9 +196,9 @@ mod tests {
 
         mt.as_mut().unwrap().replace(word_index, b"ciruela");
 
-        let (root, proof) = mt.as_mut().unwrap().generate_proof(word_index);
+        let proof = mt.as_mut().unwrap().generate_proof(word_index);
         let word = "ciruela";
-        let res = proof.validate(&root, word.as_bytes());
+        let res = proof.validate(word.as_bytes());
         println!(
             "word: {:?} {} validated, proof was generated for word at index {}",
             word,
@@ -219,9 +219,9 @@ mod tests {
 
         mt.as_mut().unwrap().replace(word_index, b"ciruela");
 
-        let (root, proof) = mt.as_mut().unwrap().generate_proof(word_index);
+        let proof = mt.as_mut().unwrap().generate_proof(word_index);
         let word = "ciruela";
-        let res = proof.validate(&root, word.as_bytes());
+        let res = proof.validate(word.as_bytes());
         println!(
             "word: {:?} {} validated, proof was generated for word at index {}",
             word,
@@ -261,10 +261,10 @@ mod tests {
         );
 
         for (i, w) in test_words.iter().enumerate() {
-            let (root, proof) = mt.as_mut().unwrap().generate_proof(i);
+            let proof = mt.as_mut().unwrap().generate_proof(i);
 //            println!("testing -> {w}, proof: {:?}", proof);
             println!("testing -> {w}");
-            let res = proof.validate(&root, w.as_bytes());
+            let res = proof.validate(w.as_bytes());
             assert!(res);
         }
     }
@@ -290,10 +290,10 @@ mod tests {
 //        println!("{:?}", mt.as_ref().unwrap());
 
         for (i, w) in test_words.iter().enumerate() {
-            let (root, proof) = mt.as_mut().unwrap().generate_proof(i);
+            let proof = mt.as_mut().unwrap().generate_proof(i);
 //            println!("testing -> {w}, proof: {:?}", proof);
             println!("testing -> {w}");
-            let res = proof.validate(&root, w.as_bytes());
+            let res = proof.validate(w.as_bytes());
             assert!(res);
         }
     }
@@ -362,28 +362,28 @@ mod tests {
     //     ).unwrap();
     //     let mut foo = Foo::from_base_trees([mt1, mt2].try_into().unwrap());
         
-    //     let (root, proof) = foo.generate_proof(0);
-    //     let res = proof.validate(&root, b"apple");        
+    //     let proof = foo.generate_proof(0);
+    //     let res = proof.validate(b"apple");        
     //     assert!(res);
 
-    //     let (root, proof) = foo.generate_proof(1);
-    //     let res = proof.validate(&root, b"apricot");        
+    //     let proof = foo.generate_proof(1);
+    //     let res = proof.validate(b"apricot");        
     //     assert!(res);
 
-    //     let (root, proof) = foo.generate_proof(2);
-    //     let res = proof.validate(&root, b"asai");        
+    //     let proof = foo.generate_proof(2);
+    //     let res = proof.validate(b"asai");        
     //     assert!(res);
 
-    //     let (root, proof) = foo.generate_proof(3);
-    //     let res = proof.validate(&root, b"avocado");        
+    //     let proof = foo.generate_proof(3);
+    //     let res = proof.validate(b"avocado");        
     //     assert!(res);
 
-    //     let (root, proof) = foo.generate_proof(4);
-    //     let res = proof.validate(&root, b"banana");        
+    //     let proof = foo.generate_proof(4);
+    //     let res = proof.validate(b"banana");        
     //     assert!(res);
 
-    //     let (root, proof) = foo.generate_proof(5);
-    //     let res = proof.validate(&root, b"blueberry");        
+    //     let proof = foo.generate_proof(5);
+    //     let res = proof.validate(b"blueberry");        
     //     assert!(res);
     // }
 
@@ -395,28 +395,28 @@ mod tests {
     //         &[b"apple", b"apricot", b"asai", b"avocado", b"banana", b"blueberry"]
     //     ).unwrap();
         
-    //     let (root, proof) = foo.generate_proof(0);
-    //     let res = proof.validate(&root, b"apple");        
+    //     let proof = foo.generate_proof(0);
+    //     let res = proof.validate(b"apple");        
     //     assert!(res);
 
-    //     let (root, proof) = foo.generate_proof(1);
-    //     let res = proof.validate(&root, b"apricot");        
+    //     let proof = foo.generate_proof(1);
+    //     let res = proof.validate(b"apricot");        
     //     assert!(res);
 
-    //     let (root, proof) = foo.generate_proof(2);
-    //     let res = proof.validate(&root, b"asai");        
+    //     let proof = foo.generate_proof(2);
+    //     let res = proof.validate(b"asai");        
     //     assert!(res);
 
-    //     let (root, proof) = foo.generate_proof(3);
-    //     let res = proof.validate(&root, b"avocado");        
+    //     let proof = foo.generate_proof(3);
+    //     let res = proof.validate(b"avocado");        
     //     assert!(res);
 
-    //     let (root, proof) = foo.generate_proof(4);
-    //     let res = proof.validate(&root, b"banana");        
+    //     let proof = foo.generate_proof(4);
+    //     let res = proof.validate(b"banana");        
     //     assert!(res);
 
-    //     let (root, proof) = foo.generate_proof(5);
-    //     let res = proof.validate(&root, b"blueberry");        
+    //     let proof = foo.generate_proof(5);
+    //     let res = proof.validate(b"blueberry");        
     //     assert!(res);
     // }
 
@@ -465,10 +465,10 @@ mod tests {
         let mut cmt = cmt.try_compact();
 
         for (i, w) in words.iter().enumerate() {
-            let (root, proof) = cmt.as_mut().unwrap().generate_proof(i);
+            let proof = cmt.as_mut().unwrap().generate_proof(i);
 //            println!("testing -> {w}, proof: {:?}", proof);
             println!("testing -> {w}");
-            let res = proof.validate(&root, w.as_bytes());
+            let res = proof.validate(w.as_bytes());
             assert!(res);
         }
     }
@@ -495,10 +495,10 @@ mod tests {
         let mut cmt = cmt.try_compact();
 
         for (i, w) in test_words.iter().enumerate() {
-            let (root, proof) = cmt.as_mut().unwrap().generate_proof(i);
+            let proof = cmt.as_mut().unwrap().generate_proof(i);
 //            println!("testing -> {w}, proof: {:?}", proof);
             println!("testing -> {w}");
-            let res = proof.validate(&root, w.as_bytes());
+            let res = proof.validate(w.as_bytes());
             assert!(res);
         }
     }
@@ -529,9 +529,9 @@ mod tests {
         let mut cmt = cmt.try_compact();
 
         for (i, w) in test_words.iter().enumerate() {
-            let (root, proof) = cmt.as_mut().unwrap().generate_proof(i);
+            let proof = cmt.as_mut().unwrap().generate_proof(i);
             println!("testing -> {w}");
-            let res = proof.validate(&root, w.as_bytes());
+            let res = proof.validate(w.as_bytes());
             assert!(res);
         }
     }
@@ -560,9 +560,9 @@ mod tests {
         .unwrap();
 
         for (i, w) in test_words.iter().enumerate() {
-            let (root, proof) = mt.generate_proof(i);
+            let proof = mt.generate_proof(i);
             println!("testing -> {w}");
-            let res = proof.validate(&root, w.as_bytes());
+            let res = proof.validate(w.as_bytes());
             assert!(res);
         }
     }
@@ -596,9 +596,9 @@ mod tests {
         let mut cmt = cmt1.try_merge(cmt2).unwrap();
 
         for (i, w) in test_words.iter().enumerate() {
-            let (root, proof) = cmt.generate_proof(i);
+            let proof = cmt.generate_proof(i);
             println!("testing -> {w}");
-            let res = proof.validate(&root, w.as_bytes());
+            let res = proof.validate(w.as_bytes());
             assert!(res);
         }
         assert_eq!(cmt.height(), HEIGHT_1 + 1);
@@ -633,9 +633,9 @@ mod tests {
         let mut cmt = cmt1.try_merge(cmt2).unwrap();
 
         for (i, w) in test_words.iter().enumerate() {
-            let (root, proof) = cmt.generate_proof(i);
+            let proof = cmt.generate_proof(i);
             println!("testing -> {w}");
-            let res = proof.validate(&root, w.as_bytes());
+            let res = proof.validate(w.as_bytes());
             assert!(res);
         }
         assert_eq!(cmt.height(), HEIGHT_1 + 1);
@@ -673,9 +673,9 @@ mod tests {
         let mut cmt = cmt1.try_merge(cmt2).unwrap();
 
         for (i, w) in test_words.iter().enumerate() {
-            let (root, proof) = cmt.generate_proof(i);
+            let proof = cmt.generate_proof(i);
             println!("testing -> {w}");
-            let res = proof.validate(&root, w.as_bytes());
+            let res = proof.validate(w.as_bytes());
             assert!(res);
         }
         assert_eq!(cmt.height(), HEIGHT_1 + 1);
@@ -711,9 +711,9 @@ mod tests {
         let mut cmt = cmt1.try_compact_and_append(cmt2).unwrap();
 
         for (i, w) in test_words.iter().enumerate() {
-            let (root, proof) = cmt.generate_proof(i);
+            let proof = cmt.generate_proof(i);
             println!("testing -> {w}");
-            let res = proof.validate(&root, w.as_bytes());
+            let res = proof.validate(w.as_bytes());
             assert!(res);
         }
         assert_eq!(cmt.height(), HEIGHT_1);
@@ -740,9 +740,9 @@ mod tests {
         cmt.try_append(b"kotleta").unwrap();
 
         for (i, w) in test_words.iter().enumerate() {
-            let (root, proof) = cmt.generate_proof(i);
+            let proof = cmt.generate_proof(i);
             println!("testing -> {w}");
-            let res = proof.validate(&root, w.as_bytes());
+            let res = proof.validate(w.as_bytes());
             assert!(res);
         }
     }
@@ -786,8 +786,8 @@ mod tests {
         first_peak.try_append(b"kiwi").unwrap();
         assert_eq!(first_peak.num_of_leaves(), 4);
 
-        let (root, proof) = first_peak.generate_proof(3);
-        let res = proof.validate(&root, b"kiwi");
+        let proof = first_peak.generate_proof(3);
+        let res = proof.validate(b"kiwi");
 
         let mut mmr = MerkleMR::<PEAKS, StdHash>::from(first_peak);
 
@@ -828,8 +828,8 @@ mod tests {
         if let Ok(mut new_peak) = peak1.try_merge(peak2) {
             assert_eq!(new_peak.num_of_leaves(), 5);
 
-            let (root, proof) = new_peak.generate_proof(3);
-            let res = proof.validate(&root, b"cherry");
+            let proof = new_peak.generate_proof(3);
+            let res = proof.validate(b"cherry");
             assert!(res);
         } else {
             panic!("could not merge");
