@@ -103,7 +103,7 @@ use std::{
 // }
 // use core::fmt::Debug;
 
-use merkle_heapless::{total_size, layer_size, HashT, ProofT, ProofItem, HeaplessTreeT, HeaplessTree, HeaplessBinaryTree};
+use merkle_heapless::{total_size, layer_size, HashT, ProofBuilder, ProofItem, HeaplessTreeT, HeaplessTree, HeaplessBinaryTree};
 use merkle_heapless::compactable::{CompactableHeaplessTree};
 
 // fn foo() {
@@ -182,7 +182,7 @@ struct MyTree {
 // impl IsTrue for Assert<true> {}
 
 fn main() {
-    let left = CompactableHeaplessTree::<2, 3, StdHash>::try_from(&[b"apple"]).unwrap();
+//    let left = CompactableHeaplessTree::<2, 3, 5, StdHash>::try_from(&[b"apple"]).unwrap();
     // let mut cons = MerkleCons::new(left);
 
     // let left_next = CompactableHeaplessTree::<2, 2, StdHash>::try_from(&[b"banana"]).unwrap();

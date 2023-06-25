@@ -20,10 +20,36 @@ pub trait HashT {
     fn hash(input: &[u8]) -> Self::Output;
 }
 
-#[derive(Debug)]
+pub trait ProofItemT<H: HashT>: Clone + Default + Debug {
+    fn create(offset: usize, hashes: &[H::Output]) -> Self;
+    fn hash_with_siblings(self, word_hash: H::Output) -> Option<H::Output>;
+}
+
+//#[derive(Debug)]
 pub struct ProofItem<const BRANCH_FACTOR: usize, H: HashT> {
     hashes: Option<[H::Output; BRANCH_FACTOR]>,
     offset: usize,
+}
+
+impl<const BRANCH_FACTOR: usize, H: HashT> ProofItemT<H> for ProofItem<BRANCH_FACTOR, H> {
+
+    fn create(offset: usize, hashes: &[H::Output]) -> Self {
+        Self {
+            offset,
+            hashes: hashes[..BRANCH_FACTOR].try_into().ok()
+        }
+    }
+
+    fn hash_with_siblings(mut self, word_hash: H::Output) -> Option<H::Output> {
+        let bytes_in_chunk: usize = BRANCH_FACTOR * size_of::<H::Output>();
+
+        self.hashes
+            .as_mut()
+            .map(|hashes| {
+                hashes[self.offset] = word_hash;
+                hash_merged_slice::<H>(&hashes[0..], bytes_in_chunk)
+            })
+    }
 }
 
 impl<const BRANCH_FACTOR: usize, H: HashT> Copy for ProofItem<BRANCH_FACTOR, H> {}
@@ -46,58 +72,61 @@ impl<const BRANCH_FACTOR: usize, H: HashT> Default for ProofItem<BRANCH_FACTOR, 
     }
 }
 
-impl<const BRANCH_FACTOR: usize, H: HashT> ProofItem<BRANCH_FACTOR, H> {
-    const BYTES_IN_CHUNK: usize = BRANCH_FACTOR * size_of::<H::Output>();
-
-    fn hash_with_siblings(mut self, word_hash: H::Output) -> Option<H::Output> {
-        self.hashes
-            .as_mut()
-            .map(|hashes| {
-                hashes[self.offset] = word_hash;
-                hash_merged_slice::<H>(&hashes[0..], Self::BYTES_IN_CHUNK)
-            })
+impl<const BRANCH_FACTOR: usize, H: HashT>  Debug for ProofItem<BRANCH_FACTOR, H> {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> Result<(), core::fmt::Error> { 
+        unimplemented!();
+        // writeln!(f, "[branch factor]:   {BRANCH_FACTOR}")?;
     }
 }
 
-pub trait ProofT<H: HashT>: Default {
-//    pub trait ProofT<H: HashT, Item>: Default {
-    type Item: Clone;
-//    type It: Iterator<Item = Self::Item>;
+
+pub trait ProofBuilder<H: HashT>: Default {
+    type Item: ProofItemT<H>;
+
+    fn from_root(root: H::Output) -> Self;
     fn root(&self) -> H::Output;
-    fn set_root(&mut self, root: H::Output);
-
-    fn validate(self, input: &[u8]) -> bool;
-//    fn set_item(&mut self, index: usize, item: Self::Item);
-//    fn items_iter(&self) -> Self::It;
-
     fn push_item(&mut self, item: Self::Item);
     fn as_raw(&self) -> (H::Output, &[Self::Item]);
-//fn push_item(&mut self, item: Self::Item);
+}
+
+pub trait ProofValidator {
+    fn validate(self, input: &[u8]) -> bool;
 }
 
 pub struct Proof<const BRANCH_FACTOR: usize, const HEIGHT: usize, H: HashT>
 where [(); HEIGHT - 1]: Sized {
     root: H::Output,
-    curr_index: usize,
-    items: [<Self as ProofT<H>>::Item; HEIGHT - 1],
+    height: usize,
+    items: [<Self as ProofBuilder<H>>::Item; HEIGHT - 1],
 }
 
-impl <const BRANCH_FACTOR: usize, const HEIGHT: usize, H: HashT> ProofT<H> for Proof<BRANCH_FACTOR, HEIGHT, H>
+impl <const BRANCH_FACTOR: usize, const HEIGHT: usize, H: HashT> ProofBuilder<H> for Proof<BRANCH_FACTOR, HEIGHT, H>
 where [(); HEIGHT - 1]: Sized {
     type Item = ProofItem<BRANCH_FACTOR, H>;
 
+    fn from_root(root: H::Output) -> Self {
+        Self {
+            root,
+            items: [ProofItem::default(); HEIGHT - 1],
+            height: 0,
+        }
+    }
     fn root(&self) -> H::Output {
         self.root
     } 
-    fn set_root(&mut self, root: H::Output) {
-        self.root = root;
+
+    fn push_item(&mut self, item: Self::Item) {
+        self.items[self.height] = item;
+        self.height += 1;
     }
 
-//    fn push_item(&mut self, item: ProofItem<BRANCH_FACTOR, H>) {
-    fn push_item(&mut self, item: Self::Item) {
-        self.items[self.curr_index] = item;
-        self.curr_index += 1;
+    fn as_raw(&self) -> (H::Output, &[Self::Item]) {
+        (self.root, &self.items[..])
     }
+}
+
+impl<const BRANCH_FACTOR: usize, const HEIGHT: usize, H: HashT> ProofValidator for Proof<BRANCH_FACTOR, HEIGHT, H>
+where [(); HEIGHT - 1]: Sized {
     /// verifies that the input was contained in the Merkle tree that generated this proof
     fn validate(self, input: &[u8]) -> bool {
         let mut curr_hash = Some(H::hash(&input));
@@ -106,38 +135,30 @@ where [(); HEIGHT - 1]: Sized {
         // put the hash derived from input into the proof item
         // at index stored in the proof item
         // and hash it with the siblings
-        for item in self.items {
+        for item in &self.items[..self.height] {
             curr_hash = curr_hash.and_then(|h| item.hash_with_siblings(h));
         }
         // validated iff the resulting hash is identical to the root
         curr_hash.as_ref() == Some(&self.root)
     }
-
-    fn as_raw(&self) -> (H::Output, &[ProofItem<BRANCH_FACTOR, H>]) {
-        (self.root, &self.items[..])
-    }
-
 }
 
-impl <const BRANCH_FACTOR: usize, const HEIGHT: usize, H: HashT> Default for Proof<BRANCH_FACTOR, HEIGHT, H>
+impl<const BRANCH_FACTOR: usize, const HEIGHT: usize, H: HashT> Default for Proof<BRANCH_FACTOR, HEIGHT, H>
 where [(); HEIGHT - 1]: Sized {
     fn default() -> Self {
-        Self { 
+        Self {
             root: Default::default(),
-            curr_index: 0,
-            items: [<Self as ProofT<H>>::Item::default(); HEIGHT - 1] 
-//            items: [ProofItem::default(); HEIGHT - 1] 
+            items: [Default::default(); HEIGHT - 1],
+            height: 0,
         }
     }
 }
 
-pub trait HeaplessTreeT<H: HashT> {
-//    pub trait HeaplessTreeT<H: HashT, ProofItem> {
-//    type Proof: ProofT<H, ProofItem>;
-    type Proof: ProofT<H>;
+pub trait HeaplessTreeT<H: HashT, PB: ProofBuilder<H>> {
+//    type Proof: ProofBuilder<H>;
 
-    fn generate_proof(&mut self, index: usize) -> Self::Proof;
-//    fn generate_proof(&mut self, index: usize) -> (H::Output, Self::Proof);
+    fn generate_proof(&mut self, index: usize) -> PB;
+//    fn generate_proof(&mut self, index: usize, proof: &mut PB );
 
     fn replace(&mut self, index: usize, input: &[u8]);
     fn remove(&mut self, index: usize);
@@ -148,20 +169,23 @@ pub trait HeaplessTreeT<H: HashT> {
     fn height(&self) -> usize;
 } 
 
-pub type HeaplessBinaryTree<const HEIGHT: usize, H> = HeaplessTree<2, HEIGHT, H>;
+pub type HeaplessBinaryTree<const HEIGHT: usize, H, PB> = HeaplessTree<2, HEIGHT, HEIGHT, H, PB>;
 
-pub struct HeaplessTree<const BRANCH_FACTOR: usize, const HEIGHT: usize, H>
+pub struct HeaplessTree<const BRANCH_FACTOR: usize, const HEIGHT: usize, const MAX_PROOF_HEIGHT: usize, H, PB = Proof<BRANCH_FACTOR, HEIGHT, H>>
 where
     [(); total_size!(BRANCH_FACTOR, HEIGHT)]: Sized,
     H: HashT,
+    PB: ProofBuilder<H>,
 {
     hashes: [H::Output; total_size!(BRANCH_FACTOR, HEIGHT)],
 }
 
-impl<const BRANCH_FACTOR: usize, const HEIGHT: usize, H> HeaplessTree<BRANCH_FACTOR, HEIGHT,H>
+impl<const BRANCH_FACTOR: usize, const HEIGHT: usize, const MAX_PROOF_HEIGHT: usize, H, PB> 
+    HeaplessTree<BRANCH_FACTOR, HEIGHT, MAX_PROOF_HEIGHT, H, PB>
 where
     [(); total_size!(BRANCH_FACTOR, HEIGHT)]: Sized,
     H: HashT,
+    PB: ProofBuilder<H>,
 {
     const TOTAL_SIZE: usize = total_size!(BRANCH_FACTOR, HEIGHT);
     const BASE_LAYER_SIZE: usize = layer_size!(BRANCH_FACTOR, HEIGHT, 0);
@@ -234,28 +258,40 @@ where
         self
     }
     
-    fn parent_index_and_base(&self, curr_index: usize, layer: usize, layer_base: usize) -> (usize, usize) {
+    fn parent_index_and_base(&self, height: usize, layer: usize, layer_base: usize) -> (usize, usize) {
         let curr_layer_len = layer_size!(BRANCH_FACTOR, HEIGHT, layer);
         let parent_layer_base = layer_base + curr_layer_len;
-        let parent_index = parent_layer_base + (curr_index - layer_base) / BRANCH_FACTOR;
+        let parent_index = parent_layer_base + (height - layer_base) / BRANCH_FACTOR;
 
         (parent_index, parent_layer_base)
     }
+
+//     fn generate_proof_new(&mut self, index: usize) -> PB {
+//         let mut proof = PB::from_root(Default::default());
+// //        self.generate_proof(index, &mut proof);
+//         proof
+//     }
 }
 
-impl<const BRANCH_FACTOR: usize, const HEIGHT: usize, H> HeaplessTreeT<H> for HeaplessTree<BRANCH_FACTOR, HEIGHT, H> 
+impl<const BRANCH_FACTOR: usize, const HEIGHT: usize, const MAX_PROOF_HEIGHT: usize, H, PB> HeaplessTreeT<H, PB> 
+    for HeaplessTree<BRANCH_FACTOR, HEIGHT, MAX_PROOF_HEIGHT, H, PB> 
 //impl<const BRANCH_FACTOR: usize, const HEIGHT: usize, H> HeaplessTreeT<H, ProofItem<BRANCH_FACTOR, H>> for HeaplessTree<BRANCH_FACTOR, HEIGHT, H> 
 where
     [(); total_size!(BRANCH_FACTOR, HEIGHT)]: Sized,
-    [(); HEIGHT - 1]: Sized,
+    [(); MAX_PROOF_HEIGHT - 1]: Sized,
     H: HashT,
+    PB: ProofBuilder<H>,
 {
-    type Proof = Proof<BRANCH_FACTOR, HEIGHT, H> where [(); HEIGHT - 1]: Sized;
+//    type Proof = Proof<BRANCH_FACTOR, HEIGHT, H> where [(); HEIGHT - 1]: Sized;
+//    type Proof = Proof<BRANCH_FACTOR, MAX_PROOF_HEIGHT, H> where [(); MAX_PROOF_HEIGHT]: Sized;
 
     /// generate proof at given index on base layer
     /// panics on index out of bounds ( >= leaf number )
-    fn generate_proof(&mut self, index: usize) -> Self::Proof {
-        let mut proof = Self::Proof::default();
+//    fn generate_proof(&mut self, index: usize, proof: &mut PB) {
+    fn generate_proof(&mut self, index: usize) -> PB {
+        let mut proof = PB::from_root(self.root());
+        //    type Proof = Proof<BRANCH_FACTOR, MAX_PROOF_HEIGHT, H> where [(); MAX_PROOF_HEIGHT]: Sized;
+
         let mut layer_base = 0;
         let mut index = index;
 
@@ -263,15 +299,14 @@ where
             let offset = index & (BRANCH_FACTOR - 1); // index modulo BRANCH_FACTOR (power of 2)
             let aligned = index - offset;
 
-            proof.push_item(
-                ProofItem {
-                    hashes: self.hashes[aligned..aligned + BRANCH_FACTOR].try_into().ok(),
-                    offset,
-            });
+            proof.push_item(PB::Item::create(offset, &self.hashes[aligned..]));
+            //     ProofItem {
+            //         hashes: self.hashes[aligned..aligned + BRANCH_FACTOR].try_into().ok(),
+            //         offset,
+            // });
 
             (index, layer_base) = self.parent_index_and_base(index, layer, layer_base);
         }
-        proof.set_root(self.hashes[index]);
         proof
     }
 
@@ -323,10 +358,12 @@ where
     }
 }
 
-impl<const BRANCH_FACTOR: usize, const HEIGHT: usize, H> Clone for HeaplessTree<BRANCH_FACTOR, HEIGHT, H> 
+impl<const BRANCH_FACTOR: usize, const HEIGHT: usize, const MAX_PROOF_HEIGHT: usize, H, PB> Clone 
+    for HeaplessTree<BRANCH_FACTOR, HEIGHT, MAX_PROOF_HEIGHT, H, PB> 
 where
     [(); total_size!(BRANCH_FACTOR, HEIGHT)]: Sized,
     H: HashT,
+    PB: ProofBuilder<H>,
 {
     fn clone(&self) -> Self { 
         Self {
@@ -335,26 +372,32 @@ where
     }
 }
 
-impl<const BRANCH_FACTOR: usize, const HEIGHT: usize, H> Copy for HeaplessTree<BRANCH_FACTOR, HEIGHT, H> 
+impl<const BRANCH_FACTOR: usize, const HEIGHT: usize, const MAX_PROOF_HEIGHT: usize, H, PB> Copy 
+    for HeaplessTree<BRANCH_FACTOR, HEIGHT, MAX_PROOF_HEIGHT, H, PB> 
 where
     [(); total_size!(BRANCH_FACTOR, HEIGHT)]: Sized,
     H: HashT,
+    PB: ProofBuilder<H>,
 {}
 
-impl<const BRANCH_FACTOR: usize, const HEIGHT: usize, H> PartialEq for HeaplessTree<BRANCH_FACTOR, HEIGHT, H> 
+impl<const BRANCH_FACTOR: usize, const HEIGHT: usize, const MAX_PROOF_HEIGHT: usize, H, PB> PartialEq 
+    for HeaplessTree<BRANCH_FACTOR, HEIGHT, MAX_PROOF_HEIGHT, H, PB> 
 where
     [(); total_size!(BRANCH_FACTOR, HEIGHT)]: Sized,
     H: HashT,
+    PB: ProofBuilder<H>,
 {
     fn eq(&self, other: &Self) -> bool { 
         self.hashes == other.hashes    
     }
 }
 
-impl <const BRANCH_FACTOR: usize, const HEIGHT: usize, H> Debug for HeaplessTree<BRANCH_FACTOR, HEIGHT, H> 
+impl <const BRANCH_FACTOR: usize, const HEIGHT: usize, const MAX_PROOF_HEIGHT: usize, H, PB> Debug 
+    for HeaplessTree<BRANCH_FACTOR, HEIGHT, MAX_PROOF_HEIGHT, H, PB> 
 where
     [(); total_size!(BRANCH_FACTOR, HEIGHT)]: Sized,
     H: HashT,
+    PB: ProofBuilder<H>,
 {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> Result<(), core::fmt::Error> { 
         writeln!(f, "[branch factor]:   {BRANCH_FACTOR}")?;

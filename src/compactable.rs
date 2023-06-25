@@ -1,25 +1,30 @@
 use core::fmt::Debug;
 
-use crate::{HashT, HeaplessTreeT,  HeaplessTree, Proof, ProofItem, total_size, layer_size};
+use crate::{HashT, HeaplessTreeT,  HeaplessTree, Proof, ProofItem, ProofBuilder, total_size, layer_size};
 
-pub struct CompactableHeaplessTree<const BRANCH_FACTOR: usize, const HEIGHT: usize, H>
+pub struct CompactableHeaplessTree<const BRANCH_FACTOR: usize, const HEIGHT: usize, const MAX_PROOF_HEIGHT: usize, H, PB>
 where
     [(); total_size!(BRANCH_FACTOR, HEIGHT)]: Sized,
     [(); layer_size!(BRANCH_FACTOR, HEIGHT, 0)]: Sized,
     [(); HEIGHT - 1]: Sized,
+    [(); MAX_PROOF_HEIGHT - 1]: Sized,
     H: HashT,
+    PB: ProofBuilder<H>,
 {
-    tree: HeaplessTree<BRANCH_FACTOR, HEIGHT, H>,
+    tree: HeaplessTree<BRANCH_FACTOR, HEIGHT, MAX_PROOF_HEIGHT, H, PB>,
     num_of_leaves: usize,
     leaves_present: [bool; layer_size!(BRANCH_FACTOR, HEIGHT, 0)],
 }
 
-impl<const BRANCH_FACTOR: usize, const HEIGHT: usize, H> CompactableHeaplessTree<BRANCH_FACTOR, HEIGHT,H>
+impl<const BRANCH_FACTOR: usize, const HEIGHT: usize, const MAX_PROOF_HEIGHT: usize, H, PB> 
+    CompactableHeaplessTree<BRANCH_FACTOR, HEIGHT, MAX_PROOF_HEIGHT, H, PB>
 where
     [(); total_size!(BRANCH_FACTOR, HEIGHT)]: Sized,
     [(); layer_size!(BRANCH_FACTOR, HEIGHT, 0)]: Sized,
     [(); HEIGHT - 1]: Sized,
+    [(); MAX_PROOF_HEIGHT - 1]: Sized,
     H: HashT,
+    PB: ProofBuilder<H>,
 {
     // panics if HEIGHT == 0
     pub fn try_from(input: &[&[u8]]) -> Result<Self, ()> {
@@ -69,30 +74,37 @@ where
         Ok(leaves)
     }
 
-    pub fn try_compact(self) -> Result<CompactableHeaplessTree<BRANCH_FACTOR, {HEIGHT - 1}, H>, Self> 
+    pub fn try_compact(self) -> Result<CompactableHeaplessTree<BRANCH_FACTOR, {HEIGHT - 1}, {MAX_PROOF_HEIGHT - 1}, H, PB>, Self> 
     where
         [(); total_size!(BRANCH_FACTOR, {HEIGHT - 1})]: Sized,
         [(); layer_size!(BRANCH_FACTOR, {HEIGHT - 1}, 0)]: Sized,
         [(); {HEIGHT - 1} - 1]: Sized,
+        [(); {MAX_PROOF_HEIGHT - 1} - 1]: Sized,
         H: HashT, 
+        PB: ProofBuilder<H>,
     {
         self.compacted_leaves::<{HEIGHT - 1}>()
             .and_then(|leaves| 
-                CompactableHeaplessTree::<BRANCH_FACTOR, {HEIGHT - 1}, H>::try_from_compacted(&leaves, self.num_of_leaves()))
+                CompactableHeaplessTree::<BRANCH_FACTOR, {HEIGHT - 1}, {MAX_PROOF_HEIGHT - 1}, H, PB>::try_from_compacted(&leaves, self.num_of_leaves()))
             .map_err(|_| self)
     }
 
-    pub fn try_merge<const OTHER_HEIGHT: usize>(self, other: CompactableHeaplessTree<BRANCH_FACTOR, OTHER_HEIGHT, H>) 
-        -> Result<CompactableHeaplessTree<BRANCH_FACTOR, {HEIGHT + 1}, H>, Self> 
+    pub fn try_merge<const OTHER_HEIGHT: usize, const OTHER_MAX_PROOF_HEIGHT: usize>(
+        self, 
+        other: CompactableHeaplessTree<BRANCH_FACTOR, OTHER_HEIGHT, OTHER_MAX_PROOF_HEIGHT, H, PB>
+    ) -> Result<CompactableHeaplessTree<BRANCH_FACTOR, {HEIGHT + 1}, MAX_PROOF_HEIGHT, H, PB>, Self> 
     where
         [(); total_size!(BRANCH_FACTOR, {HEIGHT + 1})]: Sized,
         [(); layer_size!(BRANCH_FACTOR, {HEIGHT + 1}, 0)]: Sized,
         [(); {HEIGHT + 1} - 1]: Sized,
+        [(); MAX_PROOF_HEIGHT - 1]: Sized,
 
         [(); total_size!(BRANCH_FACTOR, OTHER_HEIGHT)]: Sized,
         [(); layer_size!(BRANCH_FACTOR, OTHER_HEIGHT, 0)]: Sized,
         [(); OTHER_HEIGHT - 1]: Sized,
+        [(); OTHER_MAX_PROOF_HEIGHT - 1]: Sized,
         H: HashT, 
+        PB: ProofBuilder<H>,
     {
         // height of other must be no greater than this tree height
         // so the resulting tree height is safely HEIGHT + 1s
@@ -111,7 +123,7 @@ where
                     })
             })
             .and_then(|leaves| 
-                CompactableHeaplessTree::<BRANCH_FACTOR, {HEIGHT + 1}, H>::try_from_compacted(
+                CompactableHeaplessTree::<BRANCH_FACTOR, {HEIGHT + 1}, MAX_PROOF_HEIGHT, H, PB>::try_from_compacted(
                     &leaves, 
                     self.num_of_leaves + other.num_of_leaves
                 )
@@ -119,18 +131,23 @@ where
             .map_err(|_| self)
     }
 
-    pub fn try_compact_and_append<const OTHER_HEIGHT: usize>(self, other: CompactableHeaplessTree<BRANCH_FACTOR, OTHER_HEIGHT, H>) 
+    pub fn try_compact_and_append<const OTHER_HEIGHT: usize, const OTHER_MAX_PROOF_HEIGHT: usize>(
+        self, 
+        other: CompactableHeaplessTree<BRANCH_FACTOR, OTHER_HEIGHT, OTHER_MAX_PROOF_HEIGHT, H, PB>) 
         -> Result<Self, Self> 
     where
         [(); total_size!(BRANCH_FACTOR, HEIGHT)]: Sized,
         [(); layer_size!(BRANCH_FACTOR, HEIGHT, 0)]: Sized,
         [(); HEIGHT - 1]: Sized,
+        [(); MAX_PROOF_HEIGHT - 1]: Sized,
 
         [(); total_size!(BRANCH_FACTOR, OTHER_HEIGHT)]: Sized,
         [(); layer_size!(BRANCH_FACTOR, OTHER_HEIGHT, 0)]: Sized,
         [(); OTHER_HEIGHT - 1]: Sized,
+        [(); OTHER_MAX_PROOF_HEIGHT - 1]: Sized,
         H: HashT, 
-    {
+        PB: ProofBuilder<H>,
+        {
         if other.num_of_leaves > self.base_layer_size() - self.num_of_leaves {
             return Err(self);
         }
@@ -164,19 +181,28 @@ where
     }
 }
 
-impl<const BRANCH_FACTOR: usize, const HEIGHT: usize, H> HeaplessTreeT<H> for CompactableHeaplessTree<BRANCH_FACTOR, HEIGHT, H> 
+impl<const BRANCH_FACTOR: usize, const HEIGHT: usize, const MAX_PROOF_HEIGHT: usize, H, PB> HeaplessTreeT<H, PB> 
+    for CompactableHeaplessTree<BRANCH_FACTOR, HEIGHT, MAX_PROOF_HEIGHT, H, PB> 
 //impl<const BRANCH_FACTOR: usize, const HEIGHT: usize, H> HeaplessTreeT<H, ProofItem<BRANCH_FACTOR, H>> for CompactableHeaplessTree<BRANCH_FACTOR, HEIGHT, H> 
 where
     [(); total_size!(BRANCH_FACTOR, HEIGHT)]: Sized,
     [(); layer_size!(BRANCH_FACTOR, HEIGHT, 0)]: Sized,
     [(); HEIGHT - 1]: Sized,
+    [(); MAX_PROOF_HEIGHT - 1]: Sized,
     H: HashT,
+    PB: ProofBuilder<H>,
 {
-    type Proof = Proof<BRANCH_FACTOR, HEIGHT, H> where [(); HEIGHT - 1]: Sized;
+//    type Proof = Proof<BRANCH_FACTOR, HEIGHT, H> where [(); HEIGHT - 1]: Sized;
+//    type Proof = Proof<BRANCH_FACTOR, MAX_PROOF_HEIGHT, H> where [(); HEIGHT - 1]: Sized;
 
-    fn generate_proof(&mut self, index: usize) -> Self::Proof {
+    fn generate_proof(&mut self, index: usize) -> PB {
         self.tree.generate_proof(index)
     }
+
+    // fn generate_proof(&mut self, index: usize, proof: &mut PB) {
+    //     self.tree.generate_proof(index, proof)
+    // }
+
 
     fn replace(&mut self, index: usize, input: &[u8]) {
         self.tree.replace(index, input);
@@ -216,12 +242,15 @@ where
     }
 }
 
-impl <const BRANCH_FACTOR: usize, const HEIGHT: usize, H> Clone for CompactableHeaplessTree<BRANCH_FACTOR, HEIGHT, H> 
+impl <const BRANCH_FACTOR: usize, const HEIGHT: usize, const MAX_PROOF_HEIGHT: usize, H, PB> Clone 
+    for CompactableHeaplessTree<BRANCH_FACTOR, HEIGHT, MAX_PROOF_HEIGHT, H, PB> 
 where
     [(); total_size!(BRANCH_FACTOR, HEIGHT)]: Sized,
     [(); layer_size!(BRANCH_FACTOR, HEIGHT, 0)]: Sized,
     [(); HEIGHT - 1]: Sized,
+    [(); MAX_PROOF_HEIGHT - 1]: Sized,
     H: HashT,
+    PB: ProofBuilder<H>,
 {
     fn clone(&self) -> Self { 
         Self {
@@ -232,20 +261,26 @@ where
     }
 }
 
-impl <const BRANCH_FACTOR: usize, const HEIGHT: usize, H> Copy for CompactableHeaplessTree<BRANCH_FACTOR, HEIGHT, H> 
+impl <const BRANCH_FACTOR: usize, const HEIGHT: usize, const MAX_PROOF_HEIGHT: usize, H, PB> Copy 
+    for CompactableHeaplessTree<BRANCH_FACTOR, HEIGHT, MAX_PROOF_HEIGHT, H, PB> 
 where
     [(); total_size!(BRANCH_FACTOR, HEIGHT)]: Sized,
     [(); layer_size!(BRANCH_FACTOR, HEIGHT, 0)]: Sized,
     [(); HEIGHT - 1]: Sized,
+    [(); MAX_PROOF_HEIGHT - 1]: Sized,
     H: HashT,
+    PB: ProofBuilder<H>,
 {}
 
-impl <const BRANCH_FACTOR: usize, const HEIGHT: usize, H> Debug for CompactableHeaplessTree<BRANCH_FACTOR, HEIGHT, H> 
+impl <const BRANCH_FACTOR: usize, const HEIGHT: usize, const MAX_PROOF_HEIGHT: usize, H, PB> Debug 
+    for CompactableHeaplessTree<BRANCH_FACTOR, HEIGHT, MAX_PROOF_HEIGHT, H, PB> 
 where
     [(); total_size!(BRANCH_FACTOR, HEIGHT)]: Sized,
     [(); layer_size!(BRANCH_FACTOR, HEIGHT, 0)]: Sized,
     [(); HEIGHT - 1]: Sized,
+    [(); MAX_PROOF_HEIGHT - 1]: Sized,
     H: HashT,
+    PB: ProofBuilder<H>,
 {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> Result<(), core::fmt::Error> { 
         write!(f, "{:?}", self.tree)
