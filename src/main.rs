@@ -19,10 +19,10 @@
 // // }
 #![feature(generic_const_exprs)]
 
-use std::{
-    collections::hash_map::DefaultHasher,
-    hash::{Hash, Hasher},
-};
+// use std::{
+//     collections::hash_map::DefaultHasher,
+//     hash::{Hash, Hasher},
+// };
 // use std::collections::VecDeque;
 
 
@@ -103,7 +103,7 @@ use std::{
 // }
 // use core::fmt::Debug;
 
-use merkle_heapless::{total_size, layer_size, HashT, ProofBuilder, ProofItem, HeaplessTreeT, HeaplessTree, HeaplessBinaryTree};
+//use merkle_heapless::{total_size, layer_size, HashT, ProofBuilder, ProofItem, HeaplessTreeT, HeaplessTree, HeaplessBinaryTree};
 //use merkle_heapless::compactable::{CompactableHeaplessTree};
 
 // fn foo() {
@@ -133,21 +133,21 @@ use merkle_heapless::{total_size, layer_size, HashT, ProofBuilder, ProofItem, He
 //     // }
 // }
 
-#[derive(Debug)]
-struct StdHash;
+// #[derive(Debug)]
+// struct StdHash;
 
-impl HashT for StdHash {
-    type Output = [u8; 8];
+// impl HashT for StdHash {
+//     type Output = [u8; 8];
 
-    fn hash(input: &[u8]) -> Self::Output {
-        let mut s = DefaultHasher::new();
-        input.hash(&mut s);
-        s.finish().to_ne_bytes()
-    }
-}
+//     fn hash(input: &[u8]) -> Self::Output {
+//         let mut s = DefaultHasher::new();
+//         input.hash(&mut s);
+//         s.finish().to_ne_bytes()
+//     }
+// }
 
-struct MyTree {
-}
+// struct MyTree {
+// }
 
 // struct Foo<H: HashT> {
 //     x: Vec<DynamicTree<H>>,

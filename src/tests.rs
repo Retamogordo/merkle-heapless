@@ -605,84 +605,84 @@ mod tests {
         assert_eq!(cmt.height(), HEIGHT_1 + 1);
     }
 
-//     #[test]
-//     fn merge_2trees_different_heights() {
-//         const BRANCH_FACTOR: usize = 2;
-//         const HEIGHT_1: usize = 4;
-//         const HEIGHT_2: usize = 3;
-// //        const MAX_PROOF_HEIGHT: usize = 5;
+    #[test]
+    fn merge_2trees_different_heights() {
+        const BRANCH_FACTOR: usize = 2;
+        const HEIGHT_1: usize = 4;
+        const HEIGHT_2: usize = 3;
+//        const MAX_PROOF_HEIGHT: usize = 5;
 
-//         let words1: &[&str] = &[
-//             "apple", "apricot", "banana", "cherry", "blueberry"
-//         ];
-//         let cmt1 = DefaultCompactable::<BRANCH_FACTOR, HEIGHT_1, StdHash>::try_from(
-//             &words1.iter().map(|w| w.as_bytes()).collect::<Vec<_>>()
-//         )
-//         .unwrap();
+        let words1: &[&str] = &[
+            "apple", "apricot", "banana", "cherry", "blueberry"
+        ];
+        let cmt1 = DefaultCompactable::<BRANCH_FACTOR, HEIGHT_1, StdHash>::try_from(
+            &words1.iter().map(|w| w.as_bytes()).collect::<Vec<_>>()
+        )
+        .unwrap();
 
-//         let words2: &[&str] = &[
-//             "kiwi", "kotleta",
-//         ];
-//         let cmt2 = DefaultCompactable::<BRANCH_FACTOR, HEIGHT_2, StdHash>::try_from(
-//             &words2.iter().map(|w| w.as_bytes()).collect::<Vec<_>>()
-//         )
-//         .unwrap();
+        let words2: &[&str] = &[
+            "kiwi", "kotleta",
+        ];
+        let cmt2 = DefaultCompactable::<BRANCH_FACTOR, HEIGHT_2, StdHash>::try_from(
+            &words2.iter().map(|w| w.as_bytes()).collect::<Vec<_>>()
+        )
+        .unwrap();
 
-//         let test_words: &[&str] = &[
-//             "apple", "apricot", "banana", "cherry", "blueberry", "kiwi", "kotleta",
-//         ];
+        let test_words: &[&str] = &[
+            "apple", "apricot", "banana", "cherry", "blueberry", "kiwi", "kotleta",
+        ];
 
-//         let mut cmt = cmt1.try_merge(cmt2).unwrap();
+        let mut cmt = cmt1.try_merge(cmt2).unwrap();
 
-//         for (i, w) in test_words.iter().enumerate() {
-//             let proof = cmt.generate_proof(i);
-//             println!("testing -> {w}");
-//             let res = proof.validate(w.as_bytes());
-//             assert!(res);
-//         }
-//         assert_eq!(cmt.height(), HEIGHT_1 + 1);
-//     }
+        for (i, w) in test_words.iter().enumerate() {
+            let proof = cmt.generate_proof(i);
+            println!("testing -> {w}");
+            let res = proof.validate(w.as_bytes());
+            assert!(res);
+        }
+        assert_eq!(cmt.height(), HEIGHT_1 + 1);
+    }
 
-//     #[test]
-//     fn merge_2trees_different_heights_after_removal() {
-//         const BRANCH_FACTOR: usize = 2;
-//         const HEIGHT_1: usize = 4;
-//         const HEIGHT_2: usize = 3;
-//         const MAX_PROOF_HEIGHT: usize = 5;
+    #[test]
+    fn merge_2trees_different_heights_after_removal() {
+        const BRANCH_FACTOR: usize = 2;
+        const HEIGHT_1: usize = 4;
+        const HEIGHT_2: usize = 3;
+        const MAX_PROOF_HEIGHT: usize = 5;
 
-//         let words1: &[&str] = &[
-//             "apple", "apricot", "banana", "cherry", "blueberry"
-//         ];
-//         let mut cmt1 = DefaultCompactable::<BRANCH_FACTOR, HEIGHT_1, MAX_PROOF_HEIGHT, StdHash>::try_from(
-//             &words1.iter().map(|w| w.as_bytes()).collect::<Vec<_>>()
-//         )
-//         .unwrap();
+        let words1: &[&str] = &[
+            "apple", "apricot", "banana", "cherry", "blueberry"
+        ];
+        let mut cmt1 = DefaultCompactable::<BRANCH_FACTOR, HEIGHT_1, StdHash>::try_from(
+            &words1.iter().map(|w| w.as_bytes()).collect::<Vec<_>>()
+        )
+        .unwrap();
 
-//         let words2: &[&str] = &[
-//             "kiwi", "kompot", "kotleta", "sardina"
-//         ];
-//         let mut cmt2 = DefaultCompactable::<BRANCH_FACTOR, HEIGHT_2, MAX_PROOF_HEIGHT, StdHash>::try_from(
-//             &words2.iter().map(|w| w.as_bytes()).collect::<Vec<_>>()
-//         )
-//         .unwrap();
+        let words2: &[&str] = &[
+            "kiwi", "kompot", "kotleta", "sardina"
+        ];
+        let mut cmt2 = DefaultCompactable::<BRANCH_FACTOR, HEIGHT_2, StdHash>::try_from(
+            &words2.iter().map(|w| w.as_bytes()).collect::<Vec<_>>()
+        )
+        .unwrap();
 
-//         let test_words: &[&str] = &[
-//             "apple", "apricot", "cherry", "blueberry", "kiwi", "kotleta", "sardina"
-//         ];
+        let test_words: &[&str] = &[
+            "apple", "apricot", "cherry", "blueberry", "kiwi", "kotleta", "sardina"
+        ];
 
-//         cmt1.remove(2);
-//         cmt2.remove(1);
+        cmt1.remove(2);
+        cmt2.remove(1);
 
-//         let mut cmt = cmt1.try_merge(cmt2).unwrap();
+        let mut cmt = cmt1.try_merge(cmt2).unwrap();
 
-//         for (i, w) in test_words.iter().enumerate() {
-//             let proof = cmt.generate_proof(i);
-//             println!("testing -> {w}");
-//             let res = proof.validate(w.as_bytes());
-//             assert!(res);
-//         }
-//         assert_eq!(cmt.height(), HEIGHT_1 + 1);
-//     }
+        for (i, w) in test_words.iter().enumerate() {
+            let proof = cmt.generate_proof(i);
+            println!("testing -> {w}");
+            let res = proof.validate(w.as_bytes());
+            assert!(res);
+        }
+        assert_eq!(cmt.height(), HEIGHT_1 + 1);
+    }
 
 
     #[test]
@@ -769,37 +769,6 @@ mod tests {
         assert!(cmt.try_append(b"blackberry").is_err());
     }
 
-//     #[test]
-//     fn montain_peak_append() {
-//         const BRANCH_FACTOR: usize = 2;
-//         const FIRST_PEAK_HEIGHT: usize = 3;
-//         const PEAKS: usize = 5;
-
-//         let words1: &[&str] = &[
-//             "apple", "apricot", "banana",
-//         ];
-
-//         let cmt = DefaultCompactable::<BRANCH_FACTOR, FIRST_PEAK_HEIGHT, 5, StdHash>::try_from(
-//             &words1.iter().map(|w| w.as_bytes()).collect::<Vec<_>>()
-//         )
-//         .unwrap();
-
-//         let mut first_peak = MerklePeak::Second(cmt);
-
-//         first_peak.try_append(b"kiwi").unwrap();
-//         assert_eq!(first_peak.num_of_leaves(), 4);
-
-//         // let proof = first_peak.generate_proof(3);
-//         // let res = proof.validate(b"kiwi");
-
-//         // let mut mmr = MerkleMR::<PEAKS, StdHash>::from(first_peak);
-
-// //        assert!(res);
-//         // cmt.try_append(b"kiwi").unwrap();
-//         // cmt.try_append(b"kotleta").unwrap();
-//         // cmt.try_append(b"blueberry").unwrap();
-//         // assert!(cmt.try_append(b"blackberry").is_err());
-//     }
 
 //     #[test]
 //     fn montain_try_merge() {

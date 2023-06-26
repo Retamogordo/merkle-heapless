@@ -1,5 +1,6 @@
-use crate::{HashT, HeaplessTreeT,  HeaplessTree, ProofBuilder, ProofItem, Proof, total_size, layer_size};
-use crate::compactable::compactable::{CompactableHeaplessTree};
+use crate::{HashT, HeaplessTreeT,  HeaplessTree, ProofBuilder, ProofItem, ProofItemT, Proof, total_size, layer_size};
+//use crate::compactable::compactable::{MergeableHeaplessTree};
+use crate::mergeable::mergeable::{MergeableHeaplessTree};
 
 #[macro_export]
 macro_rules! apply {
@@ -14,76 +15,24 @@ macro_rules! apply {
     };
 }
 
-// pub struct PeakProof<H: HashT> {
-//     root: H::Output,
-// //    items: Vec<ProofItem<2, H>>,
-//     items: Vec<<Self as ProofBuilder<H>>::Item>,
-// }
+type PeakProof<H> = Proof<2, 8, H>;
 
-// impl<H: HashT> PeakProof<H> {
-//     fn from_tree_proof<T: ProofBuilder<H, Item = <Self as ProofBuilder<H>>::Item>>(proof: T) -> Self {
-// //        fn from_tree_proof<T: ProofBuilder<H, ProofItem<2, H>>>(proof: T) -> Self {
-//         let (root, items) = proof.as_raw();
-//         Self {
-//             root,
-//             items: items.to_vec(),
-//         }
-//     }
-// } 
-
-// impl<H: HashT> From<( &[Self::Item], H::Output )> for PeakProof<H> {
-//     fn from(items_and_root: ( &[Self::Item], H::Output )) -> Self {
-//         Self {
-//             root: items_and_root.1,
-//             items: items_and_root.0.into_iter().map(Self::Item::clone).collect(),
-//         }
-//     }
-// }
-// impl<H: HashT> From<( &[ProofItem<2, H>], H::Output )> for PeakProof<H> {
-//     fn from(items_and_root: ( &[ProofItem<2, H>], H::Output )) -> Self {
-//         Self {
-//             root: items_and_root.1,
-//             items: items_and_root.0.into_iter().map(ProofItem::<2, H>::clone).collect(),
-//         }
-//     }
-// }
-
-// impl<H: HashT> ProofBuilder<H> for PeakProof<H> {
-//     type Item = ProofItem<2, H>;
-
-//     fn from_root(root: H::Output) -> Self {
-//         Self {
-//             root,
-//             items: Default::default(),
-//         }
-//     }
-
-//     fn root(&self) -> H::Output {
-//         self.root
-//     } 
-
-// //    fn push_item(&mut self, item: ProofItem<2, H>) {
-//     fn push_item(&mut self, item: Self::Item) {
-//         self.items.push(item);
-//     }
-
-//     fn as_raw(&self) -> (H::Output, &[Self::Item]) {
-//         (self.root, &self.items[..])
-//     }
-
-// }
-
-type PeakProof<H> = Proof<2, 5, H>;
-
-pub enum MerklePeak<H: HashT> {
-    NonMergeable(CompactableHeaplessTree<2, 5, H, PeakProof<H>>),
-    First(CompactableHeaplessTree<2, 4, H, PeakProof<H>>),
-    Second(CompactableHeaplessTree<2, 3, H, PeakProof<H>>),
-    Third(CompactableHeaplessTree<2, 2, H, PeakProof<H>>),
-    Forth(CompactableHeaplessTree<2, 1, H, PeakProof<H>>),
+pub enum MerklePeak<H: HashT, PB: ProofBuilder<H>> {
+    NonMergeable(MergeableHeaplessTree<2, 5, H, PB>),
+    First(MergeableHeaplessTree<2, 4, H, PB>),
+    Second(MergeableHeaplessTree<2, 3, H, PB>),
+    Third(MergeableHeaplessTree<2, 2, H, PB>),
+    Forth(MergeableHeaplessTree<2, 1, H, PB>),
 }
+// pub enum MerklePeak<H: HashT> {
+//     NonMergeable(MergeableHeaplessTree<2, 5, H, PeakProof<H>>),
+//     First(MergeableHeaplessTree<2, 4, H, PeakProof<H>>),
+//     Second(MergeableHeaplessTree<2, 3, H, PeakProof<H>>),
+//     Third(MergeableHeaplessTree<2, 2, H, PeakProof<H>>),
+//     Forth(MergeableHeaplessTree<2, 1, H, PeakProof<H>>),
+// }
 
-impl<H: HashT> Clone for MerklePeak<H> {
+impl<H: HashT, PB: ProofBuilder<H>> Clone for MerklePeak<H, PB> {
     fn clone(&self) -> Self { 
         use MerklePeak::*;
         match self {
@@ -96,29 +45,23 @@ impl<H: HashT> Clone for MerklePeak<H> {
     }
 }
 
-impl<H: HashT> Default for MerklePeak<H> {
+impl<H: HashT, PB: ProofBuilder<H>> Default for MerklePeak<H, PB> {
     fn default() -> Self {
-        Self::Forth(CompactableHeaplessTree::try_from(&[]).unwrap())
+        Self::Forth(MergeableHeaplessTree::try_from(&[]).unwrap())
     }
 }
 
-impl<H: HashT> Copy for MerklePeak<H> {}
+impl<H: HashT, PB: ProofBuilder<H>> Copy for MerklePeak<H, PB> {}
 
-impl<H: HashT> HeaplessTreeT<H, PeakProof<H>> for MerklePeak<H> 
-{
-//    type Proof = PeakProof<H>;
-//    type Proof = <CompactableHeaplessTree<2, 5, 5, H> as HeaplessTreeT<H>>::Proof;
-
-    fn generate_proof(&mut self, index: usize) -> PeakProof<H> {
+impl<H: HashT, PB: ProofBuilder<H>> HeaplessTreeT<H, PB> for MerklePeak<H, PB> {
+    fn generate_proof(&mut self, index: usize) -> PB {
         apply!(self, generate_proof, index)
     }
-
-    // fn generate_proof(&mut self, index: usize, proof: &mut PeakProof<H>) {
-    //     apply!(self, generate_proof, index, proof)
-    // }
-
     fn replace(&mut self, index: usize, input: &[u8]) {
         apply!(self, replace, index, input)
+    }
+    fn replace_leaf(&mut self, index: usize, leaf: H::Output) {
+        apply!(self, replace_leaf, index, leaf)
     }
     fn remove(&mut self, index: usize) {
         apply!(self, remove, index)
@@ -140,7 +83,7 @@ impl<H: HashT> HeaplessTreeT<H, PeakProof<H>> for MerklePeak<H>
     }
 }
 
-impl<H: HashT> MerklePeak<H> {
+impl<H: HashT, PB: ProofBuilder<H>> MerklePeak<H, PB> {
     pub fn try_append(&mut self, input: &[u8]) -> Result<(), ()> {
         apply!(self, try_append, input)
     }
@@ -162,33 +105,271 @@ impl<H: HashT> MerklePeak<H> {
 }
 
 #[macro_export]
-macro_rules! height_from_num_of_leaves {
-    ($branch_factor:expr, $num_of_leaves:expr) => {
-        ($num_of_leaves >> $branch_factor.trailing_zeros() as usize) + 1
+macro_rules! height_from_num_of_peaks {
+    ($branch_factor:expr, $num_of_peaks:expr) => {
+        (8 * core::mem::size_of::<usize>() as u32 - $num_of_peaks.leading_zeros()) as usize + 1
     };
 }
 
-pub struct MerkleMR<const PEAKS: usize, H: HashT> 
+pub struct MerkleMR<const PEAKS: usize, H: HashT, PB: ProofBuilder<H>> 
 where 
-    [(); height_from_num_of_leaves!(2_usize, PEAKS)]: Sized,
-    [(); total_size!(2_usize, height_from_num_of_leaves!(2_usize, PEAKS))]: Sized,
+    [(); {height_from_num_of_peaks!(2_usize, PEAKS) - 1}]: Sized,
+    [(); total_size!(2_usize, height_from_num_of_peaks!(2_usize, PEAKS))]: Sized,
 
 {
-    main_tree: HeaplessTree<2, {height_from_num_of_leaves!(2_usize, PEAKS)}, H, Proof<2, 5, H>>,
-    peaks: [MerklePeak<H>; PEAKS],
+    summit_tree: HeaplessTree<2, {height_from_num_of_peaks!(2_usize, PEAKS)}, H>,
+    peaks: [MerklePeak<H, PB>; PEAKS],
+    peak_roots: [H::Output; PEAKS],
+    curr_peak_index: usize,
 }
 
-impl<const PEAKS: usize, H: HashT> MerkleMR<PEAKS, H> 
+impl<const PEAKS: usize, H: HashT, PB: ProofBuilder<H>> MerkleMR<PEAKS, H, PB> 
 where 
-    [(); height_from_num_of_leaves!(2_usize, PEAKS)]: Sized, 
-    [(); total_size!(2_usize, height_from_num_of_leaves!(2_usize, PEAKS))]: Sized,
+    [(); {height_from_num_of_peaks!(2_usize, PEAKS) - 1}]: Sized,
+    [(); total_size!(2_usize, height_from_num_of_peaks!(2_usize, PEAKS))]: Sized,
 {    
-    pub fn from(peak: MerklePeak<H>) -> Self {
+    pub fn from(peak: MerklePeak<H, PB>) -> Self {
         let mut this = Self {
-            main_tree: HeaplessTree::<2, {height_from_num_of_leaves!(2_usize, PEAKS)}, H, Proof<2, 5, H>>::try_from(&[]).unwrap(),
-            peaks: [MerklePeak::<H>::default(); PEAKS]
+            summit_tree: HeaplessTree::<2, {height_from_num_of_peaks!(2_usize, PEAKS)}, H>::try_from(&[]).unwrap(),
+            peaks: [MerklePeak::<H, PB>::default(); PEAKS],
+            peak_roots: [H::Output::default(); PEAKS],
+            curr_peak_index: 0,
         }; 
         this.peaks[0] = peak;
         this
     } 
+
+    fn merge_collapse(&mut self) -> Result<(), ()> {
+        let mut i = self.curr_peak_index;
+        // back propagate and merge peaks while possible    
+        // the indicator that two peaks can merge is that they have the same rank (can check height or num_of_leaves)
+        while i > 0 && self.peaks[i].height() == self.peaks[i - 1].height() {
+            if self.peaks[i - 1]
+                    .try_merge(self.peaks[i])
+                    .map(|merged| {
+                        self.peaks[i - 1] = merged;
+                        self.peak_roots[i - 1] = merged.root();
+                        self.peaks[i] = Default::default();
+                        self.peak_roots[i] = self.peaks[i].root();
+                    }).is_err() {
+                return Err(());
+            }  
+            i -= 1;
+            self.curr_peak_index = i;
+        }
+        Ok(())
+    }
+
+    pub fn try_append(&mut self, input: &[u8]) -> Result<(), ()> {
+        let prev_peak_index = self.curr_peak_index;
+        // try to append item to the current peak
+        let could_append_to_current = self.peaks[self.curr_peak_index].try_append(input);
+        // if couldn't append, it's because the underlying tree is full
+        if could_append_to_current.is_err() {
+            // so if the current peak is not last...
+            if self.curr_peak_index < PEAKS {
+                // move to the next peak and set it the new current one
+                self.curr_peak_index += 1;
+                // try append the item now to the new peak
+                self.peaks[self.curr_peak_index].try_append(input)?;
+                self.peak_roots[self.curr_peak_index] = self.peaks[self.curr_peak_index].root();
+            } else { 
+                return Err(()); 
+            }
+        }
+        let need_to_rebuild_summit_tree = prev_peak_index != self.curr_peak_index;      
+        // now back propagate the peaks and merge them if necessary
+        self.merge_collapse()
+            .and_then(|_| {
+                if need_to_rebuild_summit_tree {
+                    self.summit_tree = HeaplessTree::<2, {height_from_num_of_peaks!(2_usize, PEAKS)}, H>::try_from_leaves(&self.peak_roots[..])?;
+                } else {
+                    self.summit_tree.replace_leaf(self.curr_peak_index, self.peaks[self.curr_peak_index].root());
+                }
+                Ok(())
+            })
+    }
+
+    pub fn generate_proof(&mut self, index: usize) -> PB {
+        let mut accum_len = 0;
+        for (peak_ind, peak) in self.peaks.iter_mut().enumerate() {
+            if accum_len + peak.num_of_leaves() > index {
+
+                let mut proof = peak.generate_proof(index - accum_len);
+
+                let summit_proof = self.summit_tree.generate_proof(peak_ind);
+
+                let (summit_root, summit_items) = summit_proof.as_raw();
+                
+                proof.set_root(summit_root);
+                
+                for item in summit_items {
+                    let (offset, hashes) = item.as_raw();
+                    if let Some(hashes) = hashes {
+                        proof.push(offset, hashes);
+                    } else {
+                        break;
+                    }
+                }
+                return proof;
+            }
+            accum_len += peak.num_of_leaves();
+        }
+        unreachable!();
+    }
+
+    pub fn curr_peak_index(&self) -> usize {
+        self.curr_peak_index
+    }
+
+    pub fn peaks(&self) -> &[MerklePeak<H, PB>; PEAKS] {
+        &self.peaks
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::{
+        collections::hash_map::DefaultHasher,
+        hash::{Hash, Hasher},
+    };
+
+    use crate::{HashT, HeaplessTreeT,  HeaplessTree, ProofBuilder, ProofValidator, Proof, total_size, layer_size};
+    use crate::mergeable::mergeable::{MergeableHeaplessTree};
+    use crate::peak::{MerklePeak, PeakProof, MerkleMR};
+
+    #[derive(Debug)]
+    struct StdHash;
+
+    impl HashT for StdHash {
+        type Output = [u8; 8];
+
+        fn hash(input: &[u8]) -> Self::Output {
+            let mut s = DefaultHasher::new();
+            input.hash(&mut s);
+            s.finish().to_ne_bytes()
+        }
+    }
+
+    #[test]
+    fn montain_peak_append() {
+        const BRANCH_FACTOR: usize = 2;
+        const FIRST_PEAK_HEIGHT: usize = 3;
+        const PEAKS: usize = 5;
+
+        let words1: &[&str] = &[
+            "apple", "apricot", "banana",
+        ];
+
+        let cmt = MergeableHeaplessTree::<BRANCH_FACTOR, FIRST_PEAK_HEIGHT, StdHash, PeakProof<StdHash>>::try_from(
+            &words1.iter().map(|w| w.as_bytes()).collect::<Vec<_>>()
+        )
+        .unwrap();
+
+        let mut first_peak = MerklePeak::Second(cmt);
+
+        first_peak.try_append(b"kiwi").unwrap();
+        assert_eq!(first_peak.num_of_leaves(), 4);
+
+        let proof = first_peak.generate_proof(3);
+        let res = proof.validate(b"kiwi");
+
+        assert!(res);
+        let mut mmr = MerkleMR::<PEAKS, StdHash, PeakProof<StdHash>>::from(first_peak);
+
+        // cmt.try_append(b"kiwi").unwrap();
+        // cmt.try_append(b"kotleta").unwrap();
+        // cmt.try_append(b"blueberry").unwrap();
+        // assert!(cmt.try_append(b"blackberry").is_err());
+    }
+
+    #[test]
+    fn mmr_merge_peaks_on_item_append() {
+        const BRANCH_FACTOR: usize = 2;
+        const FIRST_PEAK_HEIGHT: usize = 1;
+        const PEAKS: usize = 5;
+
+        let cmt = MergeableHeaplessTree::<BRANCH_FACTOR, FIRST_PEAK_HEIGHT, StdHash, PeakProof<StdHash>>::try_from(
+            &[]
+        ).unwrap();
+
+        let mut first_peak = MerklePeak::Forth(cmt);
+        let mut mmr = MerkleMR::<PEAKS, StdHash, PeakProof<StdHash>>::from(first_peak);
+        // peak leaf numbers: [0, 0, 0, 0, 0]
+        mmr.try_append(b"apple").unwrap();
+        // peak leaf numbers: [1, 0, 0, 0, 0]
+        assert_eq!(mmr.peaks[0].num_of_leaves(), 1);
+        assert_eq!(mmr.peaks[1].num_of_leaves(), 0);
+        let proof = mmr.generate_proof(0);
+        let res = proof.validate(b"apple");
+        assert!(res);
+        
+        mmr.try_append(b"banana").unwrap();
+        // peak leaf numbers: [2, 0, 0, 0, 0] because 1, 1 is merged -> 2, 0
+        assert_eq!(mmr.peaks[0].num_of_leaves(), 2);
+        assert_eq!(mmr.peaks[1].num_of_leaves(), 0);
+        let proof = mmr.generate_proof(1);
+        let res = proof.validate(b"banana");
+        assert!(res);
+
+        mmr.try_append(b"cherry").unwrap();
+        // peak leaf numbers: [2, 1, 0, 0, 0]
+        assert_eq!(mmr.peaks[0].num_of_leaves(), 2);
+        assert_eq!(mmr.peaks[1].num_of_leaves(), 1);
+        let proof = mmr.generate_proof(2);
+        let res = proof.validate(b"cherry");
+        assert!(res);
+
+        mmr.try_append(b"kiwi").unwrap();
+        // peak leaf numbers: [4, 0, 0, 0, 0] because 2, 1, 1 is merged -> 2, 2, 0 -> 4, 0, 0
+        assert_eq!(mmr.peaks[0].num_of_leaves(), 4);
+        assert_eq!(mmr.peaks[1].num_of_leaves(), 0);
+        let proof = mmr.generate_proof(3);
+        let res = proof.validate(b"kiwi");
+        assert!(res);
+
+        mmr.try_append(b"lemon").unwrap();
+        // peak leaf numbers: [4, 1, 0, 0, 0]
+        assert_eq!(mmr.peaks[0].num_of_leaves(), 4);
+        assert_eq!(mmr.peaks[1].num_of_leaves(), 1);
+        let proof = mmr.generate_proof(4);
+        let res = proof.validate(b"lemon");
+        assert!(res);
+
+        mmr.try_append(b"lime").unwrap();
+        // peak leaf numbers: [4, 2, 0, 0, 0]
+        assert_eq!(mmr.peaks[0].num_of_leaves(), 4);
+        assert_eq!(mmr.peaks[1].num_of_leaves(), 2);
+        let proof = mmr.generate_proof(5);
+        let res = proof.validate(b"lime");
+        assert!(res);
+
+        mmr.try_append(b"mango").unwrap();
+        // peak leaf numbers: [4, 2, 1, 0, 0]
+        assert_eq!(mmr.peaks[0].num_of_leaves(), 4);
+        assert_eq!(mmr.peaks[1].num_of_leaves(), 2);
+        assert_eq!(mmr.peaks[2].num_of_leaves(), 1);
+
+        mmr.try_append(b"carrot").unwrap();
+        // peak leaf numbers: [8, 0, 0, 0, 0]
+        assert_eq!(mmr.peaks[0].num_of_leaves(), 8);
+        assert_eq!(mmr.peaks[1].num_of_leaves(), 0);
+        
+        mmr.try_append(b"potato").unwrap();
+        // peak leaf numbers: [8, 1, 0, 0, 0]
+        assert_eq!(mmr.peaks[0].num_of_leaves(), 8);
+        assert_eq!(mmr.peaks[1].num_of_leaves(), 1);
+        // assert_eq!(first_peak.num_of_leaves(), 1);
+
+        // let proof = first_peak.generate_proof(0);
+        // let res = proof.validate(b"kiwi");
+
+        // assert!(res);
+
+        // cmt.try_append(b"kiwi").unwrap();
+        // cmt.try_append(b"kotleta").unwrap();
+        // cmt.try_append(b"blueberry").unwrap();
+        // assert!(cmt.try_append(b"blackberry").is_err());
+    }
+
 }
