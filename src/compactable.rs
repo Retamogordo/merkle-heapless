@@ -6,7 +6,7 @@ pub type DefaultCompactable<const BRANCH_FACTOR: usize, const HEIGHT: usize, H>
 
 pub(crate) mod compactable {
     use core::fmt::Debug;
-    use crate::{HashT, HeaplessTreeT,  HeaplessTree, Proof, ProofItem, ProofBuilder, total_size, layer_size};
+    use crate::{HashT, HeaplessTreeT,  HeaplessTree, Proof, ProofBuilder, total_size, layer_size};
     
     pub struct CompactableHeaplessTree<const BRANCH_FACTOR: usize, const HEIGHT: usize, H, PB = Proof<BRANCH_FACTOR, HEIGHT, H>>
     where
@@ -89,9 +89,9 @@ pub(crate) mod compactable {
                 .map_err(|_| self)
         }
 
-        pub fn try_merge<const OTHER_HEIGHT: usize, OTHER_PB: ProofBuilder<H>>(
+        pub fn try_merge<const OTHER_HEIGHT: usize, OTHERPB: ProofBuilder<H>>(
             self, 
-            other: CompactableHeaplessTree<BRANCH_FACTOR, OTHER_HEIGHT, H, OTHER_PB>
+            other: CompactableHeaplessTree<BRANCH_FACTOR, OTHER_HEIGHT, H, OTHERPB>
         ) -> Result<CompactableHeaplessTree<BRANCH_FACTOR, {HEIGHT + 1}, H, PB>, Self> 
         where
             [(); total_size!(BRANCH_FACTOR, {HEIGHT + 1})]: Sized,
@@ -128,9 +128,9 @@ pub(crate) mod compactable {
                 .map_err(|_| self)
         }
 
-        pub fn try_compact_and_append<const OTHER_HEIGHT: usize, OTHER_PB: ProofBuilder<H>>(
+        pub fn try_compact_and_append<const OTHER_HEIGHT: usize, OTHERPB: ProofBuilder<H>>(
             self, 
-            other: CompactableHeaplessTree<BRANCH_FACTOR, OTHER_HEIGHT, H, OTHER_PB>) -> Result<Self, Self> 
+            other: CompactableHeaplessTree<BRANCH_FACTOR, OTHER_HEIGHT, H, OTHERPB>) -> Result<Self, Self> 
         where
             [(); total_size!(BRANCH_FACTOR, HEIGHT)]: Sized,
             [(); layer_size!(BRANCH_FACTOR, HEIGHT, 0)]: Sized,
@@ -157,20 +157,6 @@ pub(crate) mod compactable {
                 })
                 .and_then(|leaves| Self::try_from_compacted(&leaves, self.num_of_leaves))
                 .map_err(|_| self)
-        }
-
-        pub fn try_append(&mut self, input: &[u8]) -> Result<(), ()> {
-            if self.num_of_leaves >= self.base_layer_size() {
-                return Err(());
-            }
-            
-            self.replace(self.num_of_leaves, input);
-            
-            Ok(())
-        }
-
-        pub fn num_of_leaves(&self) -> usize {
-            self.num_of_leaves
         }
     }
 
@@ -210,24 +196,33 @@ pub(crate) mod compactable {
             }
             self.leaves_present[index] = false;
         }
+
+        fn try_append(&mut self, input: &[u8]) -> Result<(), ()> {
+            if self.num_of_leaves >= self.base_layer_size() {
+                return Err(());
+            }
+            
+            self.replace(self.num_of_leaves, input);
+            
+            Ok(())
+        }
         fn root(&self) -> H::Output {
             *self.tree.hashes.iter().last().expect("hashes are not empty. qed")
         }
-
         fn leaves(&self) -> &[H::Output] {
             &self.tree.hashes[..layer_size!(BRANCH_FACTOR, HEIGHT, 0)]
         }
-
         fn base_layer_size(&self) -> usize {
             layer_size!(BRANCH_FACTOR, HEIGHT, 0)
-        }
-        
+        }        
         fn branch_factor(&self) -> usize {
             BRANCH_FACTOR
         }
-
         fn height(&self) -> usize {
             HEIGHT
+        }
+        fn num_of_leaves(&self) -> usize {
+            self.num_of_leaves
         }
     }
 

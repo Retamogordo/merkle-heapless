@@ -1,4 +1,4 @@
-//#![cfg_attr(not(test), no_std)] 
+#![cfg_attr(not(test), no_std)] 
 
 #![allow(incomplete_features)]
 #![feature(generic_const_exprs)]
@@ -8,6 +8,8 @@ mod utils;
 pub mod compactable;
 pub mod mergeable;
 pub mod peak;
+
+pub use mmr_macro;
 
 use core::fmt::Debug;
 use core::hash::Hash;
@@ -26,7 +28,6 @@ pub trait ProofItemT<H: HashT>: Clone + Default + Debug {
     fn as_raw(&self) -> (usize, Option<&[H::Output]>);
 }
 
-//#[derive(Debug)]
 pub struct ProofItem<const BRANCH_FACTOR: usize, H: HashT> {
     hashes: Option<[H::Output; BRANCH_FACTOR]>,
     offset: usize,
@@ -88,8 +89,11 @@ pub trait ProofBuilder<H: HashT>: Default {
 
     fn from_root(root: H::Output) -> Self;
     fn root(&self) -> H::Output;
-    fn set_root(&mut self, root: H::Output);
     fn push(&mut self, offset: usize, hashes: &[H::Output]);
+}
+
+pub(crate) trait ProofDetails<H: HashT>: ProofBuilder<H>  {
+    fn set_root(&mut self, root: H::Output);
     fn as_raw(&self) -> (H::Output, &[Self::Item]);
 }
 
@@ -118,12 +122,16 @@ where [(); HEIGHT - 1]: Sized {
     fn root(&self) -> H::Output {
         self.root
     } 
-    fn set_root(&mut self, root: H::Output) {
-        self.root = root;
-    }
     fn push(&mut self, offset: usize, hashes: &[H::Output]) {
         self.items[self.height] = Self::Item::create(offset, hashes);
         self.height += 1;
+    }
+}
+
+impl <const BRANCH_FACTOR: usize, const HEIGHT: usize, H: HashT> ProofDetails<H> for Proof<BRANCH_FACTOR, HEIGHT, H>
+where [(); HEIGHT - 1]: Sized {
+    fn set_root(&mut self, root: H::Output) {
+        self.root = root;
     }
     fn as_raw(&self) -> (H::Output, &[Self::Item]) {
         (self.root, &self.items[..])
@@ -159,6 +167,26 @@ where [(); HEIGHT - 1]: Sized {
     }
 }
 
+pub fn merge_proofs<const BRANCH_FACTOR: usize, const HEIGHT1: usize, const HEIGHT2: usize, H: HashT>(
+    proof1: Proof<BRANCH_FACTOR, HEIGHT1, H>,
+    proof2: Proof<BRANCH_FACTOR, HEIGHT2, H>
+) -> Proof<BRANCH_FACTOR, {HEIGHT1 + HEIGHT2}, H> 
+where 
+    [(); HEIGHT1 - 1]: Sized,
+    [(); HEIGHT2 - 1]: Sized,
+    [(); {HEIGHT1 + HEIGHT2} - 1]: Sized,
+{
+    let mut proof = Proof::from_root(proof2.root());
+    proof.height = proof1.height + proof2.height;
+    for i in 0..proof1.height {
+        proof.items[i] = proof1.items[i];
+    }
+    for i in 0..proof2.height {
+        proof.items[i + proof1.height] = proof2.items[i];
+    }
+    proof
+}
+
 pub trait HeaplessTreeT<H: HashT, PB: ProofBuilder<H>> {
     fn generate_proof(&mut self, index: usize) -> PB;
     
@@ -166,11 +194,14 @@ pub trait HeaplessTreeT<H: HashT, PB: ProofBuilder<H>> {
     fn replace_leaf(&mut self, index: usize, leaf: H::Output);
 
     fn remove(&mut self, index: usize);
+    fn try_append(&mut self, input: &[u8]) -> Result<(), ()>;
+
     fn root(&self) -> H::Output;
     fn leaves(&self) -> &[H::Output];
     fn base_layer_size(&self) -> usize;
     fn branch_factor(&self) -> usize;
     fn height(&self) -> usize;
+    fn num_of_leaves(&self) -> usize;
 } 
 
 pub type HeaplessBinaryTree<const HEIGHT: usize, H, PB = Proof<2, HEIGHT, H>> = HeaplessTree<2, HEIGHT, H, PB>;
@@ -334,12 +365,17 @@ where
             self.hashes[index] = parent_hashed;
         }
     }
-
-
     // remove element by inserting nothing
     // panics if index is out of leaf layer bound
     fn remove(&mut self, index: usize) {
         self.replace(index, &[]);
+    }
+    
+    fn try_append(&mut self, input: &[u8]) -> Result<(), ()> {
+        unimplemented!("unimplemented for basic tree");
+    }
+    fn num_of_leaves(&self) -> usize {
+        unimplemented!()
     }
 
     fn root(&self) -> H::Output {

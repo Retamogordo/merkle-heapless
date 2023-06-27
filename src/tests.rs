@@ -1,10 +1,8 @@
 
 #[cfg(test)]
 mod tests {
-    use crate::{HashT, HeaplessTreeT, HeaplessTree, HeaplessBinaryTree, ProofValidator, Proof};
+    use crate::{HashT, HeaplessTreeT, HeaplessTree, HeaplessBinaryTree, ProofValidator};
     use crate::compactable::{DefaultCompactable};
-    use crate::peak::{MerklePeak, MerkleMR};
-//    use crate::foo::{Foo};
 
     use std::{
         collections::hash_map::DefaultHasher,
@@ -56,7 +54,7 @@ mod tests {
             b"apple", b"banana", b"kiwi", b"kotleta",
         ]);
         let word_index = 7;
-        let mut proof = mt.as_mut().unwrap().generate_proof(word_index);
+        let proof = mt.as_mut().unwrap().generate_proof(word_index);
         let word = "kiwi";
         let res = proof.validate(word.as_bytes());
         println!(
@@ -573,7 +571,6 @@ mod tests {
         const BRANCH_FACTOR: usize = 2;
         const HEIGHT_1: usize = 3;
         const HEIGHT_2: usize = 3;
-        const MAX_PROOF_HEIGHT: usize = 7;
         let words1: &[&str] = &[
             "apple", "apricot", "banana", "cherry",
         ];
@@ -648,7 +645,6 @@ mod tests {
         const BRANCH_FACTOR: usize = 2;
         const HEIGHT_1: usize = 4;
         const HEIGHT_2: usize = 3;
-        const MAX_PROOF_HEIGHT: usize = 5;
 
         let words1: &[&str] = &[
             "apple", "apricot", "banana", "cherry", "blueberry"

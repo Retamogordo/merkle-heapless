@@ -19,34 +19,10 @@
 // // }
 #![feature(generic_const_exprs)]
 
-// use std::{
-//     collections::hash_map::DefaultHasher,
-//     hash::{Hash, Hasher},
-// };
-// use std::collections::VecDeque;
-
-
-// // fn myhash(input: &[u8]) -> [u8; 8] {
-// //     let mut s = DefaultHasher::new();
-// //     input.hash(&mut s);
-// //     s.finish().to_ne_bytes()
-// // }
-// fn myhash(input: &[u8]) -> u16 {
-//     match input.len() {
-//         1 => input[0] as u16,
-//         2 => core::cmp::max(input[0], input[1]) as u16 + 1,
-// //        2 => ((input[0] as u16) << 8) + input[1] as u16,
-//         _ => unimplemented!(),
-//     }
-// }
-
-// #[derive(Default)]
-// struct Fractal<'a> {
-// //    root: [u8; 8],
-//     root: u16,
-//     leaves: Option<[&'a Option<Self>; 2]>,
-//     height: usize,
-// }
+use std::{
+    collections::hash_map::DefaultHasher,
+    hash::{Hash, Hasher},
+};
 
 // impl<'a> Fractal<'a> 
 // {
@@ -133,18 +109,18 @@
 //     // }
 // }
 
-// #[derive(Debug)]
-// struct StdHash;
+#[derive(Debug)]
+struct StdHash;
 
-// impl HashT for StdHash {
-//     type Output = [u8; 8];
+impl HashT for StdHash {
+    type Output = [u8; 8];
 
-//     fn hash(input: &[u8]) -> Self::Output {
-//         let mut s = DefaultHasher::new();
-//         input.hash(&mut s);
-//         s.finish().to_ne_bytes()
-//     }
-// }
+    fn hash(input: &[u8]) -> Self::Output {
+        let mut s = DefaultHasher::new();
+        input.hash(&mut s);
+        s.finish().to_ne_bytes()
+    }
+}
 
 // struct MyTree {
 // }
@@ -157,7 +133,9 @@
 // #![feature(const_evaluatable_checked)]
 // struct ConsPeaks<const N: usize>
 // where
-//     [(); N]: Sized, {
+// [(); N]: Sized, 
+// [(); {N-1}]: Sized, 
+//     {
 //     data: [u8; N],
 //     next: Option<Box<ConsPeaks<{N-1}>>>,
 // }
@@ -181,7 +159,29 @@
 
 // impl IsTrue for Assert<true> {}
 
+
+use merkle_heapless::{HashT, HeaplessTreeT,  HeaplessTree, ProofBuilder, ProofItemT, Proof, total_size};
+//use crate::compactable::compactable::{MergeableHeaplessTree};
+use merkle_heapless::mergeable::mergeable::{MergeableHeaplessTree};
+
 fn main() {
+//    type PeakProof<H> = Proof<2, 5, H>;
+
+    mmr_macro::mmr!(5 2);
+
+    let mut cmt = MergeableHeaplessTree::<2, 5, StdHash, PeakProof<StdHash>>::try_from(
+        &[]
+    ).unwrap();
+
+    let peak1 = MerklePeak::PeakHeight0(cmt);
+    peak1.clone();
+
+    let mmr = MerkleMR::<StdHash>::from(peak1);
+
+    let mut peak = MerklePeak::<StdHash>::default();
+    peak.leaves();
+    peak.generate_proof(0);
+
 //    let left = CompactableHeaplessTree::<2, 3, 5, StdHash>::try_from(&[b"apple"]).unwrap();
     // let mut cons = MerkleCons::new(left);
 

@@ -4,10 +4,10 @@ use crate::{Proof};
 pub type DefaultMergeable<const BRANCH_FACTOR: usize, const HEIGHT: usize, H> 
     = mergeable::MergeableHeaplessTree<BRANCH_FACTOR, HEIGHT, H, Proof<BRANCH_FACTOR, {HEIGHT+1}, H>>;
 
-pub(crate) mod mergeable {
+pub mod mergeable {
     use core::fmt::Debug;
-    use crate::{HashT, HeaplessTreeT,  HeaplessTree, Proof, ProofItem, ProofBuilder, total_size, layer_size};
-    
+    use crate::{HashT, HeaplessTreeT, HeaplessTree, Proof, ProofBuilder, total_size, layer_size};
+
     pub struct MergeableHeaplessTree<const BRANCH_FACTOR: usize, const HEIGHT: usize, H, PB = Proof<BRANCH_FACTOR, HEIGHT, H>>
     where
         [(); total_size!(BRANCH_FACTOR, HEIGHT)]: Sized,
@@ -47,9 +47,9 @@ pub(crate) mod mergeable {
             )  
         }
 
-        pub fn try_merge<const OTHER_HEIGHT: usize, OTHER_PB: ProofBuilder<H>>(
+        pub fn try_merge<const OTHER_HEIGHT: usize, OTHERPB: ProofBuilder<H>>(
             self, 
-            other: MergeableHeaplessTree<BRANCH_FACTOR, OTHER_HEIGHT, H, OTHER_PB>
+            other: MergeableHeaplessTree<BRANCH_FACTOR, OTHER_HEIGHT, H, OTHERPB>
         ) -> Result<MergeableHeaplessTree<BRANCH_FACTOR, {HEIGHT + 1}, H, PB>, Self> 
         where
             [(); total_size!(BRANCH_FACTOR, {HEIGHT + 1})]: Sized,
@@ -96,15 +96,6 @@ pub(crate) mod mergeable {
             }
         }
 
-        pub fn try_append(&mut self, input: &[u8]) -> Result<(), ()> {
-            if self.num_of_leaves >= self.base_layer_size() {
-                return Err(());
-            }        
-            self.replace(self.num_of_leaves, input);
-            self.num_of_leaves += 1;
-            Ok(())
-        }
-
         pub fn num_of_leaves(&self) -> usize {
             self.num_of_leaves
         }
@@ -133,24 +124,31 @@ pub(crate) mod mergeable {
             unimplemented!("Remove is not implemented for mergeable")
         }
 
+        fn try_append(&mut self, input: &[u8]) -> Result<(), ()> {
+            if self.num_of_leaves >= self.base_layer_size() {
+                return Err(());
+            }        
+            self.replace(self.num_of_leaves, input);
+            self.num_of_leaves += 1;
+            Ok(())
+        }
         fn root(&self) -> H::Output {
             *self.tree.hashes.iter().last().expect("hashes are not empty. qed")
         }
-
         fn leaves(&self) -> &[H::Output] {
             &self.tree.hashes[..layer_size!(BRANCH_FACTOR, HEIGHT, 0)]
         }
-
         fn base_layer_size(&self) -> usize {
             layer_size!(BRANCH_FACTOR, HEIGHT, 0)
         }
-        
         fn branch_factor(&self) -> usize {
             BRANCH_FACTOR
         }
-
         fn height(&self) -> usize {
             HEIGHT
+        }
+        fn num_of_leaves(&self) -> usize {
+            self.num_of_leaves
         }
     }
 
