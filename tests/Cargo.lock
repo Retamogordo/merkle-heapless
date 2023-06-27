@@ -19,6 +19,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "merkle-heapless-tests"
+version = "0.1.0"
+dependencies = [
+ "merkle-heapless",
+]
+
+[[package]]
 name = "mmr-macro"
 version = "0.1.0"
 dependencies = [

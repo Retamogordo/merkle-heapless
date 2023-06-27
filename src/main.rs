@@ -17,7 +17,6 @@
 // //     let n_subtrees_padded = branch_factor.trailing_zeros() << (8*size_of::<usize>() as u32 - n_subtrees.leading_zeros());
 // //     println!("branch_factor: {branch_factor}, n_subtrees: {n_subtrees}, n_subtrees_padded: {n_subtrees_padded}");
 // // }
-#![feature(generic_const_exprs)]
 
 use std::{
     collections::hash_map::DefaultHasher,
@@ -79,15 +78,15 @@ use std::{
 // }
 // use core::fmt::Debug;
 
-//use merkle_heapless::{total_size, layer_size, HashT, ProofBuilder, ProofItem, HeaplessTreeT, HeaplessTree, HeaplessBinaryTree};
+//use merkle_heapless::{total_size, layer_size, HashT, ProofBuilder, ProofItem, BasicTreeTrait, HeaplessTree, HeaplessBinaryTree};
 //use merkle_heapless::compactable::{CompactableHeaplessTree};
 
 // fn foo() {
-//     x = Vec::<Box<dyn HeaplessTreeT<H, ProofItem<2, H>>>>::new();
+//     x = Vec::<Box<dyn BasicTreeTrait<H, ProofItem<2, H>>>>::new();
 // }
 //use merkle_heapless::dynamic::{DynamicTree};
 
-// struct MerkleCons<H: HashT, T: HeaplessTreeT<H>>
+// struct MerkleCons<H: HashT, T: BasicTreeTrait<H>>
 // {
 //     left: T,
 //     right: Option<Box<MerkleCons<H, T>>>,
@@ -96,7 +95,7 @@ use std::{
 // //    right: Option<&'a MerkleCons<'a, BRANCH_FACTOR, OTHER_HEIGHT, OTHER_HEIGHT, H>>,
 // }
 
-// impl<H: HashT, T: HeaplessTreeT<H>> MerkleCons<H, T> {
+// impl<H: HashT, T: BasicTreeTrait<H>> MerkleCons<H, T> {
 //     fn new(left: T) -> Self {
 //         Self {
 //             left,
@@ -104,7 +103,7 @@ use std::{
 //             h: None,
 //         }
 //     }
-//     // fn append<U: HeaplessTreeT<H>>(&mut self, right: MerkleCons<H, U>) {
+//     // fn append<U: BasicTreeTrait<H>>(&mut self, right: MerkleCons<H, U>) {
 //     //     self.right = Some(Box::new(right));
 //     // }
 // }
@@ -148,7 +147,7 @@ use std::{
 // impl IsTrue for Assert<true> {}
 
 
-use merkle_heapless::{HashT, ProofValidator, HeaplessTreeT};
+use merkle_heapless::{HashT, ProofValidator, BasicTreeTrait};
 //use crate::compactable::compactable::{MergeableHeaplessTree};
 //use merkle_heapless::mergeable::mergeable::{MergeableHeaplessTree};
 #[derive(Debug)]
@@ -176,8 +175,8 @@ fn main() {
 
     // let peak1 = MerklePeak::PeakHeight0(cmt);
 
-    let mut mmr = Foo::<StdHash>::default();
-    let mut mmr2 = MerkleMountainRange::<StdHash>::default();
+    let mmr2 = Foo::<StdHash>::default();
+    let mut mmr = MerkleMountainRange::<StdHash>::default();
     // peak leaf numbers: [0, 0, 0, 0, 0]
     mmr.try_append(b"apple").unwrap();
     // peak leaf numbers: [1, 0, 0, 0, 0]
@@ -187,4 +186,60 @@ fn main() {
     let res = proof.validate(b"apple");
     assert!(res);
     
+    mmr.try_append(b"banana").unwrap();
+    // peak leaf numbers: [2, 0, 0, 0, 0] because 1, 1 is merged -> 2, 0
+    assert_eq!(mmr.peaks()[0].num_of_leaves(), 2);
+    assert_eq!(mmr.peaks()[1].num_of_leaves(), 0);
+    let proof = mmr.generate_proof(1);
+    let res = proof.validate(b"banana");
+    assert!(res);
+
+    mmr.try_append(b"cherry").unwrap();
+    // peak leaf numbers: [2, 1, 0, 0, 0]
+    assert_eq!(mmr.peaks()[0].num_of_leaves(), 2);
+    assert_eq!(mmr.peaks()[1].num_of_leaves(), 1);
+    let proof = mmr.generate_proof(2);
+    let res = proof.validate(b"cherry");
+    assert!(res);
+
+    mmr.try_append(b"kiwi").unwrap();
+    // peak leaf numbers: [4, 0, 0, 0, 0] because 2, 1, 1 is merged -> 2, 2, 0 -> 4, 0, 0
+    assert_eq!(mmr.peaks()[0].num_of_leaves(), 4);
+    assert_eq!(mmr.peaks()[1].num_of_leaves(), 0);
+    let proof = mmr.generate_proof(3);
+    let res = proof.validate(b"kiwi");
+    assert!(res);
+
+    mmr.try_append(b"lemon").unwrap();
+    // peak leaf numbers: [4, 1, 0, 0, 0]
+    assert_eq!(mmr.peaks()[0].num_of_leaves(), 4);
+    assert_eq!(mmr.peaks()[1].num_of_leaves(), 1);
+    let proof = mmr.generate_proof(4);
+    let res = proof.validate(b"lemon");
+    assert!(res);
+
+    mmr.try_append(b"lime").unwrap();
+    // peak leaf numbers: [4, 2, 0, 0, 0]
+    assert_eq!(mmr.peaks()[0].num_of_leaves(), 4);
+    assert_eq!(mmr.peaks()[1].num_of_leaves(), 2);
+    let proof = mmr.generate_proof(5);
+    let res = proof.validate(b"lime");
+    assert!(res);
+
+    mmr.try_append(b"mango").unwrap();
+    // peak leaf numbers: [4, 2, 1, 0, 0]
+    assert_eq!(mmr.peaks()[0].num_of_leaves(), 4);
+    assert_eq!(mmr.peaks()[1].num_of_leaves(), 2);
+    assert_eq!(mmr.peaks()[2].num_of_leaves(), 1);
+
+    mmr.try_append(b"carrot").unwrap();
+    // peak leaf numbers: [8, 0, 0, 0, 0]
+    assert_eq!(mmr.peaks()[0].num_of_leaves(), 8);
+    assert_eq!(mmr.peaks()[1].num_of_leaves(), 0);
+    
+    mmr.try_append(b"potato").unwrap();
+    // peak leaf numbers: [8, 1, 0, 0, 0]
+    assert_eq!(mmr.peaks()[0].num_of_leaves(), 8);
+    assert_eq!(mmr.peaks()[1].num_of_leaves(), 1);
+
 }

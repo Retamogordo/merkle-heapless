@@ -6,7 +6,7 @@ pub type DefaultCompactable<const BRANCH_FACTOR: usize, const HEIGHT: usize, H>
 
 pub(crate) mod compactable {
     use core::fmt::Debug;
-    use crate::{HashT, HeaplessTreeT,  HeaplessTree, Proof, ProofBuilder, total_size, layer_size};
+    use crate::{HashT, BasicTreeTrait,  HeaplessTree, Proof, ProofBuilder, total_size, layer_size};
     
     pub struct CompactableHeaplessTree<const BRANCH_FACTOR: usize, const HEIGHT: usize, H, PB = Proof<BRANCH_FACTOR, HEIGHT, H>>
     where
@@ -160,7 +160,7 @@ pub(crate) mod compactable {
         }
     }
 
-    impl<const BRANCH_FACTOR: usize, const HEIGHT: usize, H, PB> HeaplessTreeT<H, PB> for CompactableHeaplessTree<BRANCH_FACTOR, HEIGHT, H, PB> 
+    impl<const BRANCH_FACTOR: usize, const HEIGHT: usize, H, PB> BasicTreeTrait<H, PB> for CompactableHeaplessTree<BRANCH_FACTOR, HEIGHT, H, PB> 
     where
         [(); total_size!(BRANCH_FACTOR, HEIGHT)]: Sized,
         [(); layer_size!(BRANCH_FACTOR, HEIGHT, 0)]: Sized,     

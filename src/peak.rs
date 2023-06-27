@@ -1,4 +1,4 @@
-use crate::{HashT, HeaplessTreeT,  HeaplessTree, ProofBuilder, ProofDetails, ProofItemT, Proof, merge_proofs, total_size};
+use crate::{HashT, BasicTreeTrait,  HeaplessTree, ProofBuilder, ProofDetails, ProofItemT, Proof, merge_proofs, total_size};
 //use crate::compactable::compactable::{MergeableHeaplessTree};
 use crate::mergeable::mergeable::{MergeableHeaplessTree};
 
@@ -65,11 +65,11 @@ impl<H: HashT> MerklePeak<H> {
     fn branch_factor(&self) -> usize {
 //        use MerklePeak::*;
         match self {
-            MerklePeak::NonMergeable(tree) => tree as &dyn HeaplessTreeT<H, PeakProof<H>>,
-            MerklePeak::First(tree) => tree as &dyn HeaplessTreeT<H, PeakProof<H>>,
-            MerklePeak::Second(tree) => tree as &dyn HeaplessTreeT<H, PeakProof<H>>,
-            MerklePeak::Third(tree) => tree as &dyn HeaplessTreeT<H, PeakProof<H>>,
-            MerklePeak::Forth(tree) => tree as &dyn HeaplessTreeT<H, PeakProof<H>>,
+            MerklePeak::NonMergeable(tree) => tree as &dyn BasicTreeTrait<H, PeakProof<H>>,
+            MerklePeak::First(tree) => tree as &dyn BasicTreeTrait<H, PeakProof<H>>,
+            MerklePeak::Second(tree) => tree as &dyn BasicTreeTrait<H, PeakProof<H>>,
+            MerklePeak::Third(tree) => tree as &dyn BasicTreeTrait<H, PeakProof<H>>,
+            MerklePeak::Forth(tree) => tree as &dyn BasicTreeTrait<H, PeakProof<H>>,
         }
         .branch_factor()
     }
@@ -96,7 +96,7 @@ impl<H: HashT> Default for MerklePeak<H> {
 
 impl<H: HashT> Copy for MerklePeak<H> {}
 
-impl<H: HashT> HeaplessTreeT<H, PeakProof<H>> for MerklePeak<H> {
+impl<H: HashT> BasicTreeTrait<H, PeakProof<H>> for MerklePeak<H> {
     fn generate_proof(&mut self, index: usize) -> PeakProof<H> {
         apply!(self, generate_proof, index)
     }
@@ -262,7 +262,7 @@ mod tests {
         hash::{Hash, Hasher},
     };
 
-    use crate::{HashT, HeaplessTreeT, ProofValidator};
+    use crate::{HashT, BasicTreeTrait, ProofValidator};
     use crate::mergeable::mergeable::{MergeableHeaplessTree};
     use crate::peak::{MerklePeak, PeakProof, MerkleMR};
 

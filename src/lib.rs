@@ -187,7 +187,7 @@ where
     proof
 }
 
-pub trait HeaplessTreeT<H: HashT, PB: ProofBuilder<H>> {
+pub trait BasicTreeTrait<H: HashT, PB: ProofBuilder<H>> {
     fn generate_proof(&mut self, index: usize) -> PB;
     
     fn replace(&mut self, index: usize, input: &[u8]);
@@ -301,7 +301,7 @@ where
     }
 }
 
-impl<const BRANCH_FACTOR: usize, const HEIGHT: usize, H, PB> HeaplessTreeT<H, PB> 
+impl<const BRANCH_FACTOR: usize, const HEIGHT: usize, H, PB> BasicTreeTrait<H, PB> 
     for HeaplessTree<BRANCH_FACTOR, HEIGHT, H, PB> 
 where
     [(); total_size!(BRANCH_FACTOR, HEIGHT)]: Sized,

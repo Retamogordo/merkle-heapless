@@ -1,7 +1,7 @@
 
 #[cfg(test)]
 mod tests {
-    use crate::{HashT, HeaplessTreeT, HeaplessTree, HeaplessBinaryTree, ProofValidator};
+    use crate::{HashT, BasicTreeTrait, HeaplessTree, HeaplessBinaryTree, ProofValidator};
     use crate::compactable::{DefaultCompactable};
 
     use std::{
@@ -763,6 +763,13 @@ mod tests {
         cmt.try_append(b"kotleta").unwrap();
         cmt.try_append(b"blueberry").unwrap();
         assert!(cmt.try_append(b"blackberry").is_err());
+    }
+
+    #[test]
+    fn mmr_macro() {
+        use crate as merkle_heapless;
+
+        mmr_macro::mmr!(BranchFactor = 2, Peaks = 7);
     }
 
 

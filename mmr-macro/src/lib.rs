@@ -120,7 +120,7 @@ pub fn mmr(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     let as_dyn_tree_variant_def_token = peak_variant_def_idents.iter()
         .map(|(peak_lit, _)| {
             quote! {
-                #peak_lit(tree) => tree as &dyn HeaplessTreeT<H, PeakProof<H>>
+                #peak_lit(tree) => tree as &dyn BasicTreeTrait<H, PeakProof<H>>
             }
         })
         .collect::<Vec<_>>();
@@ -128,7 +128,7 @@ pub fn mmr(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     let as_mut_dyn_tree_variant_def_token = peak_variant_def_idents.iter()
         .map(|(peak_lit, _)| {
             quote! {
-                #peak_lit(tree) => tree as &mut dyn HeaplessTreeT<H, PeakProof<H>>
+                #peak_lit(tree) => tree as &mut dyn BasicTreeTrait<H, PeakProof<H>>
             }
         })
         .collect::<Vec<_>>();
@@ -138,8 +138,7 @@ pub fn mmr(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     let num_of_peaks = LitInt::new(&input.num_of_peaks.to_string(), proc_macro2::Span::call_site());
     let mmr_type = syn::Ident::new(&input.mmr_type, proc_macro2::Span::call_site());
     let mmr_peak_type = syn::Ident::new(&format!("{}Peak", input.mmr_type), proc_macro2::Span::call_site());
-    let mod_ident = syn::Ident::new(&input.mmr_type.to_case(Case::Snake), proc_macro2::Span::call_site());
-    
+    let mod_ident = syn::Ident::new(&input.mmr_type.to_case(Case::Snake), proc_macro2::Span::call_site());  
 
     let impl_method_body_token = quote! {
         use #mmr_peak_type::*;
@@ -155,8 +154,8 @@ pub fn mmr(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     };
 
     let output = quote! {
-        mod #mod_ident {
-            use merkle_heapless::{HashT, Proof, HeaplessTreeT, HeaplessTree, merge_proofs};
+        mod #mod_ident {            
+            use merkle_heapless::{HashT, Proof, BasicTreeTrait, HeaplessTree, merge_proofs};
             use merkle_heapless::mergeable::mergeable::{MergeableHeaplessTree};
 
             type PeakProof<H> = Proof<#branch_factor, #peak_height, H>;
@@ -194,7 +193,7 @@ pub fn mmr(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
                 }
             }        
 
-            impl<H: HashT> HeaplessTreeT<H, PeakProof<H>> for #mmr_peak_type<H> {
+            impl<H: HashT> BasicTreeTrait<H, PeakProof<H>> for #mmr_peak_type<H> {
                 fn generate_proof(&mut self, index: usize) -> PeakProof<H> {
                     #impl_mut_method_body_token.generate_proof(index)
                 }
@@ -274,6 +273,7 @@ pub fn mmr(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
 
                 pub fn try_append(&mut self, input: &[u8]) -> Result<(), ()> {
                     let prev_peak_index = self.curr_peak_index;
+                    
                     self.peaks[self.curr_peak_index]
                         // try to append item to the current peak
                         .try_append(input)
@@ -294,9 +294,11 @@ pub fn mmr(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
                             // now back propagate the peaks and merge them if necessary
                             self.merge_collapse().map(|_| {
                                 if need_to_rebuild_summit_tree {
-                                    self.peaks.iter().enumerate().for_each(|(i, peak)| 
-                                        self.summit_tree.replace_leaf(i, peak.root())
-                                    )
+                                    self.peaks.iter()
+                                        .enumerate()
+                                        .for_each(|(i, peak)| 
+                                            self.summit_tree.replace_leaf(i, peak.root())
+                                        )
                                 } else {
                                     self.summit_tree.replace_leaf(self.curr_peak_index, self.peaks[self.curr_peak_index].root());
                                 }
