@@ -109,18 +109,6 @@ use std::{
 //     // }
 // }
 
-#[derive(Debug)]
-struct StdHash;
-
-impl HashT for StdHash {
-    type Output = [u8; 8];
-
-    fn hash(input: &[u8]) -> Self::Output {
-        let mut s = DefaultHasher::new();
-        input.hash(&mut s);
-        s.finish().to_ne_bytes()
-    }
-}
 
 // struct MyTree {
 // }
@@ -160,44 +148,43 @@ impl HashT for StdHash {
 // impl IsTrue for Assert<true> {}
 
 
-use merkle_heapless::{HashT, HeaplessTreeT,  HeaplessTree, ProofBuilder, ProofItemT, Proof, total_size};
+use merkle_heapless::{HashT, ProofValidator, HeaplessTreeT};
 //use crate::compactable::compactable::{MergeableHeaplessTree};
-use merkle_heapless::mergeable::mergeable::{MergeableHeaplessTree};
+//use merkle_heapless::mergeable::mergeable::{MergeableHeaplessTree};
+#[derive(Debug)]
+struct StdHash;
+
+impl HashT for StdHash {
+    type Output = [u8; 8];
+
+    fn hash(input: &[u8]) -> Self::Output {
+        let mut s = DefaultHasher::new();
+        input.hash(&mut s);
+        s.finish().to_ne_bytes()
+    }
+}
 
 fn main() {
 //    type PeakProof<H> = Proof<2, 5, H>;
 
-    mmr_macro::mmr!(5 2);
+    mmr_macro::mmr!(BranchFactor = 2, Peaks = 5);
+    mmr_macro::mmr!(Type = Foo, BranchFactor = 2, Peaks = 6);
 
-    let mut cmt = MergeableHeaplessTree::<2, 5, StdHash, PeakProof<StdHash>>::try_from(
-        &[]
-    ).unwrap();
+    // let mut cmt = MergeableHeaplessTree::<2, 5, StdHash, PeakProof<StdHash>>::try_from(
+    //     &[]
+    // ).unwrap();
 
-    let peak1 = MerklePeak::PeakHeight0(cmt);
-    peak1.clone();
+    // let peak1 = MerklePeak::PeakHeight0(cmt);
 
-    let mmr = MerkleMR::<StdHash>::from(peak1);
-
-    let mut peak = MerklePeak::<StdHash>::default();
-    peak.leaves();
-    peak.generate_proof(0);
-
-//    let left = CompactableHeaplessTree::<2, 3, 5, StdHash>::try_from(&[b"apple"]).unwrap();
-    // let mut cons = MerkleCons::new(left);
-
-    // let left_next = CompactableHeaplessTree::<2, 2, StdHash>::try_from(&[b"banana"]).unwrap();
-    // let right = MerkleCons::new(left_next);
-
-//    cons.append(right);
-
-//     let foo = Foo::<3_usize, StdHash>{
-//         left: CompactableHeaplessTree<2_usize, {3_usize - 1}, StdHash>::try_from(&[b"apple"]).unwrap(),
-//         right: None,
-// _    };
-//     let t1 = Fractal::leaf(&[1]);
-//     let t2 = Fractal::leaf(&[2]);
-//     let t3 = Fractal::from([&t1, &t2]);
-
-// //    println!("{:?}", t3);
-//     t3.printme();
+    let mut mmr = Foo::<StdHash>::default();
+    let mut mmr2 = MerkleMountainRange::<StdHash>::default();
+    // peak leaf numbers: [0, 0, 0, 0, 0]
+    mmr.try_append(b"apple").unwrap();
+    // peak leaf numbers: [1, 0, 0, 0, 0]
+    assert_eq!(mmr.peaks()[0].num_of_leaves(), 1);
+    assert_eq!(mmr.peaks()[1].num_of_leaves(), 0);
+    let proof = mmr.generate_proof(0);
+    let res = proof.validate(b"apple");
+    assert!(res);
+    
 }
