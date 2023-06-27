@@ -229,34 +229,21 @@ where
             })
     }
 
-    pub fn generate_proof(&mut self, index: usize) -> MMRProof<H> 
-    {
+    pub fn generate_proof(&mut self, index: usize) -> MMRProof<H> {
         let mut accum_len = 0;
-        for (peak_ind, peak) in self.peaks.iter_mut().enumerate() {
+        let mut peak_ind = 0;
+
+        for peak in self.peaks.iter() {
             if accum_len + peak.num_of_leaves() > index {
-
-                let mut proof = peak.generate_proof(index - accum_len);
-
-                let summit_proof = self.summit_tree.generate_proof(peak_ind);
-                return merge_proofs(proof, summit_proof);
-
-                // let (summit_root, summit_items) = summit_proof.as_raw();
-                
-                // proof.set_root(summit_root);
-                
-                // for item in summit_items {
-                //     let (offset, hashes) = item.as_raw();
-                //     if let Some(hashes) = hashes {
-                //         proof.push(offset, hashes);
-                //     } else {
-                //         break;
-                //     }
-                // }
-                // return proof;
+                break;
             }
+            peak_ind += 1;
             accum_len += peak.num_of_leaves();
         }
-        unreachable!();
+        merge_proofs(
+            self.peaks[peak_ind].generate_proof(index - accum_len),
+            self.summit_tree.generate_proof(peak_ind)
+        )
     }
 
     pub fn curr_peak_index(&self) -> usize {
