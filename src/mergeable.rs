@@ -175,6 +175,18 @@ pub mod mergeable {
         PB: ProofBuilder<H>,
     {}
 
+    impl <const BRANCH_FACTOR: usize, const HEIGHT: usize, H, PB> Default for MergeableHeaplessTree<BRANCH_FACTOR, HEIGHT, H, PB> 
+    where
+        [(); total_size!(BRANCH_FACTOR, HEIGHT)]: Sized,
+        [(); layer_size!(BRANCH_FACTOR, HEIGHT, 0)]: Sized,      
+        H: HashT,
+        PB: ProofBuilder<H>,
+    {
+        fn default() -> Self {
+            Self::try_from(&[]).expect("can create from empty input. qed")
+        }
+    }
+
     impl <const BRANCH_FACTOR: usize, const HEIGHT: usize, H, PB> Debug for MergeableHeaplessTree<BRANCH_FACTOR, HEIGHT, H, PB> 
     where
         [(); total_size!(BRANCH_FACTOR, HEIGHT)]: Sized,

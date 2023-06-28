@@ -405,7 +405,7 @@ where
 {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> Result<(), core::fmt::Error> { 
         writeln!(f, "[branch factor]:   {BRANCH_FACTOR}")?;
-        writeln!(f, "[layers]:          {HEIGHT}")?;
+        writeln!(f, "[height]:          {HEIGHT}")?;
         writeln!(f, "[total size]:      {}", Self::TOTAL_SIZE)?;
         writeln!(f, "[hash output len]: {} bytes", size_of::<H::Output>())?;
         write!(f, "{:?}", self.hashes)

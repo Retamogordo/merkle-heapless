@@ -7,12 +7,14 @@ struct MMRInput {
     mmr_type: String,
     num_of_peaks: usize,
     branch_factor: usize,
+    hash_type: String,
 }
 
 impl MMRInput {
     const TYPE_IDENT: &str = "Type";
     const BRANCH_FACTOR_IDENT: &str = "BranchFactor";
     const NUM_OF_PEAKS: &str = "Peaks";
+    const HASH_TYPE_IDENT: &str = "Hash";
 }
 
 impl Parse for MMRInput {
@@ -51,11 +53,21 @@ impl Parse for MMRInput {
         input.parse::<Token![=]>()?;
         let num_of_peaks: LitInt = input.parse()?;
 
+        input.parse::<Token![,]>()?;
+
+        let hash_type_ident = input.parse::<Ident>()?;  
+        if Self::HASH_TYPE_IDENT != &hash_type_ident.to_string() {
+            return Err(Error::new(hash_type_ident.span(), &format!("expected {}", Self::HASH_TYPE_IDENT)));
+        }        
+        input.parse::<Token![=]>()?;
+        let hash_type = input.parse::<Ident>()?.to_string();
+
         Ok(
             Self {
                 mmr_type,
                 num_of_peaks: num_of_peaks.base10_parse::<usize>()?,
                 branch_factor: branch_factor.base10_parse::<usize>()?,
+                hash_type,
             }
         )
     }
@@ -69,10 +81,18 @@ pub fn mmr(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     let summit_height = (8 * core::mem::size_of::<usize>() as u32 - input.num_of_peaks.leading_zeros()) as usize + 1;
     let total_height = summit_height + peak_height;
 
+    let total_height = LitInt::new(&total_height.to_string(), proc_macro2::Span::call_site());
+    let summit_height = LitInt::new(&summit_height.to_string(), proc_macro2::Span::call_site());
+    let num_of_peaks = LitInt::new(&input.num_of_peaks.to_string(), proc_macro2::Span::call_site());
+    let mmr_type = syn::Ident::new(&input.mmr_type, proc_macro2::Span::call_site());
+    let mmr_peak_type = syn::Ident::new(&format!("{}Peak", input.mmr_type), proc_macro2::Span::call_site());
+    let hash_type = syn::Ident::new(&input.hash_type, proc_macro2::Span::call_site());
+    let mod_ident = syn::Ident::new(&input.mmr_type.to_case(Case::Snake), proc_macro2::Span::call_site());  
+
     let peak_variant_def_idents = (0..input.num_of_peaks)
         .map(|i| { 
             (
-                syn::Ident::new(&format!("PeakHeight{i}"), proc_macro2::Span::call_site()),
+                syn::Ident::new(&format!("Peak{i}"), proc_macro2::Span::call_site()),
                 LitInt::new(&(input.num_of_peaks - i).to_string(), proc_macro2::Span::call_site()),
             )
         })
@@ -83,7 +103,7 @@ pub fn mmr(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     let peak_variant_def_tokens = peak_variant_def_idents.iter()
         .map(|(peak_lit, peak_height)| { 
             quote! {
-                #peak_lit(MergeableHeaplessTree<#branch_factor, #peak_height, H, PeakProof<H>>)
+                #peak_lit(MergeableHeaplessTree<#branch_factor, #peak_height, #hash_type, PeakProof>)
             }
         })
         .collect::<Vec<_>>();
@@ -103,7 +123,7 @@ pub fn mmr(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
             }
         })
         .expect("variant list is not empty. qed");
-        
+
     let mut it1 = peak_variant_def_idents.iter().map(|(peak_lit, _)| peak_lit);
     let it2 = peak_variant_def_idents.iter().map(|(peak_lit, _)| peak_lit);
     it1.next();
@@ -116,10 +136,11 @@ pub fn mmr(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
         })
         .collect::<Vec<_>>();
 
+
     let as_dyn_tree_variant_def_token = peak_variant_def_idents.iter()
         .map(|(peak_lit, _)| {
             quote! {
-                #peak_lit(tree) => tree as &dyn BasicTreeTrait<H, PeakProof<H>>
+                #peak_lit(tree) => tree as &dyn BasicTreeTrait<#hash_type, PeakProof>
             }
         })
         .collect::<Vec<_>>();
@@ -127,17 +148,10 @@ pub fn mmr(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     let as_mut_dyn_tree_variant_def_token = peak_variant_def_idents.iter()
         .map(|(peak_lit, _)| {
             quote! {
-                #peak_lit(tree) => tree as &mut dyn BasicTreeTrait<H, PeakProof<H>>
+                #peak_lit(tree) => tree as &mut dyn BasicTreeTrait<#hash_type, PeakProof>
             }
         })
         .collect::<Vec<_>>();
-
-    let total_height = LitInt::new(&total_height.to_string(), proc_macro2::Span::call_site());
-    let summit_height = LitInt::new(&summit_height.to_string(), proc_macro2::Span::call_site());
-    let num_of_peaks = LitInt::new(&input.num_of_peaks.to_string(), proc_macro2::Span::call_site());
-    let mmr_type = syn::Ident::new(&input.mmr_type, proc_macro2::Span::call_site());
-    let mmr_peak_type = syn::Ident::new(&format!("{}Peak", input.mmr_type), proc_macro2::Span::call_site());
-    let mod_ident = syn::Ident::new(&input.mmr_type.to_case(Case::Snake), proc_macro2::Span::call_site());  
 
     let impl_method_body_token = quote! {
         use #mmr_peak_type::*;
@@ -156,15 +170,17 @@ pub fn mmr(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
         mod #mod_ident {            
             use merkle_heapless::{HashT, Proof, BasicTreeTrait, HeaplessTree, merge_proofs};
             use merkle_heapless::mergeable::mergeable::{MergeableHeaplessTree};
+            use super::#hash_type;
 
-            type PeakProof<H> = Proof<#branch_factor, #peak_height, H>;
-            type MMRProof<H> = Proof<#branch_factor, #total_height, H>;
+            type PeakProof = Proof<#branch_factor, #peak_height, #hash_type>;
+            type MMRProof = Proof<#branch_factor, #total_height, #hash_type>;
 
-            pub enum #mmr_peak_type<H: HashT> {
+            #[derive(Debug)]
+            pub enum #mmr_peak_type {
                 #(#peak_variant_def_tokens),*
             }
 
-            impl<H: HashT> Clone for #mmr_peak_type<H> {
+            impl Clone for #mmr_peak_type {
                 fn clone(&self) -> Self { 
                     use #mmr_peak_type::*;
                     match self {
@@ -173,16 +189,16 @@ pub fn mmr(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
                 }
             }
 
-            impl<H: HashT> Default for #mmr_peak_type<H> {
+            impl Default for #mmr_peak_type {
                 fn default() -> Self {
                     use #mmr_peak_type::*;
                     #default_variant_def_token
                 }
             }
             
-            impl<H: HashT> Copy for #mmr_peak_type<H> {}
+            impl Copy for #mmr_peak_type {}
 
-            impl<H: HashT> #mmr_peak_type<H> {        
+            impl #mmr_peak_type {        
                 pub fn try_merge(self, other: Self) -> Result<Self, Self> {
                     use #mmr_peak_type::{*};
                     match (self, other) {
@@ -192,14 +208,14 @@ pub fn mmr(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
                 }
             }        
 
-            impl<H: HashT> BasicTreeTrait<H, PeakProof<H>> for #mmr_peak_type<H> {
-                fn generate_proof(&mut self, index: usize) -> PeakProof<H> {
+            impl BasicTreeTrait<#hash_type, PeakProof> for #mmr_peak_type {
+                fn generate_proof(&mut self, index: usize) -> PeakProof {
                     #impl_mut_method_body_token.generate_proof(index)
                 }
                 fn replace(&mut self, index: usize, input: &[u8]) {
                     #impl_mut_method_body_token.replace(index, input)
                 }
-                fn replace_leaf(&mut self, index: usize, leaf: H::Output) {
+                fn replace_leaf(&mut self, index: usize, leaf: <#hash_type as HashT>::Output) {
                     #impl_mut_method_body_token.replace_leaf(index, leaf)
                 }
                 fn remove(&mut self, index: usize) {
@@ -208,10 +224,10 @@ pub fn mmr(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
                 fn try_append(&mut self, input: &[u8]) -> Result<(), ()> {
                     #impl_mut_method_body_token.try_append(input)
                 }
-                fn root(&self) -> H::Output {
+                fn root(&self) -> <#hash_type as HashT>::Output {
                     #impl_method_body_token.root()
                 }
-                fn leaves(&self) -> &[H::Output] {
+                fn leaves(&self) -> &[<#hash_type as HashT>::Output] {
                     #impl_method_body_token.leaves()
                 }
                 fn base_layer_size(&self) -> usize {
@@ -228,24 +244,26 @@ pub fn mmr(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
                 }
             }   
 
-            pub struct #mmr_type<H: HashT> 
+            pub struct #mmr_type 
             where 
                 [(); #num_of_peaks]: Sized,
             {
-                summit_tree: HeaplessTree<#branch_factor, #summit_height, H>,
-                peaks: [#mmr_peak_type<H>; #num_of_peaks],
+                summit_tree: HeaplessTree<#branch_factor, #summit_height, #hash_type>,
+                peaks: [#mmr_peak_type; #num_of_peaks],
                 curr_peak_index: usize,
+                num_of_leaves: usize,
             }
 
-            impl<H: HashT> #mmr_type<H> 
+            impl #mmr_type 
             where 
                 [(); #num_of_peaks]: Sized,
             {            
-                pub fn from(peak: #mmr_peak_type<H>) -> Result<Self, ()> {
+                pub fn from(peak: #mmr_peak_type) -> Result<Self, ()> {
                     let mut this = Self {
-                        summit_tree: HeaplessTree::<#branch_factor, #summit_height, H>::try_from(&[])?,
-                        peaks: [#mmr_peak_type::<H>::default(); #num_of_peaks],
+                        summit_tree: HeaplessTree::<#branch_factor, #summit_height, #hash_type>::try_from(&[])?,
+                        peaks: [#mmr_peak_type::default(); #num_of_peaks],
                         curr_peak_index: 0,
+                        num_of_leaves: 0,
                     }; 
                     this.peaks[0] = peak;
                     Ok(this)
@@ -293,19 +311,19 @@ pub fn mmr(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
                             // now back propagate the peaks and merge them if necessary
                             self.merge_collapse().map(|_| {
                                 if need_to_rebuild_summit_tree {
-                                    self.peaks.iter()
-                                        .enumerate()
-                                        .for_each(|(i, peak)| 
-                                            self.summit_tree.replace_leaf(i, peak.root())
-                                        )
+                                    for (i, peak) in self.peaks.iter().enumerate() { 
+                                        self.summit_tree.replace_leaf(i, peak.root())
+                                    }
                                 } else {
-                                    self.summit_tree.replace_leaf(self.curr_peak_index, self.peaks[self.curr_peak_index].root());
+                                    let i = self.curr_peak_index;
+                                    self.summit_tree.replace_leaf(i, self.peaks[i].root());
                                 }
+                                self.num_of_leaves += 1;
                             })
                         })
                 }
 
-                pub fn generate_proof(&mut self, index: usize) -> MMRProof<H> {
+                pub fn generate_proof(&mut self, index: usize) -> MMRProof {
                     let mut accum_len = 0;
                     let mut peak_ind = 0;
             
@@ -322,26 +340,31 @@ pub fn mmr(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
                     )
                 }
 
+                pub fn num_of_leaves(&self) -> usize {
+                    self.num_of_leaves
+                }
+
                 pub fn curr_peak_index(&self) -> usize {
                     self.curr_peak_index
                 }
             
-                pub fn peaks(&self) -> &[#mmr_peak_type<H>] {
+                pub fn peaks(&self) -> &[#mmr_peak_type] {
                     &self.peaks[..]
                 }        
             }
 
-            impl<H: HashT> Default for #mmr_type<H> 
+            impl Default for #mmr_type 
             where 
                 [(); #num_of_peaks]: Sized, 
                 {        
                     fn default() -> Self {
-                        Self::from(Default::default())
+                        Self::from(Default::default()).unwrap()
                     }
                 }
         }
 
         use #mod_ident::#mmr_type as #mmr_type;
+        use #mod_ident::#mmr_peak_type as #mmr_peak_type;
     };
     
     proc_macro::TokenStream::from(output)

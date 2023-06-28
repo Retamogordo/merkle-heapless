@@ -11,7 +11,7 @@ mod tests {
     use merkle_heapless::{mmr_macro, HashT, HeaplessTree, BasicTreeTrait, ProofValidator};
 
     #[derive(Debug)]
-    struct StdHash;
+    pub struct StdHash;
     
     impl HashT for StdHash {
         type Output = [u8; 8];
@@ -47,9 +47,10 @@ mod tests {
 
     #[test]
     fn mmr() {
-        mmr_macro::mmr!(Type = FooMMR, BranchFactor = 4, Peaks = 7);
+        mmr_macro::mmr!(Type = FooMMR, BranchFactor = 2, Peaks = 7, Hash = StdHash);
 
-        let mut mmr = FooMMR::<StdHash>::default();
+//        let mut mmr = FooMMR::<StdHash>::from(FooMMRPeak::<StdHash>::PeakHeight0).unwrap();
+        let mut mmr = FooMMR::default();
         // peak leaf numbers: [0, 0, 0, 0, 0]
         mmr.try_append(b"apple").unwrap();
         // peak leaf numbers: [1, 0, 0, 0, 0]
@@ -60,6 +61,8 @@ mod tests {
         assert!(res);
         
         mmr.try_append(b"banana").unwrap();
+
+        println!("{:?}", mmr.peaks()[0]);
         // peak leaf numbers: [2, 0, 0, 0, 0] because 1, 1 is merged -> 2, 0
         assert_eq!(mmr.peaks()[0].num_of_leaves(), 2);
         assert_eq!(mmr.peaks()[1].num_of_leaves(), 0);
