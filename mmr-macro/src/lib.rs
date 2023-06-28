@@ -1,7 +1,6 @@
-//use inflector::Inflector;
 use quote::quote;
 use syn::parse::{Parse, ParseStream, Result};
-use syn::{Type, LitInt, Ident, Token, Error};
+use syn::{LitInt, Ident, Token, Error};
 use convert_case::{Case, Casing};
 
 struct MMRInput {
@@ -21,7 +20,7 @@ impl Parse for MMRInput {
     fn parse(input: ParseStream) -> Result<Self> {
         let mut with_type = false; 
         let maybe_type_ident = input.parse::<Ident>()?; 
-        let mut mmr_type: String;
+        let mmr_type: String;
         if Self::TYPE_IDENT == &maybe_type_ident.to_string() {
             with_type = true;
             input.parse::<Token![=]>()?;
@@ -100,13 +99,13 @@ pub fn mmr(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     let default_variant_def_token = peak_variant_def_idents.iter().last()
         .map(|(peak_lit, _)| {
             quote! {
-                #peak_lit(MergeableHeaplessTree::try_from(&[]).unwrap())
+                #peak_lit(MergeableHeaplessTree::default())
             }
         })
-        .unwrap();
+        .expect("variant list is not empty. qed");
         
     let mut it1 = peak_variant_def_idents.iter().map(|(peak_lit, _)| peak_lit);
-    let mut it2 = peak_variant_def_idents.iter().map(|(peak_lit, _)| peak_lit);
+    let it2 = peak_variant_def_idents.iter().map(|(peak_lit, _)| peak_lit);
     it1.next();
     
     let try_merge_variant_def_tokens = it1.zip(it2)
@@ -242,14 +241,14 @@ pub fn mmr(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
             where 
                 [(); #num_of_peaks]: Sized,
             {            
-                pub fn from(peak: #mmr_peak_type<H>) -> Self {
+                pub fn from(peak: #mmr_peak_type<H>) -> Result<Self, ()> {
                     let mut this = Self {
-                        summit_tree: HeaplessTree::<#branch_factor, #summit_height, H>::try_from(&[]).unwrap(),
+                        summit_tree: HeaplessTree::<#branch_factor, #summit_height, H>::try_from(&[])?,
                         peaks: [#mmr_peak_type::<H>::default(); #num_of_peaks],
                         curr_peak_index: 0,
                     }; 
                     this.peaks[0] = peak;
-                    this
+                    Ok(this)
                 } 
                 
                 fn merge_collapse(&mut self) -> Result<(), ()> {

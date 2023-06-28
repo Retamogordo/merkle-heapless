@@ -1,4 +1,4 @@
-use crate::{HashT, BasicTreeTrait,  HeaplessTree, ProofBuilder, ProofDetails, ProofItemT, Proof, merge_proofs, total_size};
+use crate::{HashT, BasicTreeTrait,  HeaplessTree, ProofBuilder, ProofItemT, Proof, merge_proofs, total_size};
 //use crate::compactable::compactable::{MergeableHeaplessTree};
 use crate::mergeable::mergeable::{MergeableHeaplessTree};
 

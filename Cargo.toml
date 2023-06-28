@@ -8,3 +8,6 @@ edition = "2021"
 
 [dependencies]
 mmr-macro = {path = "./mmr-macro"}
+
+[features]
+mmr_macro = []

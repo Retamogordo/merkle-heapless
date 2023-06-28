@@ -7,8 +7,8 @@ mod tests;
 mod utils;
 pub mod compactable;
 pub mod mergeable;
-pub mod peak;
 
+#[cfg(feature = "mmr_macro")]
 pub use mmr_macro;
 
 use core::fmt::Debug;
@@ -25,7 +25,6 @@ pub trait HashT {
 pub trait ProofItemT<H: HashT>: Clone + Default + Debug {
     fn create(offset: usize, hashes: &[H::Output]) -> Self;
     fn hash_with_siblings(self, word_hash: H::Output) -> Option<H::Output>;
-    fn as_raw(&self) -> (usize, Option<&[H::Output]>);
 }
 
 pub struct ProofItem<const BRANCH_FACTOR: usize, H: HashT> {
@@ -51,10 +50,6 @@ impl<const BRANCH_FACTOR: usize, H: HashT> ProofItemT<H> for ProofItem<BRANCH_FA
                 hash_merged_slice::<H>(&hashes[0..], bytes_in_chunk)
             })
     }
-    fn as_raw(&self) -> (usize, Option<&[H::Output]>) {
-        (self.offset, self.hashes.as_ref().map(|hashes| &hashes[..]))
-    }
-
 }
 
 impl<const BRANCH_FACTOR: usize, H: HashT> Copy for ProofItem<BRANCH_FACTOR, H> {}
@@ -79,8 +74,7 @@ impl<const BRANCH_FACTOR: usize, H: HashT> Default for ProofItem<BRANCH_FACTOR, 
 
 impl<const BRANCH_FACTOR: usize, H: HashT>  Debug for ProofItem<BRANCH_FACTOR, H> {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> Result<(), core::fmt::Error> { 
-        unimplemented!();
-        // writeln!(f, "[branch factor]:   {BRANCH_FACTOR}")?;
+        writeln!(f, "{:?}", self.hashes)
     }
 }
 
@@ -90,11 +84,6 @@ pub trait ProofBuilder<H: HashT>: Default {
     fn from_root(root: H::Output) -> Self;
     fn root(&self) -> H::Output;
     fn push(&mut self, offset: usize, hashes: &[H::Output]);
-}
-
-pub(crate) trait ProofDetails<H: HashT>: ProofBuilder<H>  {
-    fn set_root(&mut self, root: H::Output);
-    fn as_raw(&self) -> (H::Output, &[Self::Item]);
 }
 
 pub trait ProofValidator {
@@ -125,16 +114,6 @@ where [(); HEIGHT - 1]: Sized {
     fn push(&mut self, offset: usize, hashes: &[H::Output]) {
         self.items[self.height] = Self::Item::create(offset, hashes);
         self.height += 1;
-    }
-}
-
-impl <const BRANCH_FACTOR: usize, const HEIGHT: usize, H: HashT> ProofDetails<H> for Proof<BRANCH_FACTOR, HEIGHT, H>
-where [(); HEIGHT - 1]: Sized {
-    fn set_root(&mut self, root: H::Output) {
-        self.root = root;
-    }
-    fn as_raw(&self) -> (H::Output, &[Self::Item]) {
-        (self.root, &self.items[..])
     }
 }
 
@@ -299,10 +278,26 @@ where
 
         (parent_index, parent_layer_base)
     }
+
+    fn replace_inner(&mut self, index: usize, ) {
+        let mut layer_base = 0;
+        let mut index = index;
+
+        // start from the base layer and propagate the new hashes upwords
+        for layer in 0..HEIGHT - 1 {
+            let offset = index & (BRANCH_FACTOR - 1); // index modulo BRANCH_FACTOR
+            let aligned = index - offset;
+
+            let parent_hashed = hash_merged_slice::<H>(&self.hashes[aligned..], Self::BYTES_IN_CHUNK);
+
+            (index, layer_base) = self.parent_index_and_base(index, layer, layer_base);
+
+            self.hashes[index] = parent_hashed;
+        }
+    }
 }
 
-impl<const BRANCH_FACTOR: usize, const HEIGHT: usize, H, PB> BasicTreeTrait<H, PB> 
-    for HeaplessTree<BRANCH_FACTOR, HEIGHT, H, PB> 
+impl<const BRANCH_FACTOR: usize, const HEIGHT: usize, H, PB> BasicTreeTrait<H, PB> for HeaplessTree<BRANCH_FACTOR, HEIGHT, H, PB> 
 where
     [(); total_size!(BRANCH_FACTOR, HEIGHT)]: Sized,
     H: HashT,
@@ -330,40 +325,12 @@ where
     /// panics if index is out of leaf layer bound
     fn replace(&mut self, index: usize, input: &[u8]) {
         self.hashes[index] = H::hash(input);
-
-        let mut layer_base = 0;
-        let mut index = index;
-
-        // start from the base layer and propagate the new hashes upwords
-        for layer in 0..HEIGHT - 1 {
-            let offset = index & (BRANCH_FACTOR - 1); // index modulo BRANCH_FACTOR
-            let aligned = index - offset;
-
-            let parent_hashed = hash_merged_slice::<H>(&self.hashes[aligned..], Self::BYTES_IN_CHUNK);
-
-            (index, layer_base) = self.parent_index_and_base(index, layer, layer_base);
-
-            self.hashes[index] = parent_hashed;
-        }
+        self.replace_inner(index);
     }
 
     fn replace_leaf(&mut self, index: usize, leaf: H::Output) {
         self.hashes[index] = leaf;
-
-        let mut layer_base = 0;
-        let mut index = index;
-
-        // start from the base layer and propagate the new hashes upwords
-        for layer in 0..HEIGHT - 1 {
-            let offset = index & (BRANCH_FACTOR - 1); // index modulo BRANCH_FACTOR
-            let aligned = index - offset;
-
-            let parent_hashed = hash_merged_slice::<H>(&self.hashes[aligned..], Self::BYTES_IN_CHUNK);
-
-            (index, layer_base) = self.parent_index_and_base(index, layer, layer_base);
-
-            self.hashes[index] = parent_hashed;
-        }
+        self.replace_inner(index);
     }
     // remove element by inserting nothing
     // panics if index is out of leaf layer bound
@@ -412,16 +379,14 @@ where
     }
 }
 
-impl<const BRANCH_FACTOR: usize, const HEIGHT: usize, H, PB> Copy 
-    for HeaplessTree<BRANCH_FACTOR, HEIGHT, H, PB> 
+impl<const BRANCH_FACTOR: usize, const HEIGHT: usize, H, PB> Copy for HeaplessTree<BRANCH_FACTOR, HEIGHT, H, PB> 
 where
     [(); total_size!(BRANCH_FACTOR, HEIGHT)]: Sized,
     H: HashT,
     PB: ProofBuilder<H>,
 {}
 
-impl<const BRANCH_FACTOR: usize, const HEIGHT: usize, H, PB> PartialEq 
-    for HeaplessTree<BRANCH_FACTOR, HEIGHT, H, PB> 
+impl<const BRANCH_FACTOR: usize, const HEIGHT: usize, H, PB> PartialEq for HeaplessTree<BRANCH_FACTOR, HEIGHT, H, PB> 
 where
     [(); total_size!(BRANCH_FACTOR, HEIGHT)]: Sized,
     H: HashT,
@@ -432,8 +397,7 @@ where
     }
 }
 
-impl <const BRANCH_FACTOR: usize, const HEIGHT: usize, H, PB> Debug 
-    for HeaplessTree<BRANCH_FACTOR, HEIGHT, H, PB> 
+impl <const BRANCH_FACTOR: usize, const HEIGHT: usize, H, PB> Debug for HeaplessTree<BRANCH_FACTOR, HEIGHT, H, PB> 
 where
     [(); total_size!(BRANCH_FACTOR, HEIGHT)]: Sized,
     H: HashT,
