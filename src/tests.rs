@@ -1,7 +1,7 @@
 
 #[cfg(test)]
 mod tests {
-    use crate::{HashT, BasicTreeTrait, HeaplessTree, HeaplessBinaryTree, ProofValidator};
+    use crate::{HashT, StaticTreeTrait, StaticTree, HeaplessBinaryTree, ProofValidator};
     use crate::compactable::{DefaultCompactable};
 
     use std::{
@@ -49,8 +49,8 @@ mod tests {
         const HEIGHT: usize = 4;
         const BRANCH_FACTOR: usize = 2;
 
-        let mut mt = HeaplessTree::<BRANCH_FACTOR, HEIGHT, StdHash>::try_from(&[
-//            let mut mt = HeaplessTree::<BRANCH_FACTOR,HEIGHT, StdHash, Proof<BRANCH_FACTOR, HEIGHT, StdHash>>::try_from(&[
+        let mut mt = StaticTree::<BRANCH_FACTOR, HEIGHT, StdHash>::try_from(&[
+//            let mut mt = StaticTree::<BRANCH_FACTOR,HEIGHT, StdHash, Proof<BRANCH_FACTOR, HEIGHT, StdHash>>::try_from(&[
             b"apple", b"banana", b"kiwi", b"kotleta",
         ]);
         let word_index = 7;
@@ -81,7 +81,7 @@ mod tests {
 
     #[test]
     fn validate_default_padding_word_4layers_std_hash() {
-        let mut mt = HeaplessTree::<4, 8, StdHash>::try_from(&[
+        let mut mt = StaticTree::<4, 8, StdHash>::try_from(&[
             b"apple", b"banana", b"kiwi", b"kotleta",
         ]);
         let word_index = 7;
@@ -132,7 +132,7 @@ mod tests {
 
     #[test]
     fn illegal_branch_factor() {
-        let mt = HeaplessTree::<3, 1, Blake2_256Hash>::try_from(&[
+        let mt = StaticTree::<3, 1, Blake2_256Hash>::try_from(&[
             b"apple",
         ]);
 
@@ -165,7 +165,7 @@ mod tests {
     fn insert_append_binary() {
         const HEIGHT: usize = 4;
         const BRANCH_FACTOR: usize = 2;
-        let mut mt = HeaplessTree::<BRANCH_FACTOR, HEIGHT, StdHash>::try_from(&[
+        let mut mt = StaticTree::<BRANCH_FACTOR, HEIGHT, StdHash>::try_from(&[
             b"apple", b"banana", b"kiwi", b"kotleta",
         ]);
         let word_index = 6;
@@ -188,7 +188,7 @@ mod tests {
     fn insert_replace_branch_factor_8() {
         const HEIGHT: usize = 4;
         const BRANCH_FACTOR: usize = 8;
-        let mut mt = HeaplessTree::<BRANCH_FACTOR, HEIGHT, StdHash>::try_from(&[
+        let mut mt = StaticTree::<BRANCH_FACTOR, HEIGHT, StdHash>::try_from(&[
             b"apple", b"banana", b"kiwi", b"kotleta",
         ]);
         let word_index = 2;
@@ -211,7 +211,7 @@ mod tests {
     fn insert_append_branch_factor_8() {
         const HEIGHT: usize = 4;
         const BRANCH_FACTOR: usize = 8;
-        let mut mt = HeaplessTree::<BRANCH_FACTOR, HEIGHT, StdHash>::try_from(&[
+        let mut mt = StaticTree::<BRANCH_FACTOR, HEIGHT, StdHash>::try_from(&[
             b"apple", b"banana", b"kiwi", b"kotleta",
         ]);
         let word_index = 32;
@@ -233,7 +233,7 @@ mod tests {
     #[test]
     #[should_panic]
     fn fail_insertion_out_of_bound() {
-        let mut mt = HeaplessTree::<4, 8, StdHash>::try_from(&[
+        let mut mt = StaticTree::<4, 8, StdHash>::try_from(&[
             b"apple", b"banana", b"kiwi", b"kotleta",
         ]);
         let word_index = 8;
@@ -255,7 +255,7 @@ mod tests {
             "banana", "blueberry", "blackberry", "blackcurrant",
             "cherry",
         ];
-        let mut mt = HeaplessTree::<BRANCH_FACTOR,HEIGHT, StdHash>::try_from(
+        let mut mt = StaticTree::<BRANCH_FACTOR,HEIGHT, StdHash>::try_from(
             &words.iter().map(|w| w.as_bytes()).collect::<Vec<_>>()
         );
 
@@ -282,7 +282,7 @@ mod tests {
             "banana", "blueberry", "blackberry", "blackcurrant",
             "cherry",
         ];
-        let mut mt = HeaplessTree::<BRANCH_FACTOR,HEIGHT, StdHash>::try_from(
+        let mut mt = StaticTree::<BRANCH_FACTOR,HEIGHT, StdHash>::try_from(
             &words.iter().map(|w| w.as_bytes()).collect::<Vec<_>>()
         );
 
@@ -306,7 +306,7 @@ mod tests {
             "banana", "blueberry", "blackberry", "blackcurrant",
             "cherry",
         ];
-        let mt = HeaplessTree::<BRANCH_FACTOR, HEIGHT, StdHash>::try_from(
+        let mt = StaticTree::<BRANCH_FACTOR, HEIGHT, StdHash>::try_from(
             &words.iter().map(|w| w.as_bytes()).collect::<Vec<_>>()
         );
 
@@ -323,7 +323,7 @@ mod tests {
             "banana", "blueberry", "blackberry", "blackcurrant",
             "cherry",
         ];
-        let mt = HeaplessTree::<BRANCH_FACTOR,HEIGHT, StdHash>::try_from(
+        let mt = StaticTree::<BRANCH_FACTOR,HEIGHT, StdHash>::try_from(
             &words.iter().map(|w| w.as_bytes()).collect::<Vec<_>>()
         );
 
@@ -343,7 +343,7 @@ mod tests {
             "banana", "blueberry", "blackberry", "blackcurrant",
             "cherry",
         ];
-        let mt = HeaplessTree::<BRANCH_FACTOR,HEIGHT, StdHash>::try_from(
+        let mt = StaticTree::<BRANCH_FACTOR,HEIGHT, StdHash>::try_from(
             &words.iter().map(|w| w.as_bytes()).collect::<Vec<_>>()
         );
         println!("{:?}", mt.unwrap());
@@ -547,13 +547,13 @@ mod tests {
             "apple", "apricot", "banana", "kiwi", "kotleta",
         ];
 
-        let mt = HeaplessTree::<BRANCH_FACTOR, HEIGHT, StdHash>::try_from(
+        let mt = StaticTree::<BRANCH_FACTOR, HEIGHT, StdHash>::try_from(
             &words.iter().map(|w| w.as_bytes()).collect::<Vec<_>>()
         )
         .unwrap();
 
         const NEW_HEIGHT: usize = 5;
-        let mut mt = HeaplessTree::<BRANCH_FACTOR, NEW_HEIGHT, StdHash>::try_from_leaves(
+        let mut mt = StaticTree::<BRANCH_FACTOR, NEW_HEIGHT, StdHash>::try_from_leaves(
             &mt.leaves()
         )
         .unwrap();

@@ -25,13 +25,11 @@ pub trait ProofValidator {
     fn validate(self, input: &[u8]) -> bool;
 }
 
-pub trait BasicTreeTrait<H: HashT, PB: ProofBuilder<H>> {
+pub trait StaticTreeTrait<H: HashT, PB: ProofBuilder<H>> {
     fn generate_proof(&mut self, index: usize) -> PB;
     
     fn replace(&mut self, index: usize, input: &[u8]);
     fn replace_leaf(&mut self, index: usize, leaf: H::Output);
-
-    fn remove(&mut self, index: usize);
 
     fn root(&self) -> H::Output;
     fn leaves(&self) -> &[H::Output];
@@ -41,7 +39,11 @@ pub trait BasicTreeTrait<H: HashT, PB: ProofBuilder<H>> {
 } 
 
 pub trait AppendOnly {
-//    pub trait AppendOnly<H: HashT, PB: ProofBuilder<H>> {
     fn try_append(&mut self, input: &[u8]) -> Result<(), ()>;
+    fn num_of_leaves(&self) -> usize;
+}
+
+pub trait CanRemove {
+    fn remove(&mut self, index: usize);
     fn num_of_leaves(&self) -> usize;
 }

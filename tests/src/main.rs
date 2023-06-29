@@ -8,9 +8,9 @@ mod tests {
         hash::{Hash, Hasher},
     };
     
-    use merkle_heapless::{mmr_macro, HeaplessTree};
-    use merkle_heapless::traits::{HashT, ProofValidator, BasicTreeTrait, AppendOnly};
-    use merkle_heapless::proof::{Proof, merge_proofs};
+    use merkle_heapless::{mmr_macro, StaticTree};
+    use merkle_heapless::traits::{HashT, ProofValidator, StaticTreeTrait, AppendOnly};
+//    use merkle_heapless::proof::{Proof,};
 
 
     #[derive(Debug)]
@@ -31,7 +31,7 @@ mod tests {
         const HEIGHT: usize = 3;
         const BRANCH_FACTOR: usize = 4;
 
-        let mut mt = HeaplessTree::<BRANCH_FACTOR, HEIGHT, StdHash>::try_from(&[
+        let mut mt = StaticTree::<BRANCH_FACTOR, HEIGHT, StdHash>::try_from(&[
             b"apple", b"banana", b"kiwi", b"kotleta",
         ]);
         let word_index = 7;
@@ -143,5 +143,5 @@ mod tests {
 fn main() {
 //    mmr_macro::mmr!(BranchFactor = 2, Peaks = 7);
 
-//    let tree = HeaplessTree<2, 3, StdHash>::try_from
+//    let tree = StaticTree<2, 3, StdHash>::try_from
 }

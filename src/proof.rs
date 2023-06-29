@@ -1,6 +1,6 @@
 use core::fmt::Debug;
 use core::mem::size_of;
-use crate::traits::{HashT, ProofItemT, ProofBuilder, ProofValidator, BasicTreeTrait};
+use crate::traits::{HashT, ProofItemT, ProofBuilder, ProofValidator, StaticTreeTrait};
 use crate::utils::{hash_merged_slice};
 
 pub struct ProofItem<const BRANCH_FACTOR: usize, H: HashT> {

@@ -1,4 +1,4 @@
-use crate::{HashT, BasicTreeTrait,  HeaplessTree, ProofBuilder, ProofItemT, Proof, merge_proofs, total_size};
+use crate::{HashT, StaticTreeTrait,  StaticTree, ProofBuilder, ProofItemT, Proof, merge_proofs, total_size};
 //use crate::compactable::compactable::{MergeableHeaplessTree};
 use crate::mergeable::mergeable::{MergeableHeaplessTree};
 
@@ -65,11 +65,11 @@ impl<H: HashT> MerklePeak<H> {
     fn branch_factor(&self) -> usize {
 //        use MerklePeak::*;
         match self {
-            MerklePeak::NonMergeable(tree) => tree as &dyn BasicTreeTrait<H, PeakProof<H>>,
-            MerklePeak::First(tree) => tree as &dyn BasicTreeTrait<H, PeakProof<H>>,
-            MerklePeak::Second(tree) => tree as &dyn BasicTreeTrait<H, PeakProof<H>>,
-            MerklePeak::Third(tree) => tree as &dyn BasicTreeTrait<H, PeakProof<H>>,
-            MerklePeak::Forth(tree) => tree as &dyn BasicTreeTrait<H, PeakProof<H>>,
+            MerklePeak::NonMergeable(tree) => tree as &dyn StaticTreeTrait<H, PeakProof<H>>,
+            MerklePeak::First(tree) => tree as &dyn StaticTreeTrait<H, PeakProof<H>>,
+            MerklePeak::Second(tree) => tree as &dyn StaticTreeTrait<H, PeakProof<H>>,
+            MerklePeak::Third(tree) => tree as &dyn StaticTreeTrait<H, PeakProof<H>>,
+            MerklePeak::Forth(tree) => tree as &dyn StaticTreeTrait<H, PeakProof<H>>,
         }
         .branch_factor()
     }
@@ -96,7 +96,7 @@ impl<H: HashT> Default for MerklePeak<H> {
 
 impl<H: HashT> Copy for MerklePeak<H> {}
 
-impl<H: HashT> BasicTreeTrait<H, PeakProof<H>> for MerklePeak<H> {
+impl<H: HashT> StaticTreeTrait<H, PeakProof<H>> for MerklePeak<H> {
     fn generate_proof(&mut self, index: usize) -> PeakProof<H> {
         apply!(self, generate_proof, index)
     }
@@ -153,8 +153,8 @@ where
     [(); height_from_num_of_peaks!(2_usize, PEAKS) - 1]: Sized,
     [(); total_size!(2_usize, height_from_num_of_peaks!(2_usize, PEAKS))]: Sized,
 {
-//    summit_tree: HeaplessTree<2, {height_from_num_of_peaks!(2_usize, PEAKS)}, H>,
-    summit_tree: HeaplessTree<2, 4, H>,
+//    summit_tree: StaticTree<2, {height_from_num_of_peaks!(2_usize, PEAKS)}, H>,
+    summit_tree: StaticTree<2, 4, H>,
     peaks: [MerklePeak<H>; PEAKS],
     curr_peak_index: usize,
 }
@@ -168,8 +168,8 @@ where
 {    
     pub fn from(peak: MerklePeak<H>) -> Self {
         let mut this = Self {
-            summit_tree: HeaplessTree::<2, 4, H>::try_from(&[]).unwrap(),
-//            summit_tree: HeaplessTree::<2, {height_from_num_of_peaks!(2_usize, PEAKS)}, H>::try_from(&[]).unwrap(),
+            summit_tree: StaticTree::<2, 4, H>::try_from(&[]).unwrap(),
+//            summit_tree: StaticTree::<2, {height_from_num_of_peaks!(2_usize, PEAKS)}, H>::try_from(&[]).unwrap(),
             peaks: [MerklePeak::<H>::default(); PEAKS],
             curr_peak_index: 0,
         }; 
@@ -262,7 +262,7 @@ mod tests {
         hash::{Hash, Hasher},
     };
 
-    use crate::{HashT, BasicTreeTrait, ProofValidator};
+    use crate::{HashT, StaticTreeTrait, ProofValidator};
     use crate::mergeable::mergeable::{MergeableHeaplessTree};
     use crate::peak::{MerklePeak, PeakProof, MerkleMR};
 

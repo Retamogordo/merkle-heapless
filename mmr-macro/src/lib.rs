@@ -140,7 +140,7 @@ pub fn mmr(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     let as_dyn_tree_variant_def_token = peak_variant_def_idents.iter()
         .map(|(peak_lit, _)| {
             quote! {
-                #peak_lit(tree) => tree as &dyn BasicTreeTrait<#hash_type, PeakProof>
+                #peak_lit(tree) => tree as &dyn StaticTreeTrait<#hash_type, PeakProof>
             }
         })
         .collect::<Vec<_>>();
@@ -148,7 +148,7 @@ pub fn mmr(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     let as_mut_dyn_tree_variant_def_token = peak_variant_def_idents.iter()
         .map(|(peak_lit, _)| {
             quote! {
-                #peak_lit(tree) => tree as &mut dyn BasicTreeTrait<#hash_type, PeakProof>
+                #peak_lit(tree) => tree as &mut dyn StaticTreeTrait<#hash_type, PeakProof>
             }
         })
         .collect::<Vec<_>>();
@@ -199,9 +199,9 @@ pub fn mmr(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
 
     let output = quote! {
         mod #mod_ident {            
-            use merkle_heapless::{HeaplessTree};
+            use merkle_heapless::{StaticTree};
             use merkle_heapless::mergeable::{MergeableHeaplessTree};
-            use merkle_heapless::traits::{HashT, BasicTreeTrait, AppendOnly};
+            use merkle_heapless::traits::{HashT, StaticTreeTrait, AppendOnly};
             use merkle_heapless::proof::{Proof, merge_proofs};
             use super::#hash_type;
 
@@ -241,7 +241,7 @@ pub fn mmr(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
                 }
             }        
 
-            impl BasicTreeTrait<#hash_type, PeakProof> for #mmr_peak_type {
+            impl StaticTreeTrait<#hash_type, PeakProof> for #mmr_peak_type {
                 fn generate_proof(&mut self, index: usize) -> PeakProof {
                     #impl_mut_method_body_token.generate_proof(index)
                 }
@@ -250,9 +250,6 @@ pub fn mmr(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
                 }
                 fn replace_leaf(&mut self, index: usize, leaf: <#hash_type as HashT>::Output) {
                     #impl_mut_method_body_token.replace_leaf(index, leaf)
-                }
-                fn remove(&mut self, index: usize) {
-                    #impl_mut_method_body_token.remove(index)
                 }
                 fn root(&self) -> <#hash_type as HashT>::Output {
                     #impl_method_body_token.root()
@@ -284,7 +281,7 @@ pub fn mmr(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
             where 
                 [(); #num_of_peaks]: Sized,
             {
-                summit_tree: HeaplessTree<#branch_factor, #summit_height, #hash_type>,
+                summit_tree: StaticTree<#branch_factor, #summit_height, #hash_type>,
                 peaks: [#mmr_peak_type; #num_of_peaks],
                 curr_peak_index: usize,
                 num_of_leaves: usize,
@@ -296,7 +293,7 @@ pub fn mmr(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
             {            
                 pub fn from(peak: #mmr_peak_type) -> Result<Self, ()> {
                     let mut this = Self {
-                        summit_tree: HeaplessTree::<#branch_factor, #summit_height, #hash_type>::try_from(&[])?,
+                        summit_tree: StaticTree::<#branch_factor, #summit_height, #hash_type>::try_from(&[])?,
                         peaks: [#mmr_peak_type::default(); #num_of_peaks],
                         curr_peak_index: 0,
                         num_of_leaves: 0,

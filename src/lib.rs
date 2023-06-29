@@ -18,12 +18,12 @@ use core::fmt::Debug;
 use core::mem::size_of;
 
 use crate::utils::{Assert, IsTrue, hash_merged_slice};
-use crate::traits::{HashT, ProofItemT, ProofBuilder, ProofValidator, BasicTreeTrait};
+use crate::traits::{HashT, ProofItemT, ProofBuilder, ProofValidator, StaticTreeTrait};
 use crate::proof::{ProofItem, Proof};
 
-pub type HeaplessBinaryTree<const HEIGHT: usize, H, PB = Proof<2, HEIGHT, H>> = HeaplessTree<2, HEIGHT, H, PB>;
+pub type HeaplessBinaryTree<const HEIGHT: usize, H, PB = Proof<2, HEIGHT, H>> = StaticTree<2, HEIGHT, H, PB>;
 
-pub struct HeaplessTree<const BRANCH_FACTOR: usize, const HEIGHT: usize, H, PB = Proof<BRANCH_FACTOR, HEIGHT, H>>
+pub struct StaticTree<const BRANCH_FACTOR: usize, const HEIGHT: usize, H, PB = Proof<BRANCH_FACTOR, HEIGHT, H>>
 where 
     [(); total_size!(BRANCH_FACTOR, HEIGHT)]: Sized,
     Assert::<{is_pow2!(BRANCH_FACTOR)}>: IsTrue,
@@ -33,7 +33,7 @@ where
     hashes: [H::Output; total_size!(BRANCH_FACTOR, HEIGHT)],
 }
 
-impl<const BRANCH_FACTOR: usize, const HEIGHT: usize, H, PB> HeaplessTree<BRANCH_FACTOR, HEIGHT, H, PB>
+impl<const BRANCH_FACTOR: usize, const HEIGHT: usize, H, PB> StaticTree<BRANCH_FACTOR, HEIGHT, H, PB>
 where
     [(); total_size!(BRANCH_FACTOR, HEIGHT)]: Sized,
     Assert::<{is_pow2!(BRANCH_FACTOR)}>: IsTrue,
@@ -137,7 +137,7 @@ where
     }
 }
 
-impl<const BRANCH_FACTOR: usize, const HEIGHT: usize, H, PB> BasicTreeTrait<H, PB> for HeaplessTree<BRANCH_FACTOR, HEIGHT, H, PB> 
+impl<const BRANCH_FACTOR: usize, const HEIGHT: usize, H, PB> StaticTreeTrait<H, PB> for StaticTree<BRANCH_FACTOR, HEIGHT, H, PB> 
 where
     [(); total_size!(BRANCH_FACTOR, HEIGHT)]: Sized,
     Assert::<{is_pow2!(BRANCH_FACTOR)}>: IsTrue,
@@ -175,9 +175,6 @@ where
     }
     // remove element by inserting nothing
     // panics if index is out of leaf layer bound
-    fn remove(&mut self, index: usize) {
-        self.replace(index, &[]);
-    }
     
     fn root(&self) -> H::Output {
         self.hashes[Self::TOTAL_SIZE - 1]
@@ -200,7 +197,7 @@ where
     }
 }
 
-impl<const BRANCH_FACTOR: usize, const HEIGHT: usize, H, PB> Clone for HeaplessTree<BRANCH_FACTOR, HEIGHT, H, PB> 
+impl<const BRANCH_FACTOR: usize, const HEIGHT: usize, H, PB> Clone for StaticTree<BRANCH_FACTOR, HEIGHT, H, PB> 
 where
     [(); total_size!(BRANCH_FACTOR, HEIGHT)]: Sized,
     Assert::<{is_pow2!(BRANCH_FACTOR)}>: IsTrue,
@@ -214,7 +211,7 @@ where
     }
 }
 
-impl<const BRANCH_FACTOR: usize, const HEIGHT: usize, H, PB> Copy for HeaplessTree<BRANCH_FACTOR, HEIGHT, H, PB> 
+impl<const BRANCH_FACTOR: usize, const HEIGHT: usize, H, PB> Copy for StaticTree<BRANCH_FACTOR, HEIGHT, H, PB> 
 where
     [(); total_size!(BRANCH_FACTOR, HEIGHT)]: Sized,
     Assert::<{is_pow2!(BRANCH_FACTOR)}>: IsTrue,
@@ -222,7 +219,7 @@ where
     PB: ProofBuilder<H>,
 {}
 
-impl<const BRANCH_FACTOR: usize, const HEIGHT: usize, H, PB> PartialEq for HeaplessTree<BRANCH_FACTOR, HEIGHT, H, PB> 
+impl<const BRANCH_FACTOR: usize, const HEIGHT: usize, H, PB> PartialEq for StaticTree<BRANCH_FACTOR, HEIGHT, H, PB> 
 where
     [(); total_size!(BRANCH_FACTOR, HEIGHT)]: Sized,
     Assert::<{is_pow2!(BRANCH_FACTOR)}>: IsTrue,
@@ -234,7 +231,7 @@ where
     }
 }
 
-impl <const BRANCH_FACTOR: usize, const HEIGHT: usize, H, PB> Debug for HeaplessTree<BRANCH_FACTOR, HEIGHT, H, PB> 
+impl <const BRANCH_FACTOR: usize, const HEIGHT: usize, H, PB> Debug for StaticTree<BRANCH_FACTOR, HEIGHT, H, PB> 
 where
     [(); total_size!(BRANCH_FACTOR, HEIGHT)]: Sized,
     Assert::<{is_pow2!(BRANCH_FACTOR)}>: IsTrue,

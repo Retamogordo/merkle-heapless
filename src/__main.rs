@@ -78,15 +78,15 @@ use std::{
 // }
 // use core::fmt::Debug;
 
-//use merkle_heapless::{total_size, layer_size, HashT, ProofBuilder, ProofItem, BasicTreeTrait, HeaplessTree, HeaplessBinaryTree};
+//use merkle_heapless::{total_size, layer_size, HashT, ProofBuilder, ProofItem, StaticTreeTrait, StaticTree, HeaplessBinaryTree};
 //use merkle_heapless::compactable::{CompactableHeaplessTree};
 
 // fn foo() {
-//     x = Vec::<Box<dyn BasicTreeTrait<H, ProofItem<2, H>>>>::new();
+//     x = Vec::<Box<dyn StaticTreeTrait<H, ProofItem<2, H>>>>::new();
 // }
 //use merkle_heapless::dynamic::{DynamicTree};
 
-// struct MerkleCons<H: HashT, T: BasicTreeTrait<H>>
+// struct MerkleCons<H: HashT, T: StaticTreeTrait<H>>
 // {
 //     left: T,
 //     right: Option<Box<MerkleCons<H, T>>>,
@@ -95,7 +95,7 @@ use std::{
 // //    right: Option<&'a MerkleCons<'a, BRANCH_FACTOR, OTHER_HEIGHT, OTHER_HEIGHT, H>>,
 // }
 
-// impl<H: HashT, T: BasicTreeTrait<H>> MerkleCons<H, T> {
+// impl<H: HashT, T: StaticTreeTrait<H>> MerkleCons<H, T> {
 //     fn new(left: T) -> Self {
 //         Self {
 //             left,
@@ -103,7 +103,7 @@ use std::{
 //             h: None,
 //         }
 //     }
-//     // fn append<U: BasicTreeTrait<H>>(&mut self, right: MerkleCons<H, U>) {
+//     // fn append<U: StaticTreeTrait<H>>(&mut self, right: MerkleCons<H, U>) {
 //     //     self.right = Some(Box::new(right));
 //     // }
 // }
@@ -147,7 +147,7 @@ use std::{
 // impl IsTrue for Assert<true> {}
 
 
-use merkle_heapless::{HashT, ProofValidator, BasicTreeTrait};
+use merkle_heapless::{HashT, ProofValidator, StaticTreeTrait};
 //use crate::compactable::compactable::{MergeableHeaplessTree};
 //use merkle_heapless::mergeable::mergeable::{MergeableHeaplessTree};
 #[derive(Debug)]

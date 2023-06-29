@@ -1,6 +1,6 @@
 
 use core::fmt::Debug;
-use crate::{HashT, BasicTreeTrait, HeaplessTree, Proof, ProofBuilder, total_size, layer_size, Assert, IsTrue, is_pow2};
+use crate::{HashT, StaticTreeTrait, StaticTree, Proof, ProofBuilder, total_size, layer_size, Assert, IsTrue, is_pow2};
 use crate::traits::{AppendOnly};
 
 pub type DefaultMergeable<const BRANCH_FACTOR: usize, const HEIGHT: usize, H> 
@@ -15,7 +15,7 @@ where
     H: HashT,
     PB: ProofBuilder<H>,
 {
-    tree: HeaplessTree<BRANCH_FACTOR, HEIGHT, H, PB>,
+    tree: StaticTree<BRANCH_FACTOR, HEIGHT, H, PB>,
     num_of_leaves: usize,
 }
 
@@ -32,7 +32,7 @@ where
     
     // panics if HEIGHT == 0
     pub fn try_from(input: &[&[u8]]) -> Result<Self, ()> {
-        HeaplessTree::try_from(input).map(|tree|
+        StaticTree::try_from(input).map(|tree|
             Self {
                 tree,
                 num_of_leaves: input.len(),
@@ -41,7 +41,7 @@ where
     }
 
     pub fn try_from_leaves(leaves: &[H::Output]) -> Result<Self, ()> {
-        HeaplessTree::try_from_leaves(leaves).map(|tree|
+        StaticTree::try_from_leaves(leaves).map(|tree|
             Self {
                 tree,
                 num_of_leaves: leaves.len(),
@@ -76,7 +76,7 @@ where
     }
 
     fn from_leaves2(leaves1: &[H::Output], leaves2: &[H::Output]) -> Self {
-        let mut tree = HeaplessTree::try_from(&[]).expect("can create tree from empty input. qed");
+        let mut tree = StaticTree::try_from(&[]).expect("can create tree from empty input. qed");
         let mut i = 0;
         for leaf in leaves1 {
             tree.hashes[i] = *leaf;
@@ -103,7 +103,7 @@ where
     }
 }
 
-impl<const BRANCH_FACTOR: usize, const HEIGHT: usize, H, PB> BasicTreeTrait<H, PB> for MergeableHeaplessTree<BRANCH_FACTOR, HEIGHT, H, PB> 
+impl<const BRANCH_FACTOR: usize, const HEIGHT: usize, H, PB> StaticTreeTrait<H, PB> for MergeableHeaplessTree<BRANCH_FACTOR, HEIGHT, H, PB> 
 where
     [(); total_size!(BRANCH_FACTOR, HEIGHT)]: Sized,
     [(); layer_size!(BRANCH_FACTOR, HEIGHT, 0)]: Sized,     
@@ -114,19 +114,12 @@ where
     fn generate_proof(&mut self, index: usize) -> PB {
         self.tree.generate_proof(index)
     }
-
     fn replace(&mut self, index: usize, input: &[u8]) {
         self.tree.replace(index, input);
     }
-
     fn replace_leaf(&mut self, index: usize, leaf: H::Output) {
         self.tree.replace_leaf(index, leaf);
     }
-
-    fn remove(&mut self, index: usize) {
-        unimplemented!("Remove is not implemented for mergeable")
-    }
-
     fn root(&self) -> H::Output {
         *self.tree.hashes.iter().last().expect("hashes are not empty. qed")
     }
@@ -160,7 +153,6 @@ where
         self.num_of_leaves += 1;
         Ok(())
     }
-
     fn num_of_leaves(&self) -> usize {
         self.num_of_leaves
     }
