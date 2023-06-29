@@ -153,6 +153,22 @@ pub fn mmr(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
         })
         .collect::<Vec<_>>();
 
+    let as_append_only_variant_def_token = peak_variant_def_idents.iter()
+        .map(|(peak_lit, _)| {
+            quote! {
+                #peak_lit(tree) => tree as &dyn AppendOnly
+            }
+        })
+        .collect::<Vec<_>>();
+
+    let as_mut_append_only_variant_def_token = peak_variant_def_idents.iter()
+        .map(|(peak_lit, _)| {
+            quote! {
+                #peak_lit(tree) => tree as &mut dyn AppendOnly
+            }
+        })
+        .collect::<Vec<_>>();
+
     let impl_method_body_token = quote! {
         use #mmr_peak_type::*;
         match self {
@@ -166,10 +182,27 @@ pub fn mmr(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
         }
     };
 
+    let impl_append_only_method_body_token = quote! {
+        use #mmr_peak_type::*;
+        match self {
+            #(#as_append_only_variant_def_token),*
+        }
+    };
+
+    let impl_mut_append_only_method_body_token = quote! {
+        use #mmr_peak_type::*;
+        match self {
+            #(#as_mut_append_only_variant_def_token),*
+        }
+    };
+    
+
     let output = quote! {
         mod #mod_ident {            
-            use merkle_heapless::{HashT, Proof, BasicTreeTrait, HeaplessTree, merge_proofs};
-            use merkle_heapless::mergeable::mergeable::{MergeableHeaplessTree};
+            use merkle_heapless::{HeaplessTree};
+            use merkle_heapless::mergeable::{MergeableHeaplessTree};
+            use merkle_heapless::traits::{HashT, BasicTreeTrait, AppendOnly};
+            use merkle_heapless::proof::{Proof, merge_proofs};
             use super::#hash_type;
 
             type PeakProof = Proof<#branch_factor, #peak_height, #hash_type>;
@@ -221,9 +254,6 @@ pub fn mmr(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
                 fn remove(&mut self, index: usize) {
                     #impl_mut_method_body_token.remove(index)
                 }
-                fn try_append(&mut self, input: &[u8]) -> Result<(), ()> {
-                    #impl_mut_method_body_token.try_append(input)
-                }
                 fn root(&self) -> <#hash_type as HashT>::Output {
                     #impl_method_body_token.root()
                 }
@@ -239,11 +269,17 @@ pub fn mmr(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
                 fn height(&self) -> usize {
                     #impl_method_body_token.height()
                 }
-                fn num_of_leaves(&self) -> usize {
-                    #impl_method_body_token.num_of_leaves()
-                }
-            }   
+            }
 
+            impl AppendOnly for #mmr_peak_type {
+                fn try_append(&mut self, input: &[u8]) -> Result<(), ()> {
+                    #impl_mut_append_only_method_body_token.try_append(input)
+                }
+                fn num_of_leaves(&self) -> usize {
+                    #impl_append_only_method_body_token.num_of_leaves()
+                }
+            }
+            
             pub struct #mmr_type 
             where 
                 [(); #num_of_peaks]: Sized,

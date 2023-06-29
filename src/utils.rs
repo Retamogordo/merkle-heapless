@@ -14,6 +14,17 @@ macro_rules! layer_size {
     };
 }
 
+#[macro_export]
+macro_rules! is_pow2 {
+    ($x:expr) => {
+        ($x.leading_zeros() + $x.trailing_zeros()) as usize == 8 * core::mem::size_of::<usize>() - 1  
+    };
+}
+
+pub struct Assert<const COND: bool>;
+pub trait IsTrue {}
+impl IsTrue for Assert<true> {}
+
 // hash combined bytes from a contiguous memory chank
 pub(crate) fn hash_merged_slice<H: HashT>(contiguous_array: &[H::Output], len: usize) -> H::Output {
     H::hash(

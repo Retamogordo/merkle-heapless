@@ -6,12 +6,13 @@ pub type DefaultCompactable<const BRANCH_FACTOR: usize, const HEIGHT: usize, H>
 
 pub(crate) mod compactable {
     use core::fmt::Debug;
-    use crate::{HashT, BasicTreeTrait,  HeaplessTree, Proof, ProofBuilder, total_size, layer_size};
-    
+    use crate::{HashT, BasicTreeTrait,  HeaplessTree, Proof, ProofBuilder, total_size, layer_size, Assert, IsTrue, is_pow2};
+    use crate::traits::{AppendOnly};
     pub struct CompactableHeaplessTree<const BRANCH_FACTOR: usize, const HEIGHT: usize, H, PB = Proof<BRANCH_FACTOR, HEIGHT, H>>
     where
         [(); total_size!(BRANCH_FACTOR, HEIGHT)]: Sized,
         [(); layer_size!(BRANCH_FACTOR, HEIGHT, 0)]: Sized,
+        Assert::<{is_pow2!(BRANCH_FACTOR)}>: IsTrue,
         H: HashT,
         PB: ProofBuilder<H>,
     {
@@ -20,11 +21,11 @@ pub(crate) mod compactable {
         leaves_present: [bool; layer_size!(BRANCH_FACTOR, HEIGHT, 0)],
     }
 
-    impl<const BRANCH_FACTOR: usize, const HEIGHT: usize, H, PB> 
-        CompactableHeaplessTree<BRANCH_FACTOR, HEIGHT, H, PB>
+    impl<const BRANCH_FACTOR: usize, const HEIGHT: usize, H, PB> CompactableHeaplessTree<BRANCH_FACTOR, HEIGHT, H, PB>
     where
         [(); total_size!(BRANCH_FACTOR, HEIGHT)]: Sized,
         [(); layer_size!(BRANCH_FACTOR, HEIGHT, 0)]: Sized,
+        Assert::<{is_pow2!(BRANCH_FACTOR)}>: IsTrue,
         H: HashT,
         PB: ProofBuilder<H>,
     {
@@ -164,6 +165,7 @@ pub(crate) mod compactable {
     where
         [(); total_size!(BRANCH_FACTOR, HEIGHT)]: Sized,
         [(); layer_size!(BRANCH_FACTOR, HEIGHT, 0)]: Sized,     
+        Assert::<{is_pow2!(BRANCH_FACTOR)}>: IsTrue,
         H: HashT,
         PB: ProofBuilder<H>,
     {
@@ -197,15 +199,6 @@ pub(crate) mod compactable {
             self.leaves_present[index] = false;
         }
 
-        fn try_append(&mut self, input: &[u8]) -> Result<(), ()> {
-            if self.num_of_leaves >= self.base_layer_size() {
-                return Err(());
-            }
-            
-            self.replace(self.num_of_leaves, input);
-            
-            Ok(())
-        }
         fn root(&self) -> H::Output {
             *self.tree.hashes.iter().last().expect("hashes are not empty. qed")
         }
@@ -221,6 +214,24 @@ pub(crate) mod compactable {
         fn height(&self) -> usize {
             HEIGHT
         }
+    }
+
+    impl<const BRANCH_FACTOR: usize, const HEIGHT: usize, H, PB> AppendOnly for CompactableHeaplessTree<BRANCH_FACTOR, HEIGHT, H, PB> 
+    where
+        [(); total_size!(BRANCH_FACTOR, HEIGHT)]: Sized,
+        [(); layer_size!(BRANCH_FACTOR, HEIGHT, 0)]: Sized,     
+        Assert::<{is_pow2!(BRANCH_FACTOR)}>: IsTrue,
+        H: HashT,
+        PB: ProofBuilder<H>,
+    {
+        fn try_append(&mut self, input: &[u8]) -> Result<(), ()> {
+            if self.num_of_leaves >= self.base_layer_size() {
+                return Err(());
+            }
+            self.replace(self.num_of_leaves, input);            
+            Ok(())
+        }
+
         fn num_of_leaves(&self) -> usize {
             self.num_of_leaves
         }
@@ -230,6 +241,7 @@ pub(crate) mod compactable {
     where
         [(); total_size!(BRANCH_FACTOR, HEIGHT)]: Sized,
         [(); layer_size!(BRANCH_FACTOR, HEIGHT, 0)]: Sized,    
+        Assert::<{is_pow2!(BRANCH_FACTOR)}>: IsTrue,
         H: HashT,
         PB: ProofBuilder<H>,
     {
@@ -246,6 +258,7 @@ pub(crate) mod compactable {
     where
         [(); total_size!(BRANCH_FACTOR, HEIGHT)]: Sized,
         [(); layer_size!(BRANCH_FACTOR, HEIGHT, 0)]: Sized,      
+        Assert::<{is_pow2!(BRANCH_FACTOR)}>: IsTrue,
         H: HashT,
         PB: ProofBuilder<H>,
     {}
@@ -254,6 +267,7 @@ pub(crate) mod compactable {
     where
         [(); total_size!(BRANCH_FACTOR, HEIGHT)]: Sized,
         [(); layer_size!(BRANCH_FACTOR, HEIGHT, 0)]: Sized,   
+        Assert::<{is_pow2!(BRANCH_FACTOR)}>: IsTrue,
         H: HashT,
         PB: ProofBuilder<H>,
     {

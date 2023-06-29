@@ -8,7 +8,10 @@ mod tests {
         hash::{Hash, Hasher},
     };
     
-    use merkle_heapless::{mmr_macro, HashT, HeaplessTree, BasicTreeTrait, ProofValidator};
+    use merkle_heapless::{mmr_macro, HeaplessTree};
+    use merkle_heapless::traits::{HashT, ProofValidator, BasicTreeTrait, AppendOnly};
+    use merkle_heapless::proof::{Proof, merge_proofs};
+
 
     #[derive(Debug)]
     pub struct StdHash;
@@ -25,8 +28,8 @@ mod tests {
 
     #[test]
     fn fail_4layers_std_hash_bad_word() {
-        const HEIGHT: usize = 4;
-        const BRANCH_FACTOR: usize = 2;
+        const HEIGHT: usize = 3;
+        const BRANCH_FACTOR: usize = 4;
 
         let mut mt = HeaplessTree::<BRANCH_FACTOR, HEIGHT, StdHash>::try_from(&[
             b"apple", b"banana", b"kiwi", b"kotleta",
