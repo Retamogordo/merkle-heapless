@@ -25,6 +25,8 @@ pub trait ProofValidator {
 }
 
 pub trait StaticTreeTrait<H: HashT, PB: ProofBuilder<H>> {
+//    pub trait StaticTreeTrait<H: HashT, PB: ProofBuilder<H>>: Clone + Default {
+//    pub trait StaticTreeTrait<H: HashT, PB: ProofBuilder<H>>: Clone + Copy + Default {
     fn generate_proof(&mut self, index: usize) -> PB;
     
     fn replace(&mut self, index: usize, input: &[u8]);

@@ -1,6 +1,8 @@
 #![allow(incomplete_features)]
 #![feature(generic_const_exprs)]
 
+//mod basic;
+
 #[cfg(test)]
 mod tests {
     use std::{
@@ -51,9 +53,8 @@ mod tests {
     #[test]
     fn mmr_binary() {
         mmr_macro::mmr!(Type = FooMMR, BranchFactor = 2, Peaks = 7, Hash = StdHash);
-
-        let mut mmr = FooMMR::from(FooMMRPeak::Peak0(Default::default())).unwrap();
-//        let mut mmr = FooMMR::default();
+//        let mut mmr = FooMMR::from(FooMMRPeak::Peak0(Default::default())).unwrap();
+        let mut mmr = FooMMR::default();
         // peak leaf numbers: [0, 0, 0, 0, 0]
         mmr.try_append(b"apple").unwrap();
         // peak leaf numbers: [1, 0, 0, 0, 0]

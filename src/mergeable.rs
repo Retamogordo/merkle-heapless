@@ -55,45 +55,36 @@ where
     ) -> Result<MergeableHeaplessTree<BRANCH_FACTOR, {HEIGHT + 1}, H, PB>, Self> 
     where
         [(); total_size!(BRANCH_FACTOR, {HEIGHT + 1})]: Sized,
-        [(); layer_size!(BRANCH_FACTOR, {HEIGHT + 1}, 0)]: Sized,
-        
+        [(); layer_size!(BRANCH_FACTOR, {HEIGHT + 1}, 0)]: Sized,    
         [(); total_size!(BRANCH_FACTOR, OTHER_HEIGHT)]: Sized,
         [(); layer_size!(BRANCH_FACTOR, OTHER_HEIGHT, 0)]: Sized,
-
+        Assert::<{OTHER_HEIGHT <= HEIGHT}>: IsTrue,
         H: HashT, 
         PB: ProofBuilder<H>,
     {
-        // height of other must be no greater than this tree height
-        // so the resulting tree height is safely HEIGHT + 1s
-        if OTHER_HEIGHT > HEIGHT {
-            return Err(self);
-        }
-
-        Ok(MergeableHeaplessTree::<BRANCH_FACTOR, {HEIGHT + 1}, H, PB>::from_leaves2(
-            self.tree.leaves(),
-            other.tree.leaves(),
-        ))
+        Ok(
+            MergeableHeaplessTree::<BRANCH_FACTOR, {HEIGHT + 1}, H, PB>::from_leaves2(
+                self.tree.leaves(),
+                other.tree.leaves(),
+            )
+        )
     }
 
     fn from_leaves2(leaves1: &[H::Output], leaves2: &[H::Output]) -> Self {
-        let mut tree = StaticTree::try_from(&[]).expect("can create tree from empty input. qed");
-        let mut i = 0;
-        for leaf in leaves1 {
-            tree.hashes[i] = *leaf;
-            i += 1;
-        }
-        for leaf in leaves2 {
-            tree.hashes[i] = *leaf;
-            i += 1;
-        }
-        let len = i;
+        let mut tree = StaticTree::try_from(&[]).expect("can create a tree from empty input. qed");
+        
+        let len = leaves1.len() + leaves2.len();
+        tree.hashes[..leaves1.len()].copy_from_slice(&leaves1);
+        tree.hashes[leaves1.len()..len].copy_from_slice(&leaves2);
+        
         // pad the rest of hashes in the base layer
         for i in len..Self::BASE_LAYER_SIZE {
             tree.hashes[i] = H::hash(&[]);
         }
+        tree.fill_layers();
         // fill the rest of layers
         Self {
-            tree: tree.fill_layers(),
+            tree,
             num_of_leaves: len,
         }
     }
@@ -121,10 +112,11 @@ where
         self.tree.replace_leaf(index, leaf);
     }
     fn root(&self) -> H::Output {
-        *self.tree.hashes.iter().last().expect("hashes are not empty. qed")
+        self.tree.hashes.into_iter().last().expect("hashes are not empty. qed")
     }
     fn leaves(&self) -> &[H::Output] {
-        &self.tree.hashes[..layer_size!(BRANCH_FACTOR, HEIGHT, 0)]
+//        &self.tree.hashes[..layer_size!(BRANCH_FACTOR, HEIGHT, 0)]
+        &self.tree.hashes[..self.num_of_leaves]
     }
     fn base_layer_size(&self) -> usize {
         layer_size!(BRANCH_FACTOR, HEIGHT, 0)
@@ -174,14 +166,14 @@ where
     }
 }
 
-impl <const BRANCH_FACTOR: usize, const HEIGHT: usize, H, PB> Copy for MergeableHeaplessTree<BRANCH_FACTOR, HEIGHT, H, PB> 
-where
-    [(); total_size!(BRANCH_FACTOR, HEIGHT)]: Sized,
-    [(); layer_size!(BRANCH_FACTOR, HEIGHT, 0)]: Sized,      
-    Assert::<{is_pow2!(BRANCH_FACTOR)}>: IsTrue,
-    H: HashT,
-    PB: ProofBuilder<H>,
-{}
+// impl <const BRANCH_FACTOR: usize, const HEIGHT: usize, H, PB> Copy for MergeableHeaplessTree<BRANCH_FACTOR, HEIGHT, H, PB> 
+// where
+//     [(); total_size!(BRANCH_FACTOR, HEIGHT)]: Sized,
+//     [(); layer_size!(BRANCH_FACTOR, HEIGHT, 0)]: Sized,      
+//     Assert::<{is_pow2!(BRANCH_FACTOR)}>: IsTrue,
+//     H: HashT,
+//     PB: ProofBuilder<H>,
+// {}
 
 impl <const BRANCH_FACTOR: usize, const HEIGHT: usize, H, PB> Default for MergeableHeaplessTree<BRANCH_FACTOR, HEIGHT, H, PB> 
 where

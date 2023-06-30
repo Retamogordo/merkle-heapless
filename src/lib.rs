@@ -8,6 +8,7 @@ pub mod traits;
 pub mod proof;
 pub mod mergeable;
 pub mod compactable;
+pub mod augmentable;
 mod utils;
 mod tests;
 
@@ -45,14 +46,13 @@ where
     const BYTES_IN_CHUNK: usize = BRANCH_FACTOR * size_of::<H::Output>();
 
     fn create(input_len: usize) -> Result<Self, ()> {
-        if input_len > Self::BASE_LAYER_SIZE {
-//            if input_len > Self::BASE_LAYER_SIZE || BRANCH_FACTOR >> BRANCH_FACTOR.trailing_zeros() != 1 {
-            return Err(());
-        }
-
-        Ok(Self {
-            hashes: [H::Output::default(); total_size!(BRANCH_FACTOR, HEIGHT)],
-        })
+        (input_len <= Self::BASE_LAYER_SIZE)
+            .then(|| {
+                Self {
+                    hashes: [H::Output::default(); total_size!(BRANCH_FACTOR, HEIGHT)],
+                }
+            })
+            .ok_or(()) 
     }
     // panics if HEIGHT == 0
     pub fn try_from(input: &[&[u8]]) -> Result<Self, ()> {
@@ -70,7 +70,8 @@ where
             self.hashes[i] = H::hash(&[]);
         }
         // fill the rest of layers
-        self.fill_layers()
+        self.fill_layers();
+        self
     }
     
     // panics if HEIGHT == 0
@@ -87,10 +88,11 @@ where
             self.hashes[i] = H::hash(&[]);
         }
         // fill the rest of layers
-        self.fill_layers()
+        self.fill_layers();
+        self
     }
     
-    fn fill_layers(mut self) -> Self {
+    fn fill_layers(&mut self) {
         let mut start_ind = 0;
         let mut next_layer_ind = Self::BASE_LAYER_SIZE;
 
@@ -109,7 +111,6 @@ where
             start_ind = next_layer_ind;
             next_layer_ind = j;
         }
-        self
     }
     
     fn parent_index_and_base(&self, height: usize, layer: usize, layer_base: usize) -> (usize, usize) {
@@ -174,8 +175,6 @@ where
         self.hashes[index] = leaf;
         self.replace_inner(index);
     }
-    // remove element by inserting nothing
-    // panics if index is out of leaf layer bound
     
     fn root(&self) -> H::Output {
         self.hashes[Self::TOTAL_SIZE - 1]
@@ -219,6 +218,20 @@ where
     H: HashT,
     PB: ProofBuilder<H>,
 {}
+
+impl<const BRANCH_FACTOR: usize, const HEIGHT: usize, H, PB> Default for StaticTree<BRANCH_FACTOR, HEIGHT, H, PB> 
+where
+    [(); total_size!(BRANCH_FACTOR, HEIGHT)]: Sized,
+    Assert::<{is_pow2!(BRANCH_FACTOR)}>: IsTrue,
+    H: HashT,
+    PB: ProofBuilder<H>,
+{
+    fn default() -> Self {
+        Self {
+            hashes: [H::Output::default(); total_size!(BRANCH_FACTOR, HEIGHT)]
+        }
+    }
+}
 
 impl<const BRANCH_FACTOR: usize, const HEIGHT: usize, H, PB> PartialEq for StaticTree<BRANCH_FACTOR, HEIGHT, H, PB> 
 where
