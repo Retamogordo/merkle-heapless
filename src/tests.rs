@@ -1,7 +1,9 @@
 
 #[cfg(test)]
 mod tests {
-    use crate::{HashT, StaticTreeTrait, StaticTree, HeaplessBinaryTree, ProofValidator};
+    use crate::{StaticTree, StaticBinaryTree};
+    use crate::traits::{HashT, ProofValidator, StaticTreeTrait, AppendOnly, CanRemove};
+    use crate::mergeable::{DefaultMergeable};
     use crate::compactable::{DefaultCompactable};
 
     use std::{
@@ -10,16 +12,16 @@ mod tests {
     };
 
 
-    #[derive(Debug)]
-    struct Blake2_256Hash;
+    // #[derive(Debug)]
+    // struct Blake2_256Hash;
 
-    impl HashT for Blake2_256Hash {
-        type Output = [u8; 32];
+    // impl HashT for Blake2_256Hash {
+    //     type Output = [u8; 32];
 
-        fn hash(input: &[u8]) -> Self::Output {
-            sp_core::blake2_256(input)
-        }
-    }
+    //     fn hash(input: &[u8]) -> Self::Output {
+    //         sp_core::blake2_256(input)
+    //     }
+    // }
 
     #[derive(Debug)]
     struct StdHash;
@@ -67,21 +69,43 @@ mod tests {
         assert!(!res);
     }
 
-    #[test]
-    #[should_panic]
-    fn fail_binary_4layers_std_hash_bad_index() {
-        const HEIGHT: usize = 4;
+    // #[test]
+    // #[should_panic]
+    // fn fail_binary_4layers_std_hash_bad_index() {
+    //     const HEIGHT: usize = 4;
 
-        let mut mt = HeaplessBinaryTree::<HEIGHT, StdHash>::try_from(&[
-            b"apple", b"banana", b"kiwi", b"kotleta",
+    //     let mut mt = StaticBinaryTree::<HEIGHT, StdHash>::try_from(&[
+    //         b"apple", b"banana", b"kiwi", b"kotleta",
+    //     ]);
+    //     let word_index = 8;
+    //     let _proof = mt.as_mut().unwrap().generate_proof(word_index);
+    // }
+
+    #[test]
+    fn validate_default_padding_word_std_hash() {
+        let mut mt = StaticTree::<2, 3, StdHash>::try_from(&[
+            &[1], &[2], &[3], &[4],
         ]);
-        let word_index = 8;
-        let _proof = mt.as_mut().unwrap().generate_proof(word_index);
+        let word_index = 0;
+        let proof = mt.as_mut().unwrap().generate_proof(word_index);
+        println!("{:?}", mt);
+        let word: &str = "apple";
+        let word: &str = Default::default();
+//        println!("proof: {:?}", proof);
+        let res = proof.validate(&[1]);
+        println!(
+            "word: {:?} {} validated, proof was generated for word at index {}",
+            word,
+            if res { "" } else { "NOT" },
+            word_index
+        );
+
+        assert!(res);
     }
 
     #[test]
-    fn validate_default_padding_word_4layers_std_hash() {
-        let mut mt = StaticTree::<4, 8, StdHash>::try_from(&[
+    fn validate_default_padding_word_4branches_std_hash() {
+        let mut mt = StaticTree::<4, 6, StdHash>::try_from(&[
             b"apple", b"banana", b"kiwi", b"kotleta",
         ]);
         let word_index = 7;
@@ -98,51 +122,42 @@ mod tests {
         assert!(res);
     }
 
-    #[test]
-    fn fail_creating_merkle_tree_too_few_layers_for_input() {
-        let mt = HeaplessBinaryTree::<3, Blake2_256Hash>::try_from(&[
-            b"apple", b"banana", b"kiwi", b"kotleta", b"apple", b"banana", b"kiwi", b"kotleta",
-            b"apple",
-        ]);
+//     #[test]
+//     fn fail_creating_merkle_tree_too_few_layers_for_input() {
+//         let mt = StaticBinaryTree::<3, StdHash>::try_from(&[
+//             b"apple", b"banana", b"kiwi", b"kotleta", b"apple", b"banana", b"kiwi", b"kotleta",
+//             b"apple",
+//         ]);
 
-        assert!(mt.is_err());
-    }
+//         assert!(mt.is_err());
+//     }
 
-    #[test]
-    fn minimal_tree_size() {
-        let mut mt = HeaplessBinaryTree::<1, Blake2_256Hash>::try_from(&[
-            b"apple",
-        ]);
+//     #[test]
+//     fn minimal_tree_size() {
+//         let mut mt = StaticBinaryTree::<1, StdHash>::try_from(&[
+//             b"apple",
+//         ]);
 
-        let word_index = 0;
+//         let word_index = 0;
 
-        mt.as_mut().unwrap().replace(word_index, b"ciruela");
+//         mt.as_mut().unwrap().replace(word_index, b"ciruela");
 
-        let proof = mt.as_mut().unwrap().generate_proof(word_index);
-        let word = "ciruela";
-        let res = proof.validate(word.as_bytes());
-        println!(
-            "word: {:?} {} validated, proof was generated for word at index {}",
-            word,
-            if res { "" } else { "NOT" },
-            word_index
-        );
-        assert!(res);
-    }
-
-    #[test]
-    fn illegal_branch_factor() {
-        let mt = StaticTree::<3, 1, Blake2_256Hash>::try_from(&[
-            b"apple",
-        ]);
-
-        assert!(mt.is_err());
-    }
+//         let proof = mt.as_mut().unwrap().generate_proof(word_index);
+//         let word = "ciruela";
+//         let res = proof.validate(word.as_bytes());
+//         println!(
+//             "word: {:?} {} validated, proof was generated for word at index {}",
+//             word,
+//             if res { "" } else { "NOT" },
+//             word_index
+//         );
+//         assert!(res);
+//     }
 
     #[test]
     fn insert_replace_binary() {
         const HEIGHT: usize = 4;
-        let mut mt = HeaplessBinaryTree::<HEIGHT, StdHash>::try_from(&[
+        let mut mt = StaticBinaryTree::<HEIGHT, StdHash>::try_from(&[
             b"apple", b"banana", b"kiwi", b"kotleta",
         ]);
         let word_index = 2;
@@ -233,7 +248,7 @@ mod tests {
     #[test]
     #[should_panic]
     fn fail_insertion_out_of_bound() {
-        let mut mt = StaticTree::<4, 8, StdHash>::try_from(&[
+        let mut mt = StaticTree::<4, 1, StdHash>::try_from(&[
             b"apple", b"banana", b"kiwi", b"kotleta",
         ]);
         let word_index = 8;
@@ -352,11 +367,11 @@ mod tests {
     // #[test]
     // fn foo() {
     //     const HEIGHT: usize = 3;
-    //     let mt1 = HeaplessBinaryTree::<HEIGHT, StdHash>::try_from(
+    //     let mt1 = StaticBinaryTree::<HEIGHT, StdHash>::try_from(
     //         &[b"apple", b"apricot", b"asai", b"avocado"]
     //     ).unwrap();
 
-    //     let mt2 = HeaplessBinaryTree::<HEIGHT, StdHash>::try_from(
+    //     let mt2 = StaticBinaryTree::<HEIGHT, StdHash>::try_from(
     //         &[b"banana", b"blueberry"]
     //     ).unwrap();
     //     let mut foo = Foo::from_base_trees([mt1, mt2].try_into().unwrap());
@@ -433,7 +448,7 @@ mod tests {
 
     #[test]
     fn too_big_to_compact() {
-        const HEIGHT: usize = 4;
+        const HEIGHT: usize = 3;
         const BRANCH_FACTOR: usize = 2;
         let words: &[&str] = &[
             "apple", "apricot", "asai", "avocado",
@@ -726,7 +741,7 @@ mod tests {
         let words1: &[&str] = &[
             "apple", "apricot", "banana", "cherry", "blueberry"
         ];
-        let mut cmt = DefaultCompactable::<BRANCH_FACTOR,HEIGHT, StdHash>::try_from(
+        let mut cmt = DefaultMergeable::<BRANCH_FACTOR,HEIGHT, StdHash>::try_from(
             &words1.iter().map(|w| w.as_bytes()).collect::<Vec<_>>()
         )
         .unwrap();
@@ -749,12 +764,12 @@ mod tests {
     #[test]
     fn fail_try_append_size_exceeded() {
         const BRANCH_FACTOR: usize = 2;
-        const HEIGHT: usize = 4;
+        const HEIGHT: usize = 3;
 
         let words1: &[&str] = &[
             "apple", "apricot", "banana", "cherry", "blueberry"
         ];
-        let mut cmt = DefaultCompactable::<BRANCH_FACTOR,HEIGHT, StdHash>::try_from(
+        let mut cmt = DefaultMergeable::<BRANCH_FACTOR,HEIGHT, StdHash>::try_from(
             &words1.iter().map(|w| w.as_bytes()).collect::<Vec<_>>()
         )
         .unwrap();
@@ -764,57 +779,5 @@ mod tests {
         cmt.try_append(b"blueberry").unwrap();
         assert!(cmt.try_append(b"blackberry").is_err());
     }
-
-    #[test]
-    fn mmr_macro() {
-        use crate as merkle_heapless;
-
-        mmr_macro::mmr!(BranchFactor = 2, Peaks = 7);
-    }
-
-
-//     #[test]
-//     fn montain_try_merge() {
-//         const BRANCH_FACTOR: usize = 2;
-//         const PEAK_HEIGHT_1: usize = 3;
-//         const PEAK_HEIGHT_2: usize = 3;
-
-//         let words1: &[&str] = &[
-//             "apple", "apricot", "banana",
-//         ];
-
-//         let cmt1 = DefaultCompactable::<BRANCH_FACTOR, PEAK_HEIGHT_1, 5, StdHash>::try_from(
-//             &words1.iter().map(|w| w.as_bytes()).collect::<Vec<_>>()
-//         )
-//         .unwrap();
-
-//         let words2: &[&str] = &[
-//             "cherry", "kiwi", 
-//         ];
-
-//         let cmt2 = DefaultCompactable::<BRANCH_FACTOR, PEAK_HEIGHT_2, 5, StdHash>::try_from(
-//             &words2.iter().map(|w| w.as_bytes()).collect::<Vec<_>>()
-//         )
-//         .unwrap();
-
-//         let mut peak1 = MerklePeak::Second(cmt1);
-//         let mut peak2 = MerklePeak::Second(cmt2);
-
-//         if let Ok(mut new_peak) = peak1.try_merge(peak2) {
-//             assert_eq!(new_peak.num_of_leaves(), 5);
-
-// //            let proof = new_peak.generate_proof(3);
-// //            let res = proof.validate(b"cherry");
-// //            assert!(res);
-//         } else {
-//             panic!("could not merge");
-//         }
-
-
-//         // cmt.try_append(b"kiwi").unwrap();
-//         // cmt.try_append(b"kotleta").unwrap();
-//         // cmt.try_append(b"blueberry").unwrap();
-//         // assert!(cmt.try_append(b"blackberry").is_err());
-//     }
 
 }

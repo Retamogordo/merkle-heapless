@@ -1,4 +1,4 @@
-use crate::{HashT, StaticTreeTrait,  StaticTree, ProofBuilder, ProofItemT, Proof, merge_proofs, total_size};
+use crate::{HashT, StaticTreeTrait,  StaticTree, ProofBuilder, ProofItemT, Proof, chain_proofs, total_size};
 //use crate::compactable::compactable::{MergeableHeaplessTree};
 use crate::mergeable::mergeable::{MergeableHeaplessTree};
 
@@ -240,7 +240,7 @@ where
             peak_ind += 1;
             accum_len += peak.num_of_leaves();
         }
-        merge_proofs(
+        chain_proofs(
             self.peaks[peak_ind].generate_proof(index - accum_len),
             self.summit_tree.generate_proof(peak_ind)
         )

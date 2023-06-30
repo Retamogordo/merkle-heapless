@@ -1,5 +1,4 @@
 use core::hash::Hash;
-use core::mem::size_of;
 use core::fmt::Debug;
 
 pub trait HashT {

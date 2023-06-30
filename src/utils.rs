@@ -3,14 +3,14 @@ use crate::HashT;
 #[macro_export]
 macro_rules! total_size {
     ($branch_factor:expr, $height:expr) => {
-        ((1 << ($branch_factor.trailing_zeros() as usize * $height)) - 1) / ($branch_factor - 1)
+        ((1 << ($branch_factor.trailing_zeros() as usize * ($height + 1))) - 1) / ($branch_factor - 1)
     };
 }
 
 #[macro_export]
 macro_rules! layer_size {
     ($branch_factor:expr, $height:expr, $layer_index:expr) => {
-        1 << ($branch_factor.trailing_zeros() as usize * ($height - $layer_index - 1))
+        1 << ($branch_factor.trailing_zeros() as usize * ($height - $layer_index))
     };
 }
 

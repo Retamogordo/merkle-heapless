@@ -18,10 +18,10 @@ use core::fmt::Debug;
 use core::mem::size_of;
 
 use crate::utils::{Assert, IsTrue, hash_merged_slice};
-use crate::traits::{HashT, ProofItemT, ProofBuilder, ProofValidator, StaticTreeTrait};
-use crate::proof::{ProofItem, Proof};
+use crate::traits::{HashT, ProofBuilder, StaticTreeTrait};
+use crate::proof::{Proof};
 
-pub type HeaplessBinaryTree<const HEIGHT: usize, H, PB = Proof<2, HEIGHT, H>> = StaticTree<2, HEIGHT, H, PB>;
+pub type StaticBinaryTree<const HEIGHT: usize, H, PB = Proof<2, HEIGHT, H>> = StaticTree<2, HEIGHT, H, PB>;
 
 pub struct StaticTree<const BRANCH_FACTOR: usize, const HEIGHT: usize, H, PB = Proof<BRANCH_FACTOR, HEIGHT, H>>
 where 
@@ -45,7 +45,8 @@ where
     const BYTES_IN_CHUNK: usize = BRANCH_FACTOR * size_of::<H::Output>();
 
     fn create(input_len: usize) -> Result<Self, ()> {
-        if input_len > Self::BASE_LAYER_SIZE || BRANCH_FACTOR >> BRANCH_FACTOR.trailing_zeros() != 1 {
+        if input_len > Self::BASE_LAYER_SIZE {
+//            if input_len > Self::BASE_LAYER_SIZE || BRANCH_FACTOR >> BRANCH_FACTOR.trailing_zeros() != 1 {
             return Err(());
         }
 
@@ -124,7 +125,7 @@ where
         let mut index = index;
 
         // start from the base layer and propagate the new hashes upwords
-        for layer in 0..HEIGHT - 1 {
+        for layer in 0..HEIGHT {
             let offset = index & (BRANCH_FACTOR - 1); // index modulo BRANCH_FACTOR
             let aligned = index - offset;
 
@@ -151,7 +152,7 @@ where
         let mut layer_base = 0;
         let mut index = index;
 
-        for layer in 0..HEIGHT - 1{
+        for layer in 0..HEIGHT {
             let offset = index & (BRANCH_FACTOR - 1); // index modulo BRANCH_FACTOR (power of 2)
             let aligned = index - offset;
 

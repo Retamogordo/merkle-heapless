@@ -78,7 +78,7 @@ use std::{
 // }
 // use core::fmt::Debug;
 
-//use merkle_heapless::{total_size, layer_size, HashT, ProofBuilder, ProofItem, StaticTreeTrait, StaticTree, HeaplessBinaryTree};
+//use merkle_heapless::{total_size, layer_size, HashT, ProofBuilder, ProofItem, StaticTreeTrait, StaticTree, StaticBinaryTree};
 //use merkle_heapless::compactable::{CompactableHeaplessTree};
 
 // fn foo() {

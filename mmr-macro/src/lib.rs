@@ -202,7 +202,7 @@ pub fn mmr(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
             use merkle_heapless::{StaticTree};
             use merkle_heapless::mergeable::{MergeableHeaplessTree};
             use merkle_heapless::traits::{HashT, StaticTreeTrait, AppendOnly};
-            use merkle_heapless::proof::{Proof, merge_proofs};
+            use merkle_heapless::proof::{Proof, chain_proofs};
             use super::#hash_type;
 
             type PeakProof = Proof<#branch_factor, #peak_height, #hash_type>;
@@ -367,7 +367,7 @@ pub fn mmr(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
                         peak_ind += 1;
                         accum_len += peak.num_of_leaves();
                     }
-                    merge_proofs(
+                    chain_proofs(
                         self.peaks[peak_ind].generate_proof(index - accum_len),
                         self.summit_tree.generate_proof(peak_ind)
                     )

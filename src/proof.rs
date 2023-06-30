@@ -1,6 +1,6 @@
 use core::fmt::Debug;
 use core::mem::size_of;
-use crate::traits::{HashT, ProofItemT, ProofBuilder, ProofValidator, StaticTreeTrait};
+use crate::traits::{HashT, ProofItemT, ProofBuilder, ProofValidator};
 use crate::utils::{hash_merged_slice};
 
 pub struct ProofItem<const BRANCH_FACTOR: usize, H: HashT> {
@@ -55,20 +55,20 @@ impl<const BRANCH_FACTOR: usize, H: HashT>  Debug for ProofItem<BRANCH_FACTOR, H
 }
 
 pub struct Proof<const BRANCH_FACTOR: usize, const HEIGHT: usize, H: HashT>
-where [(); HEIGHT - 1]: Sized {
+where [(); HEIGHT]: Sized {
     root: H::Output,
     height: usize,
-    items: [<Self as ProofBuilder<H>>::Item; HEIGHT - 1],
+    items: [<Self as ProofBuilder<H>>::Item; HEIGHT],
 }
 
 impl <const BRANCH_FACTOR: usize, const HEIGHT: usize, H: HashT> ProofBuilder<H> for Proof<BRANCH_FACTOR, HEIGHT, H>
-where [(); HEIGHT - 1]: Sized {
+where [(); HEIGHT]: Sized {
     type Item = ProofItem<BRANCH_FACTOR, H>;
 
     fn from_root(root: H::Output) -> Self {
         Self {
             root,
-            items: [ProofItem::default(); HEIGHT - 1],
+            items: [ProofItem::default(); HEIGHT],
             height: 0,
         }
     }
@@ -82,7 +82,7 @@ where [(); HEIGHT - 1]: Sized {
 }
 
 impl<const BRANCH_FACTOR: usize, const HEIGHT: usize, H: HashT> ProofValidator for Proof<BRANCH_FACTOR, HEIGHT, H>
-where [(); HEIGHT - 1]: Sized {
+where [(); HEIGHT]: Sized {
     /// verifies that the input was contained in the Merkle tree that generated this proof
     fn validate(self, input: &[u8]) -> bool {
         let mut curr_hash = Some(H::hash(&input));
@@ -100,24 +100,36 @@ where [(); HEIGHT - 1]: Sized {
 }
 
 impl<const BRANCH_FACTOR: usize, const HEIGHT: usize, H: HashT> Default for Proof<BRANCH_FACTOR, HEIGHT, H>
-where [(); HEIGHT - 1]: Sized {
+where [(); HEIGHT]: Sized {
     fn default() -> Self {
         Self {
             root: Default::default(),
-            items: [Default::default(); HEIGHT - 1],
+            items: [Default::default(); HEIGHT],
             height: 0,
         }
     }
 }
 
-pub fn merge_proofs<const BRANCH_FACTOR: usize, const HEIGHT1: usize, const HEIGHT2: usize, H: HashT>(
+impl<const BRANCH_FACTOR: usize, const HEIGHT: usize, H: HashT> Debug for Proof<BRANCH_FACTOR, HEIGHT, H>
+where [(); HEIGHT]: Sized 
+{
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> Result<(), core::fmt::Error> { 
+        writeln!(f, "[proof height]:   {:?}", self.height)?;
+        writeln!(f, "[proof root]:   {:?}", self.root)?;
+        write!(f, "{:?}", self.items)
+    }
+}
+
+
+
+pub fn chain_proofs<const BRANCH_FACTOR: usize, const HEIGHT1: usize, const HEIGHT2: usize, H: HashT>(
     proof1: Proof<BRANCH_FACTOR, HEIGHT1, H>,
     proof2: Proof<BRANCH_FACTOR, HEIGHT2, H>
 ) -> Proof<BRANCH_FACTOR, {HEIGHT1 + HEIGHT2}, H> 
 where 
-    [(); HEIGHT1 - 1]: Sized,
-    [(); HEIGHT2 - 1]: Sized,
-    [(); {HEIGHT1 + HEIGHT2} - 1]: Sized,
+    [(); HEIGHT1]: Sized,
+    [(); HEIGHT2]: Sized,
+    [(); HEIGHT1 + HEIGHT2]: Sized,
 {
     let mut proof = Proof::from_root(proof2.root());
     proof.height = proof1.height + proof2.height;
