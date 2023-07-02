@@ -27,7 +27,6 @@ pub type DefaultAugmentable<const BRANCH_FACTOR: usize, const HEIGHT: usize, H>
         H: HashT,
         PB: ProofBuilder<H>,
     {
-        // panics if HEIGHT == 0
         pub fn try_from(input: &[&[u8]]) -> Result<Self, ()> {
             Ok(Self {
                 tree: StaticTree::try_from(input)?,
@@ -134,7 +133,6 @@ pub type DefaultAugmentable<const BRANCH_FACTOR: usize, const HEIGHT: usize, H>
             *self.tree.hashes.iter().last().expect("hashes are not empty. qed")
         }
         fn leaves(&self) -> &[H::Output] {
-//            &self.tree.hashes[..layer_size!(BRANCH_FACTOR, HEIGHT, 0)]
             &self.tree.hashes[..self.num_of_leaves]
         }
         fn base_layer_size(&self) -> usize {

@@ -30,7 +30,6 @@ pub(crate) mod compactable {
         H: HashT,
         PB: ProofBuilder<H>,
     {
-        // panics if HEIGHT == 0
         pub fn try_from(input: &[&[u8]]) -> Result<Self, ()> {
             let mut this = Self {
                 tree: StaticTree::try_from(input)?,
@@ -57,32 +56,21 @@ pub(crate) mod compactable {
                 num_of_leaves,
                 leaves_present,
             })
-
-            // if leaves.len() > layer_size!(BRANCH_FACTOR, HEIGHT, 0) {
-            //     return Err(());
-            // }
-            // let mut this_leaves = [H::Output::default(); layer_size!(BRANCH_FACTOR, HEIGHT, 0)];
-            // this_leaves[..leaves.len()].copy_from_slice(&leaves);
-            
-            // Self::try_from_compacted(
-            //     &this_leaves, 
-            //     leaves.len()
-            // )
         }
 
         fn try_from_compacted(leaves: &[H::Output; layer_size!(BRANCH_FACTOR, HEIGHT, 0)], num_of_leaves: usize) -> Result<Self, ()> {
             (num_of_leaves <= layer_size!(BRANCH_FACTOR, HEIGHT, 0))
                 .then(|| ()).ok_or(())
                 .and_then(|()| {
-                    let mut this = Self {
+                    let mut leaves_present = [false; layer_size!(BRANCH_FACTOR, HEIGHT, 0)];
+                    for i in 0..num_of_leaves {
+                        leaves_present[i] = true;
+                    }
+                    Ok(Self {
                         tree: StaticTree::try_from_leaves(leaves)?,
                         num_of_leaves,
-                        leaves_present: [false; layer_size!(BRANCH_FACTOR, HEIGHT, 0)],
-                    };
-                    for i in 0..num_of_leaves {
-                        this.leaves_present[i] = true;
-                    }
-                    Ok(this)
+                        leaves_present,
+                    })
                 })
         }
 
@@ -126,73 +114,6 @@ pub(crate) mod compactable {
                     CompactableHeaplessTree::<BRANCH_FACTOR, {HEIGHT - 1}, H, PB>::try_from_compacted(&leaves, self.num_of_leaves()))
                 .map_err(|_| self)
         }
-
-        // pub fn try_merge<const OTHER_HEIGHT: usize, OTHERPB: ProofBuilder<H>>(
-        //     self, 
-        //     other: CompactableHeaplessTree<BRANCH_FACTOR, OTHER_HEIGHT, H, OTHERPB>
-        // ) -> Result<CompactableHeaplessTree<BRANCH_FACTOR, {HEIGHT + 1}, H, PB>, Self> 
-        // where
-        //     [(); total_size!(BRANCH_FACTOR, {HEIGHT + 1})]: Sized,
-        //     [(); layer_size!(BRANCH_FACTOR, {HEIGHT + 1}, 0)]: Sized,         
-        //     [(); total_size!(BRANCH_FACTOR, OTHER_HEIGHT)]: Sized,
-        //     [(); layer_size!(BRANCH_FACTOR, OTHER_HEIGHT, 0)]: Sized,
-        //     Assert::<{OTHER_HEIGHT <= HEIGHT}>: IsTrue,
-        //     H: HashT, 
-        //     PB: ProofBuilder<H>,
-        // {
-        //     // height of other must be no greater than this tree height
-        //     // so the resulting tree height is safely HEIGHT + 1s
-        //     if OTHER_HEIGHT > HEIGHT {
-        //         return Err(self);
-        //     }
-
-        //     self.compacted_leaves::<{HEIGHT + 1}>()
-        //         .and_then(|mut first_leaves| {
-        //             other.compacted_leaves::<OTHER_HEIGHT>()
-        //                 .map(|second_leaves| {
-        //                     for i in 0..other.num_of_leaves {
-        //                         first_leaves[self.num_of_leaves + i] = second_leaves[i];
-        //                     }
-        //                     first_leaves
-        //                 })
-        //         })
-        //         .and_then(|leaves| 
-        //             CompactableHeaplessTree::<BRANCH_FACTOR, {HEIGHT + 1}, H, PB>::try_from_compacted(
-        //                 &leaves, 
-        //                 self.num_of_leaves + other.num_of_leaves
-        //             )
-        //         )
-        //         .map_err(|_| self)
-        // }
-
-        // pub fn try_compact_and_append<const OTHER_HEIGHT: usize, OTHERPB: ProofBuilder<H>>(
-        //     self, 
-        //     other: CompactableHeaplessTree<BRANCH_FACTOR, OTHER_HEIGHT, H, OTHERPB>) -> Result<Self, Self> 
-        // where
-        //     [(); total_size!(BRANCH_FACTOR, HEIGHT)]: Sized,
-        //     [(); layer_size!(BRANCH_FACTOR, HEIGHT, 0)]: Sized,
-        //     [(); total_size!(BRANCH_FACTOR, OTHER_HEIGHT)]: Sized,
-        //     [(); layer_size!(BRANCH_FACTOR, OTHER_HEIGHT, 0)]: Sized, 
-        //     H: HashT, 
-        //     PB: ProofBuilder<H>,
-        // {
-        //     if other.num_of_leaves > self.base_layer_size() - self.num_of_leaves {
-        //         return Err(self);
-        //     }
-
-        //     self.compacted_leaves::<HEIGHT>()
-        //         .and_then(|mut first_leaves| {
-        //             other.compacted_leaves::<OTHER_HEIGHT>()
-        //                 .map(|second_leaves| {
-        //                     for i in 0..other.num_of_leaves {
-        //                         first_leaves[self.num_of_leaves + i] = second_leaves[i];
-        //                     }
-        //                     first_leaves
-        //                 })
-        //         })
-        //         .and_then(|leaves| Self::try_from_compacted(&leaves, self.num_of_leaves))
-        //         .map_err(|_| self)
-        // }
     }
 
     impl<const BRANCH_FACTOR: usize, const HEIGHT: usize, H, PB> StaticTreeTrait<H, PB> for CompactableHeaplessTree<BRANCH_FACTOR, HEIGHT, H, PB> 
@@ -227,7 +148,6 @@ pub(crate) mod compactable {
             *self.tree.hashes.iter().last().expect("hashes are not empty. qed")
         }
         fn leaves(&self) -> &[H::Output] {
-//            &self.tree.hashes[..layer_size!(BRANCH_FACTOR, HEIGHT, 0)]
             &self.tree.hashes[..self.num_of_leaves]
         }
         fn base_layer_size(&self) -> usize {
@@ -249,15 +169,18 @@ pub(crate) mod compactable {
         H: HashT,
         PB: ProofBuilder<H>,
     {
-        // remove element by inserting nothing
-        // panics if index is out of leaf layer bound
-        fn remove(&mut self, index: usize) {
+        // remove element by replacing with nothing
+        fn try_remove(&mut self, index: usize) -> Result<(), ()> {
+            if self.num_of_leaves == 0 || index > self.num_of_leaves {
+                return Err(());
+            }
             self.tree.replace(index, &[]);
 
             if self.leaves_present[index] {
                 self.num_of_leaves -= 1;
             }
             self.leaves_present[index] = false;
+            Ok(())
         }
 
         fn num_of_leaves(&self) -> usize {
@@ -281,15 +204,6 @@ pub(crate) mod compactable {
             }
         }
     }
-
-    // impl <const BRANCH_FACTOR: usize, const HEIGHT: usize, H, PB> Copy for CompactableHeaplessTree<BRANCH_FACTOR, HEIGHT, H, PB> 
-    // where
-    //     [(); total_size!(BRANCH_FACTOR, HEIGHT)]: Sized,
-    //     [(); layer_size!(BRANCH_FACTOR, HEIGHT, 0)]: Sized,      
-    //     Assert::<{is_pow2!(BRANCH_FACTOR)}>: IsTrue,
-    //     H: HashT,
-    //     PB: ProofBuilder<H>,
-    // {}
 
     impl<const BRANCH_FACTOR: usize, const HEIGHT: usize, H, PB> Default for CompactableHeaplessTree<BRANCH_FACTOR, HEIGHT, H, PB> 
     where

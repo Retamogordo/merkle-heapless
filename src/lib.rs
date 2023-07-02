@@ -6,11 +6,9 @@
 
 pub mod traits;
 pub mod proof;
-pub mod mergeable;
 pub mod compactable;
 pub mod augmentable;
 mod utils;
-mod tests;
 
 #[cfg(feature = "mmr_macro")]
 pub use mmr_macro;

@@ -45,6 +45,6 @@ pub trait AppendOnly {
 }
 
 pub trait CanRemove {
-    fn remove(&mut self, index: usize);
+    fn try_remove(&mut self, index: usize) -> Result<(), ()>;
     fn num_of_leaves(&self) -> usize;
 }

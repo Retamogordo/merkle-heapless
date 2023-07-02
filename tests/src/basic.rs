@@ -360,7 +360,7 @@ mod basic {
         )
         .unwrap();
 
-        cmt.remove(2);
+        cmt.try_remove(2).unwrap();
         cmt.compact();
 
         for (i, w) in test_words.iter().enumerate() {
@@ -387,7 +387,7 @@ mod basic {
             &words.iter().map(|w| w.as_bytes()).collect::<Vec<_>>()
         ).unwrap();
 
-        cmt.remove(0);
+        cmt.try_remove(0).unwrap();
         assert_eq!(cmt.num_of_leaves(), 0);
         cmt.compact();
         // cmt.try_reduce() will not compile
@@ -410,10 +410,10 @@ mod basic {
         )
         .unwrap();
 
-        cmt.remove(2); // remove banana
+        cmt.try_remove(2).unwrap(); // remove banana
         cmt.replace(2, b"cherry");
-        cmt.remove(0); // remove apple
-        cmt.remove(1); // remove apricot
+        cmt.try_remove(0).unwrap(); // remove apple
+        cmt.try_remove(1).unwrap(); // remove apricot
         cmt.replace(7, b"ciruela");
 
         cmt.compact();
@@ -635,9 +635,9 @@ mod basic {
             "apple", "apricot", "cherry", "blueberry", "kiwi", "kotleta", "sardina"
         ];
 
-        cmt1.remove(2);
+        cmt1.try_remove(2).unwrap();
         cmt1.compact();
-        cmt2.remove(1);
+        cmt2.try_remove(1).unwrap();
         cmt2.compact();
 
         let mut cmt = DefaultAugmentable::<BRANCH_FACTOR, HEIGHT_1, StdHash>::try_from_leaves(&cmt1.leaves()).unwrap();
