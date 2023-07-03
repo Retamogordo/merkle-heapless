@@ -3,19 +3,22 @@ use core::mem::size_of;
 use crate::traits::{HashT, ProofItemT, ProofBuilder, ProofValidator};
 use crate::utils::{hash_merged_slice};
 
+/// Basic implementation of an item making up a proof.
+/// Supports a power-of-2 number of siblings
 pub struct ProofItem<const BRANCH_FACTOR: usize, H: HashT> {
     hashes: Option<[H::Output; BRANCH_FACTOR]>,
     offset: usize,
 }
 
 impl<const BRANCH_FACTOR: usize, H: HashT> ProofItemT<H> for ProofItem<BRANCH_FACTOR, H> {
+    /// constructor
     fn create(offset: usize, hashes: &[H::Output]) -> Self {
         Self {
             offset,
             hashes: hashes[..BRANCH_FACTOR].try_into().ok()
         }
     }
-
+    /// hashes a provided hashed data at offset with its siblings
     fn hash_with_siblings(mut self, word_hash: H::Output) -> Option<H::Output> {
         let bytes_in_chunk: usize = BRANCH_FACTOR * size_of::<H::Output>();
 
@@ -54,6 +57,7 @@ impl<const BRANCH_FACTOR: usize, H: HashT>  Debug for ProofItem<BRANCH_FACTOR, H
     }
 }
 
+/// Proof implementation the StaticTree generates
 pub struct Proof<const BRANCH_FACTOR: usize, const HEIGHT: usize, H: HashT>
 where [(); HEIGHT]: Sized {
     root: H::Output,
@@ -119,9 +123,8 @@ where [(); HEIGHT]: Sized
         write!(f, "{:?}", self.items)
     }
 }
-
-
-
+/// Chains two proofs into one
+/// The second root becomes the root of the target proof
 pub fn chain_proofs<const BRANCH_FACTOR: usize, const HEIGHT1: usize, const HEIGHT2: usize, H: HashT>(
     proof1: Proof<BRANCH_FACTOR, HEIGHT1, H>,
     proof2: Proof<BRANCH_FACTOR, HEIGHT2, H>

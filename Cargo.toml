@@ -1,8 +1,16 @@
 [package]
 name = "merkle-heapless"
-version = "0.1.0"
 edition = "2021"
+version = "0.1.0"
+authors = ["Yury <yury.yukhananov@tutanota.com>"]
+description = "Statically-allocated Merkle Tree and Mountain Range"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/Retamogordo/merkle-heapless"
+keywords = ["merkle tree", "merkle mountain range", "no-std", "statically-allocated"]
 
+[workspace]
+members = ["mmr-macro", "tests"]
+default-members = [".", "mmr-macro"]
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 [lib]
 

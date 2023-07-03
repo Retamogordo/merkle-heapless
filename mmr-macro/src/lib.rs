@@ -1,3 +1,31 @@
+//! # Merkle Mountain Range macro
+//! Include ["mmr_macro"] feature in merkle-heapless dependency
+//! ### Declaration and instantiation
+//! ```rust
+//! use merkle_heapless::{mmr_macro};
+//! // declaration with expicit type name for your MMR
+//! mmr_macro::mmr!(Type = FooMMR, BranchFactor = 2, Peaks = 3, Hash = StdHash);
+//! let mmr = FooMMR::default();
+//! // implicitly creates MerkleMountainRange type
+//! mmr_macro::mmr!(BranchFactor = 2, Peaks = 5, Hash = StdHash);
+//! // create with default current peak of height 0
+//! let mmr = MerkleMountainRange::default();
+//! // or create with current peak of height 2
+//! let mmr = MerkleMountainRange::from_peak(MerkleMountainRangePeak::Peak3(Default::default()));
+//! assert_eq!(mmr.peaks()[0].height(), 5 - 3);
+//! ```
+//! ### Functionality
+//! The functionality of Mountain Range is similar to that of a Merkle tree.   
+//! ```rust
+//! mmr.try_append(b"apple").unwrap();
+//! // peak leaf numbers: [1, 0, 0, 0, 0]
+//! assert_eq!(mmr.peaks()[0].height(), 0);
+//! assert_eq!(mmr.peaks()[0].num_of_leaves(), 1);
+//! assert_eq!(mmr.peaks()[1].num_of_leaves(), 0);
+//! let proof = mmr.generate_proof(0);
+//! assert!(proof.validate(b"apple"));
+//! ```
+
 use quote::quote;
 use syn::parse::{Parse, ParseStream, Result};
 use syn::{LitInt, Ident, Token, Error};
@@ -81,9 +109,6 @@ impl Parse for MMRInput {
 pub fn mmr(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     let input = syn::parse_macro_input!(input as MMRInput);
     
-    // if input.num_of_peaks < 2 {
-    //     panic!("number of peaks must be greater than 1.");
-    // }
     let peak_height = input.num_of_peaks;
     let summit_height = (8 * core::mem::size_of::<usize>() as u32 - input.num_of_peaks.leading_zeros()) as usize + 1;
     let total_height = summit_height + peak_height;
@@ -316,15 +341,15 @@ pub fn mmr(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
             where 
                 [(); #num_of_peaks]: Sized,
             {            
-                pub fn from(peak: #mmr_peak_type) -> Result<Self, ()> {
+                pub fn from_peak(peak: #mmr_peak_type) -> Self {
                     let mut this = Self {
-                        summit_tree: StaticTree::<#branch_factor, #summit_height, #hash_type>::try_from(&[])?,
+                        summit_tree: StaticTree::<#branch_factor, #summit_height, #hash_type>::default(),
                         peaks: [#mmr_peak_type::default(); #num_of_peaks],
                         curr_peak_index: 0,
                         num_of_leaves: 0,
                     }; 
                     this.peaks[0] = peak;
-                    Ok(this)
+                    this
                 } 
                 
                 fn merge_collapse(&mut self) {
@@ -353,9 +378,10 @@ pub fn mmr(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
                                 // move to the next peak and set it the new current one
                                 self.curr_peak_index += 1;
                             } else { 
+                                // try to augment the last peak
                                 self.peaks[self.curr_peak_index] = self.peaks[self.curr_peak_index].try_augment()?;
                             }
-                            // try append the item now to the new peak
+                            // now try append the item to the new peak
                             self.peaks[self.curr_peak_index].try_append(input)
                         })
                         .map(|_| {
@@ -386,14 +412,15 @@ pub fn mmr(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
                     )
                 }
 
+                pub fn base_layer_size(&self) -> usize {
+                    self.peaks.iter().map(|peak| peak.base_layer_size()).sum()
+                }
                 pub fn num_of_leaves(&self) -> usize {
                     self.num_of_leaves
                 }
-
                 pub fn curr_peak_index(&self) -> usize {
                     self.curr_peak_index
                 }
-            
                 pub fn peaks(&self) -> &[#mmr_peak_type] {
                     &self.peaks[..]
                 }        
@@ -404,7 +431,7 @@ pub fn mmr(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
                 [(); #num_of_peaks]: Sized, 
                 {        
                     fn default() -> Self {
-                        Self::from(Default::default()).unwrap()
+                        Self::from_peak(Default::default())
                     }
                 }
         }

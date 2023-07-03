@@ -3,7 +3,6 @@
 mod basic {
     use merkle_heapless::{StaticTree, StaticBinaryTree};
     use merkle_heapless::traits::{HashT, ProofValidator, StaticTreeTrait, AppendOnly, CanRemove};
-    use merkle_heapless::mergeable::{DefaultMergeable};
     use merkle_heapless::compactable::{DefaultCompactable};
     use merkle_heapless::augmentable::{DefaultAugmentable};
 
@@ -12,17 +11,16 @@ mod basic {
         hash::{Hash, Hasher},
     };
 
+    #[derive(Debug)]
+    struct Blake2_256Hash;
 
-    // #[derive(Debug)]
-    // struct Blake2_256Hash;
+    impl HashT for Blake2_256Hash {
+        type Output = [u8; 32];
 
-    // impl HashT for Blake2_256Hash {
-    //     type Output = [u8; 32];
-
-    //     fn hash(input: &[u8]) -> Self::Output {
-    //         sp_core::blake2_256(input)
-    //     }
-    // }
+        fn hash(input: &[u8]) -> Self::Output {
+            sp_core::blake2_256(input)
+        }
+    }
 
     #[derive(Debug)]
     struct StdHash;
@@ -47,22 +45,9 @@ mod basic {
         }
     }
 
-
-    // #[test]
-    // #[should_panic]
-    // fn fail_binary_4layers_std_hash_bad_index() {
-    //     const HEIGHT: usize = 4;
-
-    //     let mut mt = StaticBinaryTree::<HEIGHT, StdHash>::try_from(&[
-    //         b"apple", b"banana", b"kiwi", b"kotleta",
-    //     ]);
-    //     let word_index = 8;
-    //     let _proof = mt.as_mut().unwrap().generate_proof(word_index);
-    // }
-
     #[test]
     fn validate_default_padding_word_4branches_std_hash() {
-        let mut mt = StaticTree::<4, 6, StdHash>::try_from(&[
+        let mut mt = StaticTree::<4, 6, Blake2_256Hash>::try_from(&[
             b"apple", b"banana", b"kiwi", b"kotleta",
         ]);
         let word_index = 7;
@@ -84,7 +69,7 @@ mod basic {
         const HEIGHT: usize = 4;
         const BRANCH_FACTOR: usize = 2;
 
-        let mut mt = StaticTree::<BRANCH_FACTOR, HEIGHT, StdHash>::try_from(&[
+        let mut mt = StaticTree::<BRANCH_FACTOR, HEIGHT, Blake2_256Hash>::try_from(&[
             b"apple", b"banana", b"kiwi", b"kotleta",
         ]);
         let word_index = 7;
@@ -321,8 +306,7 @@ mod basic {
         const BRANCH_FACTOR: usize = 2;
         let cmt = DefaultCompactable::<BRANCH_FACTOR,HEIGHT, StdHash>::try_from(&[
             b"apple", b"banana", b"kiwi", b"kotleta",
-        ])
-        .unwrap();
+        ]).unwrap();
 
         cmt.try_reduce().unwrap();
     }
@@ -337,10 +321,39 @@ mod basic {
         ];
         let cmt = DefaultCompactable::<BRANCH_FACTOR,HEIGHT, StdHash>::try_from(
             &words.iter().map(|w| w.as_bytes()).collect::<Vec<_>>()
-        )
-        .unwrap();
+        ).unwrap();
 
         assert!(cmt.try_reduce().is_err());
+    }
+
+    #[test]
+    fn try_reduce_small() {
+        const HEIGHT: usize = 1;
+        const BRANCH_FACTOR: usize = 2;
+        let cmt = DefaultCompactable::<BRANCH_FACTOR,HEIGHT, StdHash>::try_from(&[
+            b"apple",
+        ]).unwrap();
+
+        cmt.try_reduce().unwrap();
+    }
+
+    #[test]
+    fn compact_small() {
+        const HEIGHT: usize = 1;
+        const BRANCH_FACTOR: usize = 2;
+        let mut cmt = DefaultCompactable::<BRANCH_FACTOR,HEIGHT, StdHash>::try_from(&[
+            b"apple"
+        ]).unwrap();
+
+        cmt.try_remove(0).unwrap();
+        cmt.compact();
+        let mut cmt = cmt.try_reduce().unwrap();
+
+        cmt.replace(0, &[]);
+        let proof = cmt.generate_proof(0);
+        let res = proof.validate(&[]);
+
+        assert!(res);
     }
 
     #[test]
@@ -379,8 +392,6 @@ mod basic {
 
         let words: &[&str] = &[
             "apple",
-        ];
-        let test_words: &[&str] = &[
         ];
 
         let mut cmt = DefaultCompactable::<BRANCH_FACTOR, HEIGHT, StdHash>::try_from(
@@ -689,7 +700,7 @@ mod basic {
         let words1: &[&str] = &[
             "apple", "apricot", "banana", "cherry", "blueberry"
         ];
-        let mut cmt = DefaultMergeable::<BRANCH_FACTOR,HEIGHT, StdHash>::try_from(
+        let mut cmt = DefaultAugmentable::<BRANCH_FACTOR,HEIGHT, StdHash>::try_from(
             &words1.iter().map(|w| w.as_bytes()).collect::<Vec<_>>()
         ).unwrap();
 
