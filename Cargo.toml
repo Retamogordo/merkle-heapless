@@ -12,7 +12,7 @@ categories = ["data structures", "no-std", "crypto"]
 [workspace]
 members = ["mmr-macro", "tests"]
 default-members = [".", "mmr-macro"]
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
 [lib]
 
 [dependencies]

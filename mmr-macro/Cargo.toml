@@ -1,9 +1,11 @@
 [package]
 name = "mmr-macro"
-version = "0.0.1"
 edition = "2021"
+version = "0.0.1"
+description = "Macro for Merkle Mountain Range implementation with merkle-heapless"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/Retamogordo/merkle-heapless"
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 [lib]
 proc-macro = true
 
