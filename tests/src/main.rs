@@ -4,5 +4,4 @@
 mod basic;
 mod mmr;
 
-fn main() {
-}
+fn main() {}

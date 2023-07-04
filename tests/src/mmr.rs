@@ -4,16 +4,16 @@ mod tests {
         collections::hash_map::DefaultHasher,
         hash::{Hash, Hasher},
     };
-    
-    use merkle_heapless::{mmr_macro};
-    use merkle_heapless::traits::{HashT, ProofValidator, StaticTreeTrait, AppendOnly};
+
+    use merkle_heapless::mmr_macro;
+    use merkle_heapless::traits::{AppendOnly, HashT, ProofValidator, StaticTreeTrait};
 
     #[derive(Debug)]
     pub struct StdHash;
-    
+
     impl HashT for StdHash {
         type Output = [u8; 8];
-    
+
         fn hash(input: &[u8]) -> Self::Output {
             let mut s = DefaultHasher::new();
             input.hash(&mut s);
@@ -32,11 +32,10 @@ mod tests {
         }
     }
 
-
     #[test]
     fn mmr_binary() {
         mmr_macro::mmr!(Type = FooMMR, BranchFactor = 2, Peaks = 7, Hash = StdHash);
-//        let mut mmr = FooMMR::from(FooMMRPeak::Peak0(Default::default())).unwrap();
+        //        let mut mmr = FooMMR::from(FooMMRPeak::Peak0(Default::default())).unwrap();
         let mut mmr = FooMMR::default();
         // peak leaf numbers: [0, 0, 0, 0, 0]
         assert_eq!(mmr.peaks()[0].height(), 0);
@@ -49,7 +48,7 @@ mod tests {
         let proof = mmr.generate_proof(0);
         let res = proof.validate(b"apple");
         assert!(res);
-        
+
         mmr.try_append(b"banana").unwrap();
         assert_eq!(mmr.peaks()[0].height(), 1);
         // peak leaf numbers: [2, 0, 0, 0, 0] because 1, 1 is merged -> 2, 0
@@ -59,7 +58,7 @@ mod tests {
         let proof = mmr.generate_proof(1);
         let res = proof.validate(b"banana");
         assert!(res);
-    
+
         mmr.try_append(b"cherry").unwrap();
         // peak leaf numbers: [2, 1, 0, 0, 0]
         assert_eq!(mmr.peaks()[0].height(), 1);
@@ -68,7 +67,7 @@ mod tests {
         let proof = mmr.generate_proof(2);
         let res = proof.validate(b"cherry");
         assert!(res);
-    
+
         mmr.try_append(b"kiwi").unwrap();
         // peak leaf numbers: [4, 0, 0, 0, 0] because 2, 1, 1 is merged -> 2, 2, 0 -> 4, 0, 0
         assert_eq!(mmr.peaks()[0].height(), 2);
@@ -77,7 +76,7 @@ mod tests {
         let proof = mmr.generate_proof(3);
         let res = proof.validate(b"kiwi");
         assert!(res);
-    
+
         mmr.try_append(b"lemon").unwrap();
         // peak leaf numbers: [4, 1, 0, 0, 0]
         assert_eq!(mmr.peaks()[0].num_of_leaves(), 4);
@@ -85,7 +84,7 @@ mod tests {
         let proof = mmr.generate_proof(4);
         let res = proof.validate(b"lemon");
         assert!(res);
-    
+
         mmr.try_append(b"lime").unwrap();
         // peak leaf numbers: [4, 2, 0, 0, 0]
         assert_eq!(mmr.peaks()[0].num_of_leaves(), 4);
@@ -93,18 +92,18 @@ mod tests {
         let proof = mmr.generate_proof(5);
         let res = proof.validate(b"lime");
         assert!(res);
-    
+
         mmr.try_append(b"mango").unwrap();
         // peak leaf numbers: [4, 2, 1, 0, 0]
         assert_eq!(mmr.peaks()[0].num_of_leaves(), 4);
         assert_eq!(mmr.peaks()[1].num_of_leaves(), 2);
         assert_eq!(mmr.peaks()[2].num_of_leaves(), 1);
-    
+
         mmr.try_append(b"carrot").unwrap();
         // peak leaf numbers: [8, 0, 0, 0, 0]
         assert_eq!(mmr.peaks()[0].num_of_leaves(), 8);
         assert_eq!(mmr.peaks()[1].num_of_leaves(), 0);
-        
+
         mmr.try_append(b"peach").unwrap();
         // peak leaf numbers: [8, 1, 0, 0, 0]
         assert_eq!(mmr.peaks()[0].num_of_leaves(), 8);
@@ -120,12 +119,11 @@ mod tests {
         assert_eq!(mmr.peaks()[0].num_of_leaves(), 8);
         assert_eq!(mmr.peaks()[1].num_of_leaves(), 2);
         assert_eq!(mmr.peaks()[2].num_of_leaves(), 1);
-    
+
         mmr.try_append(b"strawberry").unwrap();
         // peak leaf numbers: [8, 4, 0, 0, 0]
         assert_eq!(mmr.peaks()[0].num_of_leaves(), 8);
         assert_eq!(mmr.peaks()[1].num_of_leaves(), 4);
-    
     }
 
     #[test]
@@ -237,14 +235,14 @@ mod tests {
         assert!(res);
 
         assert!(mmr.try_append(b"mango").is_err());
-
     }
 
     #[test]
     fn create_from_peak() {
         mmr_macro::mmr!(BranchFactor = 2, Peaks = 5, Hash = StdHash);
 
-        let mut mmr = MerkleMountainRange::from_peak(MerkleMountainRangePeak::Peak0(Default::default()));
+        let mut mmr =
+            MerkleMountainRange::from_peak(MerkleMountainRangePeak::Peak0(Default::default()));
         assert_eq!(mmr.peaks()[0].height(), 5 - 0);
         assert_eq!(mmr.peaks()[0].num_of_leaves(), 0);
         for i in 0u8..32 {
@@ -261,24 +259,29 @@ mod tests {
         let res = proof.validate(b"apple");
         assert!(res);
 
-        let mmr = MerkleMountainRange::from_peak(MerkleMountainRangePeak::Peak1(Default::default()));
+        let mmr =
+            MerkleMountainRange::from_peak(MerkleMountainRangePeak::Peak1(Default::default()));
         assert_eq!(mmr.peaks()[0].height(), 5 - 1);
-        let mmr = MerkleMountainRange::from_peak(MerkleMountainRangePeak::Peak2(Default::default()));
+        let mmr =
+            MerkleMountainRange::from_peak(MerkleMountainRangePeak::Peak2(Default::default()));
         assert_eq!(mmr.peaks()[0].height(), 5 - 2);
-        let mmr = MerkleMountainRange::from_peak(MerkleMountainRangePeak::Peak3(Default::default()));
+        let mmr =
+            MerkleMountainRange::from_peak(MerkleMountainRangePeak::Peak3(Default::default()));
         assert_eq!(mmr.peaks()[0].height(), 5 - 3);
-        let mmr = MerkleMountainRange::from_peak(MerkleMountainRangePeak::Peak4(Default::default()));
-        assert_eq!(mmr.peaks()[0].height(), 5 - 4);   
-        let mmr = MerkleMountainRange::from_peak(MerkleMountainRangePeak::Peak5(Default::default()));
+        let mmr =
+            MerkleMountainRange::from_peak(MerkleMountainRangePeak::Peak4(Default::default()));
+        assert_eq!(mmr.peaks()[0].height(), 5 - 4);
+        let mmr =
+            MerkleMountainRange::from_peak(MerkleMountainRangePeak::Peak5(Default::default()));
         assert_eq!(mmr.peaks()[0].height(), 5 - 5);
     }
 
     #[test]
     fn mmr_binary_4_peaks() {
-//        use crate::Blake2_256Hash;
+        //        use crate::Blake2_256Hash;
 
         mmr_macro::mmr!(BranchFactor = 4, Peaks = 3, Hash = Blake2_256Hash);
-    
+
         let mut mmr = MerkleMountainRange::default();
         assert_eq!(mmr.base_layer_size(), 3);
         assert_eq!(mmr.peaks()[0].height(), 0);
@@ -309,7 +312,7 @@ mod tests {
         for peak in it {
             assert_eq!(peak.height(), 0);
         }
-        
+
         // fill the third peak
         for i in 128u8..192 {
             assert!(mmr.try_append(&[i]).is_ok());

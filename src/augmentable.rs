@@ -17,7 +17,7 @@
 //!
 //! Merge
 //!
-//! You can ```try_merge``` a smaller (or equally-sized) tree into the original tree. 
+//! You can ```try_merge``` a smaller (or equally-sized) tree into the original tree.
 //! This operation does not imply augmentation, rather it fails if merge is not possible.
 //! ```rust
 //! // snip
@@ -29,19 +29,26 @@
 //! ```
 //! See also ```augment_and_merge``` that efficiently combines the two functionalities.
 
+use crate::traits::AppendOnly;
+use crate::{
+    is_pow2, layer_size, total_size, Assert, HashT, IsTrue, Proof, ProofBuilder, StaticTree,
+    StaticTreeTrait,
+};
 use core::fmt::Debug;
-use crate::{HashT, StaticTreeTrait,  StaticTree, Proof, ProofBuilder, total_size, layer_size, Assert, IsTrue, is_pow2};
-use crate::traits::{AppendOnly};
 /// Augmentable tree with default Proof size of (tree.height + 1)
-pub type DefaultAugmentable<const BRANCH_FACTOR: usize, const HEIGHT: usize, H> 
-    = AugmentableTree<BRANCH_FACTOR, HEIGHT, H, Proof<BRANCH_FACTOR, {HEIGHT+1}, H>>;
+pub type DefaultAugmentable<const BRANCH_FACTOR: usize, const HEIGHT: usize, H> =
+    AugmentableTree<BRANCH_FACTOR, HEIGHT, H, Proof<BRANCH_FACTOR, { HEIGHT + 1 }, H>>;
 
 /// Augmentable Tree can be converted into a bigger tree with height+1
-pub struct AugmentableTree<const BRANCH_FACTOR: usize, const HEIGHT: usize, H, PB = Proof<BRANCH_FACTOR, HEIGHT, H>>
-where
+pub struct AugmentableTree<
+    const BRANCH_FACTOR: usize,
+    const HEIGHT: usize,
+    H,
+    PB = Proof<BRANCH_FACTOR, HEIGHT, H>,
+> where
     [(); total_size!(BRANCH_FACTOR, HEIGHT)]: Sized,
     [(); layer_size!(BRANCH_FACTOR, HEIGHT, 0)]: Sized,
-    Assert::<{is_pow2!(BRANCH_FACTOR)}>: IsTrue,
+    Assert<{ is_pow2!(BRANCH_FACTOR) }>: IsTrue,
     H: HashT,
     PB: ProofBuilder<H>,
 {
@@ -49,11 +56,12 @@ where
     num_of_leaves: usize,
 }
 
-impl<const BRANCH_FACTOR: usize, const HEIGHT: usize, H, PB> AugmentableTree<BRANCH_FACTOR, HEIGHT, H, PB>
+impl<const BRANCH_FACTOR: usize, const HEIGHT: usize, H, PB>
+    AugmentableTree<BRANCH_FACTOR, HEIGHT, H, PB>
 where
     [(); total_size!(BRANCH_FACTOR, HEIGHT)]: Sized,
     [(); layer_size!(BRANCH_FACTOR, HEIGHT, 0)]: Sized,
-    Assert::<{is_pow2!(BRANCH_FACTOR)}>: IsTrue,
+    Assert<{ is_pow2!(BRANCH_FACTOR) }>: IsTrue,
     H: HashT,
     PB: ProofBuilder<H>,
 {
@@ -67,42 +75,43 @@ where
     /// creates a tree from hashed leaves (of another tree)
     pub fn try_from_leaves(leaves: &[H::Output]) -> Result<Self, ()> {
         Ok(Self {
-            tree: StaticTree::try_from_leaves(leaves)?, 
+            tree: StaticTree::try_from_leaves(leaves)?,
             num_of_leaves: leaves.len(),
         })
     }
-    /// create a tree with height+1 and copies the contents of this tree to the new one 
+    /// create a tree with height+1 and copies the contents of this tree to the new one
     /// Note: takes ownership, but as it implements Copy trait may need explicit dropping
     /// to prevent being any longer available
-    pub fn augment(self) -> AugmentableTree<BRANCH_FACTOR, {HEIGHT + 1}, H, PB>
+    pub fn augment(self) -> AugmentableTree<BRANCH_FACTOR, { HEIGHT + 1 }, H, PB>
     where
-        [(); total_size!(BRANCH_FACTOR, {HEIGHT + 1})]: Sized,
-        [(); layer_size!(BRANCH_FACTOR, {HEIGHT + 1}, 0)]: Sized,         
-        H: HashT, 
+        [(); total_size!(BRANCH_FACTOR, { HEIGHT + 1 })]: Sized,
+        [(); layer_size!(BRANCH_FACTOR, { HEIGHT + 1 }, 0)]: Sized,
+        H: HashT,
         PB: ProofBuilder<H>,
     {
-        AugmentableTree::<BRANCH_FACTOR, {HEIGHT + 1}, H, PB> {
-            tree: StaticTree::try_from_leaves(self.leaves()).expect("can create from smaller tree. qed"),
+        AugmentableTree::<BRANCH_FACTOR, { HEIGHT + 1 }, H, PB> {
+            tree: StaticTree::try_from_leaves(self.leaves())
+                .expect("can create from smaller tree. qed"),
             num_of_leaves: self.num_of_leaves,
         }
     }
-    /// create a tree with height+1 and copies the contents of this and another tree to the new one 
+    /// create a tree with height+1 and copies the contents of this and another tree to the new one
     /// Note: takes ownership, but as it implements Copy trait may need explicit dropping
     /// to prevent being any longer available
     pub fn augment_and_merge<const OTHER_HEIGHT: usize, OTHERPB: ProofBuilder<H>>(
-        self, 
-        other: AugmentableTree<BRANCH_FACTOR, OTHER_HEIGHT, H, OTHERPB>
-    ) -> AugmentableTree<BRANCH_FACTOR, {HEIGHT + 1}, H, PB>
+        self,
+        other: AugmentableTree<BRANCH_FACTOR, OTHER_HEIGHT, H, OTHERPB>,
+    ) -> AugmentableTree<BRANCH_FACTOR, { HEIGHT + 1 }, H, PB>
     where
-        [(); total_size!(BRANCH_FACTOR, {HEIGHT + 1})]: Sized,
-        [(); layer_size!(BRANCH_FACTOR, {HEIGHT + 1}, 0)]: Sized,         
+        [(); total_size!(BRANCH_FACTOR, { HEIGHT + 1 })]: Sized,
+        [(); layer_size!(BRANCH_FACTOR, { HEIGHT + 1 }, 0)]: Sized,
         [(); total_size!(BRANCH_FACTOR, OTHER_HEIGHT)]: Sized,
         [(); layer_size!(BRANCH_FACTOR, OTHER_HEIGHT, 0)]: Sized,
-        Assert::<{OTHER_HEIGHT <= HEIGHT}>: IsTrue,
-        H: HashT, 
+        Assert<{ OTHER_HEIGHT <= HEIGHT }>: IsTrue,
+        H: HashT,
         PB: ProofBuilder<H>,
     {
-        let mut this = AugmentableTree::<BRANCH_FACTOR, {HEIGHT + 1}, H, PB>::default();
+        let mut this = AugmentableTree::<BRANCH_FACTOR, { HEIGHT + 1 }, H, PB>::default();
 
         let len1 = self.num_of_leaves();
         let len2 = other.num_of_leaves();
@@ -116,22 +125,22 @@ where
         }
 
         this.num_of_leaves = len;
-        
+
         this.tree.fill_layers();
         this
     }
     /// tries to merge a tree to this one if there is enough room in it
     pub fn try_merge<const OTHER_HEIGHT: usize, OTHERPB: ProofBuilder<H>>(
-        &mut self, 
-        other: AugmentableTree<BRANCH_FACTOR, OTHER_HEIGHT, H, OTHERPB>
-    ) -> Result<(), ()> 
+        &mut self,
+        other: AugmentableTree<BRANCH_FACTOR, OTHER_HEIGHT, H, OTHERPB>,
+    ) -> Result<(), ()>
     where
         [(); total_size!(BRANCH_FACTOR, HEIGHT)]: Sized,
-        [(); layer_size!(BRANCH_FACTOR, HEIGHT, 0)]: Sized,    
+        [(); layer_size!(BRANCH_FACTOR, HEIGHT, 0)]: Sized,
         [(); total_size!(BRANCH_FACTOR, OTHER_HEIGHT)]: Sized,
         [(); layer_size!(BRANCH_FACTOR, OTHER_HEIGHT, 0)]: Sized,
-        Assert::<{OTHER_HEIGHT <= HEIGHT}>: IsTrue,
-        H: HashT, 
+        Assert<{ OTHER_HEIGHT <= HEIGHT }>: IsTrue,
+        H: HashT,
         PB: ProofBuilder<H>,
     {
         let len1 = self.num_of_leaves();
@@ -144,14 +153,15 @@ where
         self.tree.fill_layers();
         self.num_of_leaves += len2;
         Ok(())
-    }    
+    }
 }
 
-impl<const BRANCH_FACTOR: usize, const HEIGHT: usize, H, PB> StaticTreeTrait<H, PB> for AugmentableTree<BRANCH_FACTOR, HEIGHT, H, PB> 
+impl<const BRANCH_FACTOR: usize, const HEIGHT: usize, H, PB> StaticTreeTrait<H, PB>
+    for AugmentableTree<BRANCH_FACTOR, HEIGHT, H, PB>
 where
     [(); total_size!(BRANCH_FACTOR, HEIGHT)]: Sized,
-    [(); layer_size!(BRANCH_FACTOR, HEIGHT, 0)]: Sized,     
-    Assert::<{is_pow2!(BRANCH_FACTOR)}>: IsTrue,
+    [(); layer_size!(BRANCH_FACTOR, HEIGHT, 0)]: Sized,
+    Assert<{ is_pow2!(BRANCH_FACTOR) }>: IsTrue,
     H: HashT,
     PB: ProofBuilder<H>,
 {
@@ -165,14 +175,19 @@ where
         self.tree.replace_leaf(index, leaf);
     }
     fn root(&self) -> H::Output {
-        *self.tree.hashes.iter().last().expect("hashes are not empty. qed")
+        *self
+            .tree
+            .hashes
+            .iter()
+            .last()
+            .expect("hashes are not empty. qed")
     }
     fn leaves(&self) -> &[H::Output] {
         &self.tree.hashes[..self.num_of_leaves]
     }
     fn base_layer_size(&self) -> usize {
         layer_size!(BRANCH_FACTOR, HEIGHT, 0)
-    }        
+    }
     fn branch_factor(&self) -> usize {
         BRANCH_FACTOR
     }
@@ -181,18 +196,19 @@ where
     }
 }
 
-impl<const BRANCH_FACTOR: usize, const HEIGHT: usize, H, PB> AppendOnly for AugmentableTree<BRANCH_FACTOR, HEIGHT, H, PB> 
+impl<const BRANCH_FACTOR: usize, const HEIGHT: usize, H, PB> AppendOnly
+    for AugmentableTree<BRANCH_FACTOR, HEIGHT, H, PB>
 where
     [(); total_size!(BRANCH_FACTOR, HEIGHT)]: Sized,
-    [(); layer_size!(BRANCH_FACTOR, HEIGHT, 0)]: Sized,     
-    Assert::<{is_pow2!(BRANCH_FACTOR)}>: IsTrue,
+    [(); layer_size!(BRANCH_FACTOR, HEIGHT, 0)]: Sized,
+    Assert<{ is_pow2!(BRANCH_FACTOR) }>: IsTrue,
     H: HashT,
     PB: ProofBuilder<H>,
 {
     fn try_append(&mut self, input: &[u8]) -> Result<(), ()> {
         if self.num_of_leaves >= self.base_layer_size() {
             return Err(());
-        }        
+        }
         self.replace(self.num_of_leaves, input);
         self.num_of_leaves += 1;
         Ok(())
@@ -202,15 +218,16 @@ where
     }
 }
 
-impl <const BRANCH_FACTOR: usize, const HEIGHT: usize, H, PB> Clone for AugmentableTree<BRANCH_FACTOR, HEIGHT, H, PB> 
+impl<const BRANCH_FACTOR: usize, const HEIGHT: usize, H, PB> Clone
+    for AugmentableTree<BRANCH_FACTOR, HEIGHT, H, PB>
 where
     [(); total_size!(BRANCH_FACTOR, HEIGHT)]: Sized,
-    [(); layer_size!(BRANCH_FACTOR, HEIGHT, 0)]: Sized,    
-    Assert::<{is_pow2!(BRANCH_FACTOR)}>: IsTrue,
+    [(); layer_size!(BRANCH_FACTOR, HEIGHT, 0)]: Sized,
+    Assert<{ is_pow2!(BRANCH_FACTOR) }>: IsTrue,
     H: HashT,
     PB: ProofBuilder<H>,
 {
-    fn clone(&self) -> Self { 
+    fn clone(&self) -> Self {
         Self {
             tree: self.tree.clone(),
             num_of_leaves: self.num_of_leaves.clone(),
@@ -218,11 +235,12 @@ where
     }
 }
 
-impl<const BRANCH_FACTOR: usize, const HEIGHT: usize, H, PB> Default for AugmentableTree<BRANCH_FACTOR, HEIGHT, H, PB> 
+impl<const BRANCH_FACTOR: usize, const HEIGHT: usize, H, PB> Default
+    for AugmentableTree<BRANCH_FACTOR, HEIGHT, H, PB>
 where
     [(); total_size!(BRANCH_FACTOR, HEIGHT)]: Sized,
-    [(); layer_size!(BRANCH_FACTOR, HEIGHT, 0)]: Sized,     
-    Assert::<{is_pow2!(BRANCH_FACTOR)}>: IsTrue,
+    [(); layer_size!(BRANCH_FACTOR, HEIGHT, 0)]: Sized,
+    Assert<{ is_pow2!(BRANCH_FACTOR) }>: IsTrue,
     H: HashT,
     PB: ProofBuilder<H>,
 {
@@ -234,24 +252,27 @@ where
     }
 }
 
-impl <const BRANCH_FACTOR: usize, const HEIGHT: usize, H, PB> Debug for AugmentableTree<BRANCH_FACTOR, HEIGHT, H, PB> 
+impl<const BRANCH_FACTOR: usize, const HEIGHT: usize, H, PB> Debug
+    for AugmentableTree<BRANCH_FACTOR, HEIGHT, H, PB>
 where
     [(); total_size!(BRANCH_FACTOR, HEIGHT)]: Sized,
-    [(); layer_size!(BRANCH_FACTOR, HEIGHT, 0)]: Sized,   
-    Assert::<{is_pow2!(BRANCH_FACTOR)}>: IsTrue,
+    [(); layer_size!(BRANCH_FACTOR, HEIGHT, 0)]: Sized,
+    Assert<{ is_pow2!(BRANCH_FACTOR) }>: IsTrue,
     H: HashT,
     PB: ProofBuilder<H>,
 {
-    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> Result<(), core::fmt::Error> { 
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> Result<(), core::fmt::Error> {
         write!(f, "{:?}", self.tree)
     }
 }
 
-impl <const BRANCH_FACTOR: usize, const HEIGHT: usize, H, PB> Copy for AugmentableTree<BRANCH_FACTOR, HEIGHT, H, PB> 
+impl<const BRANCH_FACTOR: usize, const HEIGHT: usize, H, PB> Copy
+    for AugmentableTree<BRANCH_FACTOR, HEIGHT, H, PB>
 where
     [(); total_size!(BRANCH_FACTOR, HEIGHT)]: Sized,
-    [(); layer_size!(BRANCH_FACTOR, HEIGHT, 0)]: Sized,      
-    Assert::<{is_pow2!(BRANCH_FACTOR)}>: IsTrue,
+    [(); layer_size!(BRANCH_FACTOR, HEIGHT, 0)]: Sized,
+    Assert<{ is_pow2!(BRANCH_FACTOR) }>: IsTrue,
     H: HashT,
     PB: ProofBuilder<H>,
-{}
+{
+}

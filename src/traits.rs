@@ -1,5 +1,5 @@
-use core::hash::Hash;
 use core::fmt::Debug;
+use core::hash::Hash;
 /// trait for a hash pluggable to Merkle tree at compile time
 pub trait HashT {
     /// output returned by hash implementor
@@ -8,7 +8,7 @@ pub trait HashT {
     fn hash(input: &[u8]) -> Self::Output;
 }
 /// trait that an item contained in a proof implements.
-/// [ProofBuilder] implementor relies on it 
+/// [ProofBuilder] implementor relies on it
 pub trait ProofItemT<H: HashT>: Clone + Default + Debug {
     /// consructor
     fn create(offset: usize, hashes: &[H::Output]) -> Self;
@@ -17,7 +17,7 @@ pub trait ProofItemT<H: HashT>: Clone + Default + Debug {
 }
 /// trait for building a proof
 /// a proof is normally supposed to implement both [ProofBuilder] and [ProofValidator]
-/// [StaticTreeTrait.generate_proof] 
+/// [StaticTreeTrait.generate_proof]
 pub trait ProofBuilder<H: HashT>: Default {
     /// type of the item this proof contains
     type Item: ProofItemT<H>;
@@ -36,7 +36,7 @@ pub trait ProofValidator {
 }
 /// trait for a basic Merkle Tree functionality
 pub trait StaticTreeTrait<H: HashT, PB: ProofBuilder<H>> {
-    /// generate a proof for a leaf at index 
+    /// generate a proof for a leaf at index
     fn generate_proof(&mut self, index: usize) -> PB;
     /// replace a leaf at index with a new value
     fn replace(&mut self, index: usize, input: &[u8]);
@@ -52,7 +52,7 @@ pub trait StaticTreeTrait<H: HashT, PB: ProofBuilder<H>> {
     fn branch_factor(&self) -> usize;
     /// returns tree's height (determined at compile time)
     fn height(&self) -> usize;
-} 
+}
 /// trait for append-only Merkle tree semantics
 pub trait AppendOnly {
     /// appends a new leaf into the tree unless it's full
