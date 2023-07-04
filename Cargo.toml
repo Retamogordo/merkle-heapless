@@ -1,7 +1,7 @@
 [package]
 name = "merkle-heapless"
 edition = "2021"
-version = "0.0.2"
+version = "0.0.3"
 authors = ["Yury <yury.yukhananov@tutanota.com>"]
 description = "Statically-allocated Merkle Tree and Mountain Range"
 license = "MIT OR Apache-2.0"
@@ -16,7 +16,7 @@ default-members = [".", "mmr-macro"]
 [lib]
 
 [dependencies]
-mmr-macro = {version = "0.0.2", path = "./mmr-macro"}
+mmr-macro = {version = "0.0.3", path = "./mmr-macro"}
 
 [features]
 mmr_macro = []
