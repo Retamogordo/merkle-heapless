@@ -7,7 +7,7 @@ description = "Statically-allocated Merkle Tree and Mountain Range"
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/Retamogordo/merkle-heapless"
 keywords = ["merkle-tree", "mountain-range", "no-std", "statically-allocated"]
-categories = ["data structures", "no-std", "crypto"]
+categories = ["data structures", "algorithms", "no-std", "crypto"]
 
 [workspace]
 members = ["mmr-macro", "tests"]
