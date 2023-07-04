@@ -721,9 +721,9 @@ checksum = "2c6201b9ff9fd90a5a3bac2e56a830d0caa509576f0e503818ee82c181b3437a"
 
 [[package]]
 name = "hermit-abi"
-version = "0.3.1"
+version = "0.3.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fed44880c466736ef9a5c5b5facefb5ed0785676d0c02d612db14e54f0d84286"
+checksum = "443144c8cdadd93ebf52ddb4056d257f5b52c04d3c804e657d19eb73fc33668b"
 
 [[package]]
 name = "hex"
@@ -998,14 +998,14 @@ dependencies = [
 
 [[package]]
 name = "merkle-heapless"
-version = "0.0.1"
+version = "0.0.2"
 dependencies = [
  "mmr-macro",
 ]
 
 [[package]]
 name = "merkle-heapless-tests"
-version = "0.0.1"
+version = "0.0.2"
 dependencies = [
  "merkle-heapless",
  "sp-core",
@@ -1025,7 +1025,7 @@ dependencies = [
 
 [[package]]
 name = "mmr-macro"
-version = "0.0.1"
+version = "0.0.2"
 dependencies = [
  "convert_case",
  "proc-macro2",
@@ -1144,9 +1144,9 @@ dependencies = [
 
 [[package]]
 name = "paste"
-version = "1.0.12"
+version = "1.0.13"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9f746c4065a8fa3fe23974dd82f15431cc8d40779821001404d10d2e79ca7d79"
+checksum = "b4b27ab7be369122c218afc2079489cdcb4b517c0a3fc386ff11e1fedfcc2b35"
 
 [[package]]
 name = "pbkdf2"

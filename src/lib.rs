@@ -101,6 +101,10 @@
 //! Include ["mmr_macro"] feature in merkle-heapless dependency
 //! ### Declaration and instantiation
 //! ```rust
+//! // compulsory at the beginning of the .rs file in order the macro to compile
+//! #![allow(incomplete_features)]
+//! #![feature(generic_const_exprs)]
+//! // snip
 //! use merkle_heapless::{mmr_macro};
 //! // declaration with expicit type name for your MMR
 //! mmr_macro::mmr!(Type = FooMMR, BranchFactor = 2, Peaks = 3, Hash = StdHash);
@@ -110,11 +114,11 @@
 //! // create with default current peak of height 0
 //! let mmr = MerkleMountainRange::default();
 //! // or create with current peak of height 2
-//! let mmr = MerkleMountainRange::from_peak(MerkleMountainRangePeak::Peak3(Default::default()));
+//! let mut mmr = MerkleMountainRange::from_peak(MerkleMountainRangePeak::Peak3(Default::default()));
 //! assert_eq!(mmr.peaks()[0].height(), 5 - 3);
 //! ```
 //! ### Functionality
-//! The functionality of Mountain Range is similar to that of a Merkle tree.   
+//! The functionality of Mountain Range is similar to that of the Merkle tree.   
 //! ```rust
 //! mmr.try_append(b"apple").unwrap();
 //! // peak leaf numbers: [1, 0, 0, 0, 0]
