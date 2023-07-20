@@ -31,10 +31,11 @@
 
 use crate::traits::AppendOnly;
 use crate::{
-    is_pow2, layer_size, total_size, Assert, HashT, IsTrue, Proof, ProofBuilder, StaticTree,
+    is_pow2, layer_size, total_size, prefixed_size, Assert, HashT, IsTrue, Proof, ProofBuilder, StaticTree,
     StaticTreeTrait,
 };
 use core::fmt::Debug;
+use core::mem::size_of;
 /// Augmentable tree with default Proof size of (tree.height + 1)
 pub type DefaultAugmentable<const BRANCH_FACTOR: usize, const HEIGHT: usize, H> =
     AugmentableTree<BRANCH_FACTOR, HEIGHT, H, Proof<BRANCH_FACTOR, { HEIGHT + 1 }, H>>;
@@ -47,6 +48,7 @@ pub struct AugmentableTree<
     PB = Proof<BRANCH_FACTOR, HEIGHT, H>,
 > where
     [(); total_size!(BRANCH_FACTOR, HEIGHT)]: Sized,
+    [u8; prefixed_size!(BRANCH_FACTOR, size_of::<H::Output>())]: Sized,
     [(); layer_size!(BRANCH_FACTOR, HEIGHT, 0)]: Sized,
     Assert<{ is_pow2!(BRANCH_FACTOR) }>: IsTrue,
     H: HashT,
@@ -60,6 +62,7 @@ impl<const BRANCH_FACTOR: usize, const HEIGHT: usize, H, PB>
     AugmentableTree<BRANCH_FACTOR, HEIGHT, H, PB>
 where
     [(); total_size!(BRANCH_FACTOR, HEIGHT)]: Sized,
+    [u8; prefixed_size!(BRANCH_FACTOR, size_of::<H::Output>())]: Sized,
     [(); layer_size!(BRANCH_FACTOR, HEIGHT, 0)]: Sized,
     Assert<{ is_pow2!(BRANCH_FACTOR) }>: IsTrue,
     H: HashT,
@@ -136,6 +139,7 @@ where
     ) -> Result<(), ()>
     where
         [(); total_size!(BRANCH_FACTOR, HEIGHT)]: Sized,
+        [u8; prefixed_size!(BRANCH_FACTOR, size_of::<H::Output>())]: Sized,
         [(); layer_size!(BRANCH_FACTOR, HEIGHT, 0)]: Sized,
         [(); total_size!(BRANCH_FACTOR, OTHER_HEIGHT)]: Sized,
         [(); layer_size!(BRANCH_FACTOR, OTHER_HEIGHT, 0)]: Sized,
@@ -160,6 +164,7 @@ impl<const BRANCH_FACTOR: usize, const HEIGHT: usize, H, PB> StaticTreeTrait<H, 
     for AugmentableTree<BRANCH_FACTOR, HEIGHT, H, PB>
 where
     [(); total_size!(BRANCH_FACTOR, HEIGHT)]: Sized,
+    [u8; prefixed_size!(BRANCH_FACTOR, size_of::<H::Output>())]: Sized,
     [(); layer_size!(BRANCH_FACTOR, HEIGHT, 0)]: Sized,
     Assert<{ is_pow2!(BRANCH_FACTOR) }>: IsTrue,
     H: HashT,
@@ -200,6 +205,7 @@ impl<const BRANCH_FACTOR: usize, const HEIGHT: usize, H, PB> AppendOnly
     for AugmentableTree<BRANCH_FACTOR, HEIGHT, H, PB>
 where
     [(); total_size!(BRANCH_FACTOR, HEIGHT)]: Sized,
+    [u8; prefixed_size!(BRANCH_FACTOR, size_of::<H::Output>())]: Sized,
     [(); layer_size!(BRANCH_FACTOR, HEIGHT, 0)]: Sized,
     Assert<{ is_pow2!(BRANCH_FACTOR) }>: IsTrue,
     H: HashT,
@@ -222,6 +228,7 @@ impl<const BRANCH_FACTOR: usize, const HEIGHT: usize, H, PB> Clone
     for AugmentableTree<BRANCH_FACTOR, HEIGHT, H, PB>
 where
     [(); total_size!(BRANCH_FACTOR, HEIGHT)]: Sized,
+    [u8; prefixed_size!(BRANCH_FACTOR, size_of::<H::Output>())]: Sized,
     [(); layer_size!(BRANCH_FACTOR, HEIGHT, 0)]: Sized,
     Assert<{ is_pow2!(BRANCH_FACTOR) }>: IsTrue,
     H: HashT,
@@ -239,6 +246,7 @@ impl<const BRANCH_FACTOR: usize, const HEIGHT: usize, H, PB> Default
     for AugmentableTree<BRANCH_FACTOR, HEIGHT, H, PB>
 where
     [(); total_size!(BRANCH_FACTOR, HEIGHT)]: Sized,
+    [u8; prefixed_size!(BRANCH_FACTOR, size_of::<H::Output>())]: Sized,
     [(); layer_size!(BRANCH_FACTOR, HEIGHT, 0)]: Sized,
     Assert<{ is_pow2!(BRANCH_FACTOR) }>: IsTrue,
     H: HashT,
@@ -256,6 +264,7 @@ impl<const BRANCH_FACTOR: usize, const HEIGHT: usize, H, PB> Debug
     for AugmentableTree<BRANCH_FACTOR, HEIGHT, H, PB>
 where
     [(); total_size!(BRANCH_FACTOR, HEIGHT)]: Sized,
+    [u8; prefixed_size!(BRANCH_FACTOR, size_of::<H::Output>())]: Sized,
     [(); layer_size!(BRANCH_FACTOR, HEIGHT, 0)]: Sized,
     Assert<{ is_pow2!(BRANCH_FACTOR) }>: IsTrue,
     H: HashT,
@@ -270,6 +279,7 @@ impl<const BRANCH_FACTOR: usize, const HEIGHT: usize, H, PB> Copy
     for AugmentableTree<BRANCH_FACTOR, HEIGHT, H, PB>
 where
     [(); total_size!(BRANCH_FACTOR, HEIGHT)]: Sized,
+    [u8; prefixed_size!(BRANCH_FACTOR, size_of::<H::Output>())]: Sized,
     [(); layer_size!(BRANCH_FACTOR, HEIGHT, 0)]: Sized,
     Assert<{ is_pow2!(BRANCH_FACTOR) }>: IsTrue,
     H: HashT,

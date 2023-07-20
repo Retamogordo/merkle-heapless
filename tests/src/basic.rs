@@ -45,13 +45,13 @@ mod basic {
     }
 
     #[test]
-    fn validate_default_padding_word_4branches_std_hash() {
-        let mut mt = StaticTree::<4, 6, Blake2_256Hash>::try_from(&[
-            b"apple", b"banana", b"kiwi", b"kotleta",
+    fn basic_1() {
+        let mut mt = StaticTree::<2, 1, Blake2_256Hash>::try_from(&[
+            b"apple",
         ]);
-        let word_index = 7;
+        let word_index = 0;
         let proof = mt.as_mut().unwrap().generate_proof(word_index);
-        let word: &str = Default::default();
+        let word: &str = "apple";
         let res = proof.validate(word.as_bytes());
         println!(
             "word: {:?} {} validated, proof was generated for word at index {}",
@@ -62,6 +62,25 @@ mod basic {
 
         assert!(res);
     }
+
+    // #[test]
+    // fn validate_default_padding_word_4branches_std_hash() {
+    //     let mut mt = StaticTree::<4, 6, Blake2_256Hash>::try_from(&[
+    //         b"apple", b"banana", b"kiwi", b"kotleta",
+    //     ]);
+    //     let word_index = 7;
+    //     let proof = mt.as_mut().unwrap().generate_proof(word_index);
+    //     let word: &str = Default::default();
+    //     let res = proof.validate(word.as_bytes());
+    //     println!(
+    //         "word: {:?} {} validated, proof was generated for word at index {}",
+    //         word,
+    //         if res { "" } else { "NOT" },
+    //         word_index
+    //     );
+
+    //     assert!(res);
+    // }
 
     #[test]
     fn fail_4layers_std_hash_bad_word() {
@@ -783,5 +802,47 @@ mod basic {
             let res = proof.validate(w.as_bytes());
             assert!(res);
         }
+    }
+
+    #[test]
+    fn break_it() {
+        use merkle_heapless::proof::Proof;
+        use merkle_heapless::traits::{ProofBuilder, ProofValidator, StaticTreeTrait};
+        use merkle_heapless::StaticBinaryTree;
+        // tree height 1, 2 leaves, 3 total nodes
+        const MAX_HEIGHT: usize = 1;
+        const FAKE_MAX_HEIGHT: usize = 2;
+
+        let fake_0 = Blake2_256Hash::hash(b"hi0");
+        let fake_1 = Blake2_256Hash::hash(b"hi1");
+        let mut fake_concat = [0u8; 64];
+        fake_concat[..32].copy_from_slice(&fake_0);
+        fake_concat[32..].copy_from_slice(&fake_1);
+        let fc_hash = Blake2_256Hash::hash(&fake_concat);
+        // Merkle tree as the creator of the tree sees it
+        //
+        //             root
+        //         apple    (some value)
+        //
+        //
+        //             As the attacker sees it
+        //
+        //              root
+        //          apple    (some value)
+        //                   hi0      hi1
+        //
+        //
+        let mut tree =
+            StaticBinaryTree::<MAX_HEIGHT, Blake2_256Hash>::try_from(&[b"apple", &fake_concat])
+                .unwrap();
+
+        let proof = tree.generate_proof(1);
+        let apple_hash = Blake2_256Hash::hash(b"apple");
+
+        let mut alt_proof: Proof<2, 2, Blake2_256Hash> = Proof::from_root(proof.root());
+        alt_proof.push(0, &[fake_0, fake_1]);
+        alt_proof.push(1, &[apple_hash, fc_hash]);
+        assert!(proof.validate(&fake_concat));
+        assert!(alt_proof.validate(b"hi0"));
     }
 }

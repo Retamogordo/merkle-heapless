@@ -10,6 +10,22 @@ macro_rules! total_size {
 }
 
 #[macro_export]
+/// total size of elements in a tree with given arity and height
+macro_rules! chunk_size {
+    ($branch_factor:expr, $hash_size:expr) => {
+        ($branch_factor * $hash_size)
+    };
+}
+
+#[macro_export]
+/// total size of elements in a tree with given arity and height
+macro_rules! prefixed_size {
+    ($branch_factor:expr, $hash_size:expr) => {
+        ($branch_factor * $hash_size + 1)
+    };
+}
+
+#[macro_export]
 /// size of a layer at index in a tree with given arity and height
 macro_rules! layer_size {
     ($branch_factor:expr, $height:expr, $layer_index:expr) => {
@@ -31,6 +47,8 @@ pub trait IsTrue {}
 impl IsTrue for Assert<true> {}
 
 // hash combined bytes from a contiguous memory chank
-pub(crate) fn hash_merged_slice<H: HashT>(contiguous_array: &[H::Output], len: usize) -> H::Output {
-    H::hash(unsafe { core::slice::from_raw_parts(contiguous_array[0].as_ref().as_ptr(), len) })
+pub(crate) fn hash_merged_slice<H: HashT, const LEN: usize>(contiguous_array: &[H::Output], prefix: u8) -> H::Output
+where [(); LEN]: Sized 
+{
+    H::hash(unsafe { core::slice::from_raw_parts(contiguous_array[0].as_ref().as_ptr(), LEN) })
 }
