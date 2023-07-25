@@ -37,32 +37,33 @@ use crate::{
 use core::fmt::Debug;
 use core::mem::size_of;
 /// Augmentable tree with default Proof size of (tree.height + 1)
-pub type DefaultAugmentable<const BRANCH_FACTOR: usize, const HEIGHT: usize, H> =
-    AugmentableTree<BRANCH_FACTOR, HEIGHT, H, Proof<BRANCH_FACTOR, { HEIGHT + 1 }, H>>;
+pub type DefaultAugmentable<const BRANCH_FACTOR: usize, const HEIGHT: usize, H, const MAX_INPUT_LEN: usize = 1000> =
+    AugmentableTree<BRANCH_FACTOR, HEIGHT, H, MAX_INPUT_LEN, Proof<BRANCH_FACTOR, { HEIGHT + 1 }, H>>;
 
 /// Augmentable Tree can be converted into a bigger tree with height+1
 pub struct AugmentableTree<
     const BRANCH_FACTOR: usize,
     const HEIGHT: usize,
     H,
+    const MAX_INPUT_LEN: usize = 1000,
     PB = Proof<BRANCH_FACTOR, HEIGHT, H>,
 > where
     [(); total_size!(BRANCH_FACTOR, HEIGHT)]: Sized,
-    [u8; prefixed_size!(BRANCH_FACTOR, size_of::<H::Output>())]: Sized,
+    [(); prefixed_size!(BRANCH_FACTOR, size_of::<H::Output>())]: Sized,
     [(); layer_size!(BRANCH_FACTOR, HEIGHT, 0)]: Sized,
     Assert<{ is_pow2!(BRANCH_FACTOR) }>: IsTrue,
     H: HashT,
     PB: ProofBuilder<H>,
 {
-    tree: StaticTree<BRANCH_FACTOR, HEIGHT, H, PB>,
+    tree: StaticTree<BRANCH_FACTOR, HEIGHT, H, MAX_INPUT_LEN, PB>,
     num_of_leaves: usize,
 }
 
-impl<const BRANCH_FACTOR: usize, const HEIGHT: usize, H, PB>
-    AugmentableTree<BRANCH_FACTOR, HEIGHT, H, PB>
+impl<const BRANCH_FACTOR: usize, const HEIGHT: usize, H, const MAX_INPUT_LEN: usize, PB>
+    AugmentableTree<BRANCH_FACTOR, HEIGHT, H, MAX_INPUT_LEN, PB>
 where
     [(); total_size!(BRANCH_FACTOR, HEIGHT)]: Sized,
-    [u8; prefixed_size!(BRANCH_FACTOR, size_of::<H::Output>())]: Sized,
+    [(); prefixed_size!(BRANCH_FACTOR, size_of::<H::Output>())]: Sized,
     [(); layer_size!(BRANCH_FACTOR, HEIGHT, 0)]: Sized,
     Assert<{ is_pow2!(BRANCH_FACTOR) }>: IsTrue,
     H: HashT,
@@ -85,14 +86,15 @@ where
     /// create a tree with height+1 and copies the contents of this tree to the new one
     /// Note: takes ownership, but as it implements Copy trait may need explicit dropping
     /// to prevent being any longer available
-    pub fn augment(self) -> AugmentableTree<BRANCH_FACTOR, { HEIGHT + 1 }, H, PB>
+    pub fn augment(self) -> AugmentableTree<BRANCH_FACTOR, { HEIGHT + 1 }, H, MAX_INPUT_LEN, PB>
     where
         [(); total_size!(BRANCH_FACTOR, { HEIGHT + 1 })]: Sized,
+        [(); prefixed_size!(BRANCH_FACTOR, size_of::<H::Output>())]: Sized,
         [(); layer_size!(BRANCH_FACTOR, { HEIGHT + 1 }, 0)]: Sized,
         H: HashT,
         PB: ProofBuilder<H>,
     {
-        AugmentableTree::<BRANCH_FACTOR, { HEIGHT + 1 }, H, PB> {
+        AugmentableTree::<BRANCH_FACTOR, { HEIGHT + 1 }, H, MAX_INPUT_LEN, PB> {
             tree: StaticTree::try_from_leaves(self.leaves())
                 .expect("can create from smaller tree. qed"),
             num_of_leaves: self.num_of_leaves,
@@ -103,18 +105,19 @@ where
     /// to prevent being any longer available
     pub fn augment_and_merge<const OTHER_HEIGHT: usize, OTHERPB: ProofBuilder<H>>(
         self,
-        other: AugmentableTree<BRANCH_FACTOR, OTHER_HEIGHT, H, OTHERPB>,
-    ) -> AugmentableTree<BRANCH_FACTOR, { HEIGHT + 1 }, H, PB>
+        other: AugmentableTree<BRANCH_FACTOR, OTHER_HEIGHT, H, MAX_INPUT_LEN, OTHERPB>,
+    ) -> AugmentableTree<BRANCH_FACTOR, { HEIGHT + 1 }, H, MAX_INPUT_LEN, PB>
     where
         [(); total_size!(BRANCH_FACTOR, { HEIGHT + 1 })]: Sized,
         [(); layer_size!(BRANCH_FACTOR, { HEIGHT + 1 }, 0)]: Sized,
+        [(); prefixed_size!(BRANCH_FACTOR, size_of::<H::Output>())]: Sized,
         [(); total_size!(BRANCH_FACTOR, OTHER_HEIGHT)]: Sized,
         [(); layer_size!(BRANCH_FACTOR, OTHER_HEIGHT, 0)]: Sized,
         Assert<{ OTHER_HEIGHT <= HEIGHT }>: IsTrue,
         H: HashT,
         PB: ProofBuilder<H>,
     {
-        let mut this = AugmentableTree::<BRANCH_FACTOR, { HEIGHT + 1 }, H, PB>::default();
+        let mut this = AugmentableTree::<BRANCH_FACTOR, { HEIGHT + 1 }, H, MAX_INPUT_LEN, PB>::default();
 
         let len1 = self.num_of_leaves();
         let len2 = other.num_of_leaves();
@@ -135,12 +138,12 @@ where
     /// tries to merge a tree to this one if there is enough room in it
     pub fn try_merge<const OTHER_HEIGHT: usize, OTHERPB: ProofBuilder<H>>(
         &mut self,
-        other: AugmentableTree<BRANCH_FACTOR, OTHER_HEIGHT, H, OTHERPB>,
+        other: AugmentableTree<BRANCH_FACTOR, OTHER_HEIGHT, H, MAX_INPUT_LEN, OTHERPB>,
     ) -> Result<(), ()>
     where
         [(); total_size!(BRANCH_FACTOR, HEIGHT)]: Sized,
-        [u8; prefixed_size!(BRANCH_FACTOR, size_of::<H::Output>())]: Sized,
         [(); layer_size!(BRANCH_FACTOR, HEIGHT, 0)]: Sized,
+        [(); prefixed_size!(BRANCH_FACTOR, size_of::<H::Output>())]: Sized,
         [(); total_size!(BRANCH_FACTOR, OTHER_HEIGHT)]: Sized,
         [(); layer_size!(BRANCH_FACTOR, OTHER_HEIGHT, 0)]: Sized,
         Assert<{ OTHER_HEIGHT <= HEIGHT }>: IsTrue,
@@ -160,11 +163,11 @@ where
     }
 }
 
-impl<const BRANCH_FACTOR: usize, const HEIGHT: usize, H, PB> StaticTreeTrait<H, PB>
-    for AugmentableTree<BRANCH_FACTOR, HEIGHT, H, PB>
+impl<const BRANCH_FACTOR: usize, const HEIGHT: usize, H, const MAX_INPUT_LEN: usize, PB> StaticTreeTrait<H, PB>
+    for AugmentableTree<BRANCH_FACTOR, HEIGHT, H, MAX_INPUT_LEN, PB>
 where
     [(); total_size!(BRANCH_FACTOR, HEIGHT)]: Sized,
-    [u8; prefixed_size!(BRANCH_FACTOR, size_of::<H::Output>())]: Sized,
+    [(); prefixed_size!(BRANCH_FACTOR, size_of::<H::Output>())]: Sized,
     [(); layer_size!(BRANCH_FACTOR, HEIGHT, 0)]: Sized,
     Assert<{ is_pow2!(BRANCH_FACTOR) }>: IsTrue,
     H: HashT,
@@ -201,11 +204,11 @@ where
     }
 }
 
-impl<const BRANCH_FACTOR: usize, const HEIGHT: usize, H, PB> AppendOnly
-    for AugmentableTree<BRANCH_FACTOR, HEIGHT, H, PB>
+impl<const BRANCH_FACTOR: usize, const HEIGHT: usize, H, const MAX_INPUT_LEN: usize, PB> AppendOnly
+    for AugmentableTree<BRANCH_FACTOR, HEIGHT, H, MAX_INPUT_LEN, PB>
 where
     [(); total_size!(BRANCH_FACTOR, HEIGHT)]: Sized,
-    [u8; prefixed_size!(BRANCH_FACTOR, size_of::<H::Output>())]: Sized,
+    [(); prefixed_size!(BRANCH_FACTOR, size_of::<H::Output>())]: Sized,
     [(); layer_size!(BRANCH_FACTOR, HEIGHT, 0)]: Sized,
     Assert<{ is_pow2!(BRANCH_FACTOR) }>: IsTrue,
     H: HashT,
@@ -224,11 +227,11 @@ where
     }
 }
 
-impl<const BRANCH_FACTOR: usize, const HEIGHT: usize, H, PB> Clone
-    for AugmentableTree<BRANCH_FACTOR, HEIGHT, H, PB>
+impl<const BRANCH_FACTOR: usize, const HEIGHT: usize, H, const MAX_INPUT_LEN: usize, PB> Clone
+    for AugmentableTree<BRANCH_FACTOR, HEIGHT, H, MAX_INPUT_LEN, PB>
 where
     [(); total_size!(BRANCH_FACTOR, HEIGHT)]: Sized,
-    [u8; prefixed_size!(BRANCH_FACTOR, size_of::<H::Output>())]: Sized,
+    [(); prefixed_size!(BRANCH_FACTOR, size_of::<H::Output>())]: Sized,
     [(); layer_size!(BRANCH_FACTOR, HEIGHT, 0)]: Sized,
     Assert<{ is_pow2!(BRANCH_FACTOR) }>: IsTrue,
     H: HashT,
@@ -242,11 +245,11 @@ where
     }
 }
 
-impl<const BRANCH_FACTOR: usize, const HEIGHT: usize, H, PB> Default
-    for AugmentableTree<BRANCH_FACTOR, HEIGHT, H, PB>
+impl<const BRANCH_FACTOR: usize, const HEIGHT: usize, H, const MAX_INPUT_LEN: usize, PB> Default
+    for AugmentableTree<BRANCH_FACTOR, HEIGHT, H, MAX_INPUT_LEN, PB>
 where
     [(); total_size!(BRANCH_FACTOR, HEIGHT)]: Sized,
-    [u8; prefixed_size!(BRANCH_FACTOR, size_of::<H::Output>())]: Sized,
+    [(); prefixed_size!(BRANCH_FACTOR, size_of::<H::Output>())]: Sized,
     [(); layer_size!(BRANCH_FACTOR, HEIGHT, 0)]: Sized,
     Assert<{ is_pow2!(BRANCH_FACTOR) }>: IsTrue,
     H: HashT,
@@ -260,11 +263,11 @@ where
     }
 }
 
-impl<const BRANCH_FACTOR: usize, const HEIGHT: usize, H, PB> Debug
-    for AugmentableTree<BRANCH_FACTOR, HEIGHT, H, PB>
+impl<const BRANCH_FACTOR: usize, const HEIGHT: usize, H, const MAX_INPUT_LEN: usize, PB> Debug
+    for AugmentableTree<BRANCH_FACTOR, HEIGHT, H, MAX_INPUT_LEN, PB>
 where
     [(); total_size!(BRANCH_FACTOR, HEIGHT)]: Sized,
-    [u8; prefixed_size!(BRANCH_FACTOR, size_of::<H::Output>())]: Sized,
+    [(); prefixed_size!(BRANCH_FACTOR, size_of::<H::Output>())]: Sized,
     [(); layer_size!(BRANCH_FACTOR, HEIGHT, 0)]: Sized,
     Assert<{ is_pow2!(BRANCH_FACTOR) }>: IsTrue,
     H: HashT,
@@ -275,11 +278,11 @@ where
     }
 }
 
-impl<const BRANCH_FACTOR: usize, const HEIGHT: usize, H, PB> Copy
-    for AugmentableTree<BRANCH_FACTOR, HEIGHT, H, PB>
+impl<const BRANCH_FACTOR: usize, const HEIGHT: usize, H, const MAX_INPUT_LEN: usize, PB> Copy
+    for AugmentableTree<BRANCH_FACTOR, HEIGHT, H, MAX_INPUT_LEN, PB>
 where
     [(); total_size!(BRANCH_FACTOR, HEIGHT)]: Sized,
-    [u8; prefixed_size!(BRANCH_FACTOR, size_of::<H::Output>())]: Sized,
+    [(); prefixed_size!(BRANCH_FACTOR, size_of::<H::Output>())]: Sized,
     [(); layer_size!(BRANCH_FACTOR, HEIGHT, 0)]: Sized,
     Assert<{ is_pow2!(BRANCH_FACTOR) }>: IsTrue,
     H: HashT,

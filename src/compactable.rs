@@ -19,8 +19,8 @@
 // = CompactableHeaplessTree<BRANCH_FACTOR, HEIGHT, H, Proof<BRANCH_FACTOR, {HEIGHT+1}, H>>;
 
 /// Compactable tree with [Proof] of tree's height
-pub type DefaultCompactable<const BRANCH_FACTOR: usize, const HEIGHT: usize, H> =
-    CompactableHeaplessTree<BRANCH_FACTOR, HEIGHT, H, Proof<BRANCH_FACTOR, HEIGHT, H>>;
+pub type DefaultCompactable<const BRANCH_FACTOR: usize, const HEIGHT: usize, H, const MAX_INPUT_LEN: usize = 1000> =
+    CompactableHeaplessTree<BRANCH_FACTOR, HEIGHT, H, MAX_INPUT_LEN, Proof<BRANCH_FACTOR, HEIGHT, H>>;
 
 use crate::traits::CanRemove;
 use crate::{
@@ -34,25 +34,26 @@ pub struct CompactableHeaplessTree<
     const BRANCH_FACTOR: usize,
     const HEIGHT: usize,
     H,
+    const MAX_INPUT_LEN: usize = 1000,
     PB = Proof<BRANCH_FACTOR, HEIGHT, H>,
 > where
     [(); total_size!(BRANCH_FACTOR, HEIGHT)]: Sized,
-    [u8; prefixed_size!(BRANCH_FACTOR, size_of::<H::Output>())]: Sized,
+    [(); prefixed_size!(BRANCH_FACTOR, size_of::<H::Output>())]: Sized,
     [(); layer_size!(BRANCH_FACTOR, HEIGHT, 0)]: Sized,
     Assert<{ is_pow2!(BRANCH_FACTOR) }>: IsTrue,
     H: HashT,
     PB: ProofBuilder<H>,
 {
-    tree: StaticTree<BRANCH_FACTOR, HEIGHT, H, PB>,
+    tree: StaticTree<BRANCH_FACTOR, HEIGHT, H, MAX_INPUT_LEN, PB>,
     num_of_leaves: usize,
     leaves_present: [bool; layer_size!(BRANCH_FACTOR, HEIGHT, 0)],
 }
 
-impl<const BRANCH_FACTOR: usize, const HEIGHT: usize, H, PB>
-    CompactableHeaplessTree<BRANCH_FACTOR, HEIGHT, H, PB>
+impl<const BRANCH_FACTOR: usize, const HEIGHT: usize, H, const MAX_INPUT_LEN: usize, PB>
+    CompactableHeaplessTree<BRANCH_FACTOR, HEIGHT, H, MAX_INPUT_LEN, PB>
 where
     [(); total_size!(BRANCH_FACTOR, HEIGHT)]: Sized,
-    [u8; prefixed_size!(BRANCH_FACTOR, size_of::<H::Output>())]: Sized,
+    [(); prefixed_size!(BRANCH_FACTOR, size_of::<H::Output>())]: Sized,
     [(); layer_size!(BRANCH_FACTOR, HEIGHT, 0)]: Sized,
     Assert<{ is_pow2!(BRANCH_FACTOR) }>: IsTrue,
     H: HashT,
@@ -128,7 +129,7 @@ where
     pub fn compact(&mut self)
     where
         [(); total_size!(BRANCH_FACTOR, HEIGHT)]: Sized,
-        [u8; prefixed_size!(BRANCH_FACTOR, size_of::<H::Output>())]: Sized,
+        [(); prefixed_size!(BRANCH_FACTOR, size_of::<H::Output>())]: Sized,
         [(); layer_size!(BRANCH_FACTOR, HEIGHT, 0)]: Sized,
         H: HashT,
         PB: ProofBuilder<H>,
@@ -143,7 +144,7 @@ where
     /// to prevent being any longer available
     pub fn try_reduce(
         self,
-    ) -> Result<CompactableHeaplessTree<BRANCH_FACTOR, { HEIGHT - 1 }, H, PB>, Self>
+    ) -> Result<CompactableHeaplessTree<BRANCH_FACTOR, { HEIGHT - 1 }, H, MAX_INPUT_LEN, PB>, Self>
     where
         [(); total_size!(BRANCH_FACTOR, { HEIGHT - 1 })]: Sized,
         [(); layer_size!(BRANCH_FACTOR, { HEIGHT - 1 }, 0)]: Sized,
@@ -152,7 +153,7 @@ where
     {
         self.compacted_leaves::<{ HEIGHT - 1 }>()
             .and_then(|leaves| {
-                CompactableHeaplessTree::<BRANCH_FACTOR, { HEIGHT - 1 }, H, PB>::try_from_compacted(
+                CompactableHeaplessTree::<BRANCH_FACTOR, { HEIGHT - 1 }, H, MAX_INPUT_LEN, PB>::try_from_compacted(
                     &leaves,
                     self.num_of_leaves(),
                 )
@@ -161,11 +162,11 @@ where
     }
 }
 
-impl<const BRANCH_FACTOR: usize, const HEIGHT: usize, H, PB> StaticTreeTrait<H, PB>
-    for CompactableHeaplessTree<BRANCH_FACTOR, HEIGHT, H, PB>
+impl<const BRANCH_FACTOR: usize, const HEIGHT: usize, H, const MAX_INPUT_LEN: usize, PB> StaticTreeTrait<H, PB>
+    for CompactableHeaplessTree<BRANCH_FACTOR, HEIGHT, H, MAX_INPUT_LEN, PB>
 where
     [(); total_size!(BRANCH_FACTOR, HEIGHT)]: Sized,
-    [u8; prefixed_size!(BRANCH_FACTOR, size_of::<H::Output>())]: Sized,
+    [(); prefixed_size!(BRANCH_FACTOR, size_of::<H::Output>())]: Sized,
     [(); layer_size!(BRANCH_FACTOR, HEIGHT, 0)]: Sized,
     Assert<{ is_pow2!(BRANCH_FACTOR) }>: IsTrue,
     H: HashT,
@@ -212,11 +213,11 @@ where
     }
 }
 
-impl<const BRANCH_FACTOR: usize, const HEIGHT: usize, H, PB> CanRemove
-    for CompactableHeaplessTree<BRANCH_FACTOR, HEIGHT, H, PB>
+impl<const BRANCH_FACTOR: usize, const HEIGHT: usize, H, const MAX_INPUT_LEN: usize, PB> CanRemove
+    for CompactableHeaplessTree<BRANCH_FACTOR, HEIGHT, H, MAX_INPUT_LEN, PB>
 where
     [(); total_size!(BRANCH_FACTOR, HEIGHT)]: Sized,
-    [u8; prefixed_size!(BRANCH_FACTOR, size_of::<H::Output>())]: Sized,
+    [(); prefixed_size!(BRANCH_FACTOR, size_of::<H::Output>())]: Sized,
     [(); layer_size!(BRANCH_FACTOR, HEIGHT, 0)]: Sized,
     Assert<{ is_pow2!(BRANCH_FACTOR) }>: IsTrue,
     H: HashT,
@@ -241,11 +242,11 @@ where
     }
 }
 
-impl<const BRANCH_FACTOR: usize, const HEIGHT: usize, H, PB> Clone
-    for CompactableHeaplessTree<BRANCH_FACTOR, HEIGHT, H, PB>
+impl<const BRANCH_FACTOR: usize, const HEIGHT: usize, H, const MAX_INPUT_LEN: usize, PB> Clone
+    for CompactableHeaplessTree<BRANCH_FACTOR, HEIGHT, H, MAX_INPUT_LEN, PB>
 where
     [(); total_size!(BRANCH_FACTOR, HEIGHT)]: Sized,
-    [u8; prefixed_size!(BRANCH_FACTOR, size_of::<H::Output>())]: Sized,
+    [(); prefixed_size!(BRANCH_FACTOR, size_of::<H::Output>())]: Sized,
     [(); layer_size!(BRANCH_FACTOR, HEIGHT, 0)]: Sized,
     Assert<{ is_pow2!(BRANCH_FACTOR) }>: IsTrue,
     H: HashT,
@@ -260,11 +261,11 @@ where
     }
 }
 
-impl<const BRANCH_FACTOR: usize, const HEIGHT: usize, H, PB> Default
-    for CompactableHeaplessTree<BRANCH_FACTOR, HEIGHT, H, PB>
+impl<const BRANCH_FACTOR: usize, const HEIGHT: usize, H, const MAX_INPUT_LEN: usize, PB> Default
+    for CompactableHeaplessTree<BRANCH_FACTOR, HEIGHT, H, MAX_INPUT_LEN, PB>
 where
     [(); total_size!(BRANCH_FACTOR, HEIGHT)]: Sized,
-    [u8; prefixed_size!(BRANCH_FACTOR, size_of::<H::Output>())]: Sized,
+    [(); prefixed_size!(BRANCH_FACTOR, size_of::<H::Output>())]: Sized,
     [(); layer_size!(BRANCH_FACTOR, HEIGHT, 0)]: Sized,
     Assert<{ is_pow2!(BRANCH_FACTOR) }>: IsTrue,
     H: HashT,
@@ -279,11 +280,11 @@ where
     }
 }
 
-impl<const BRANCH_FACTOR: usize, const HEIGHT: usize, H, PB> Debug
-    for CompactableHeaplessTree<BRANCH_FACTOR, HEIGHT, H, PB>
+impl<const BRANCH_FACTOR: usize, const HEIGHT: usize, H, const MAX_INPUT_LEN: usize, PB> Debug
+    for CompactableHeaplessTree<BRANCH_FACTOR, HEIGHT, H, MAX_INPUT_LEN, PB>
 where
     [(); total_size!(BRANCH_FACTOR, HEIGHT)]: Sized,
-    [u8; prefixed_size!(BRANCH_FACTOR, size_of::<H::Output>())]: Sized,
+    [(); prefixed_size!(BRANCH_FACTOR, size_of::<H::Output>())]: Sized,
     [(); layer_size!(BRANCH_FACTOR, HEIGHT, 0)]: Sized,
     Assert<{ is_pow2!(BRANCH_FACTOR) }>: IsTrue,
     H: HashT,

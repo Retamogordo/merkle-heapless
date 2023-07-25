@@ -1,5 +1,5 @@
 use crate::traits::{HashT, ProofBuilder, ProofItemT, ProofValidator};
-use crate::utils::{hash_merged_slice};
+//use crate::utils::{hash_merged_slice};
 use crate::{prefixed_size};
 use core::fmt::Debug;
 use core::mem::size_of;
@@ -8,7 +8,7 @@ use core::mem::size_of;
 /// Supports a power-of-2 number of siblings
 pub struct ProofItem<const BRANCH_FACTOR: usize, H: HashT> 
 where
-    [u8; prefixed_size!(BRANCH_FACTOR, size_of::<H::Output>())]: Sized,
+    [(); prefixed_size!(BRANCH_FACTOR, size_of::<H::Output>())]: Sized,
 {
     hashes: Option<[H::Output; BRANCH_FACTOR]>,
     offset: usize,
@@ -17,11 +17,8 @@ where
 
 impl<const BRANCH_FACTOR: usize, H: HashT> ProofItem<BRANCH_FACTOR, H> 
 where
-    [u8; prefixed_size!(BRANCH_FACTOR, size_of::<H::Output>())]: Sized,
-{
-    const BYTES_IN_CHUNK: usize = BRANCH_FACTOR * size_of::<H::Output>(); 
-
-    fn hash_merged_slice(&mut self, index: usize, prefix: u8) -> H::Output
+    [(); prefixed_size!(BRANCH_FACTOR, size_of::<H::Output>())]: Sized,
+{    fn hash_merged_slice(&mut self, index: usize) -> H::Output
     {
         let chunk = unsafe { core::slice::from_raw_parts(self.hashes.unwrap()[index].as_ref().as_ptr(), Self::BYTES_IN_CHUNK) };
         let len = self.prefixed_buffer.len();
@@ -30,11 +27,14 @@ where
         
         H::hash(&self.prefixed_buffer)
     }
+
+    const BYTES_IN_CHUNK: usize = BRANCH_FACTOR * size_of::<H::Output>(); 
+
 }
 
 impl<const BRANCH_FACTOR: usize, H: HashT> ProofItemT<H> for ProofItem<BRANCH_FACTOR, H> 
 where
-    [u8; prefixed_size!(BRANCH_FACTOR, size_of::<H::Output>())]: Sized,
+    [(); prefixed_size!(BRANCH_FACTOR, size_of::<H::Output>())]: Sized,
 {
     /// constructor
     fn create(offset: usize, hashes: &[H::Output]) -> Self {
@@ -46,24 +46,23 @@ where
     }
     /// hashes a provided hashed data at offset with its siblings
     fn hash_with_siblings(mut self, word_hash: H::Output) -> Option<H::Output> {
-        let prefix = 0;
         self.hashes.as_mut().map(|hashes| {
             hashes[self.offset] = word_hash;
 //            Self::hash_merged_slice(&hashes[0..], prefix)
-//            hash_merged_slice::<H>(&hashes[0..], Self::BYTES_IN_CHUNK)
+//            hash_merged_slice::<H, {Self::BYTES_IN_CHUNK}>(&hashes[0..], 1)
         })
-        .map(|_| self.hash_merged_slice(0, prefix))
+        .map(|_| self.hash_merged_slice(0))
     }
 }
 
 impl<const BRANCH_FACTOR: usize, H: HashT> Copy for ProofItem<BRANCH_FACTOR, H> 
 where
-    [u8; prefixed_size!(BRANCH_FACTOR, size_of::<H::Output>())]: Sized,
+    [(); prefixed_size!(BRANCH_FACTOR, size_of::<H::Output>())]: Sized,
 {}
 
 impl<const BRANCH_FACTOR: usize, H: HashT> Clone for ProofItem<BRANCH_FACTOR, H> 
 where
-    [u8; prefixed_size!(BRANCH_FACTOR, size_of::<H::Output>())]: Sized,
+    [(); prefixed_size!(BRANCH_FACTOR, size_of::<H::Output>())]: Sized,
 {
     fn clone(&self) -> Self {
         Self {
@@ -76,7 +75,7 @@ where
 
 impl<const BRANCH_FACTOR: usize, H: HashT> Default for ProofItem<BRANCH_FACTOR, H> 
 where
-    [u8; prefixed_size!(BRANCH_FACTOR, size_of::<H::Output>())]: Sized,
+    [(); prefixed_size!(BRANCH_FACTOR, size_of::<H::Output>())]: Sized,
 {
     fn default() -> Self {
         Self {
@@ -89,7 +88,7 @@ where
 
 impl<const BRANCH_FACTOR: usize, H: HashT> Debug for ProofItem<BRANCH_FACTOR, H> 
 where
-    [u8; prefixed_size!(BRANCH_FACTOR, size_of::<H::Output>())]: Sized,
+    [(); prefixed_size!(BRANCH_FACTOR, size_of::<H::Output>())]: Sized,
 {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> Result<(), core::fmt::Error> {
         writeln!(f, "{:?}", self.hashes)
@@ -100,7 +99,7 @@ where
 pub struct Proof<const BRANCH_FACTOR: usize, const HEIGHT: usize, H: HashT>
 where
     [(); HEIGHT]: Sized,
-    [u8; prefixed_size!(BRANCH_FACTOR, size_of::<H::Output>())]: Sized,
+    [(); prefixed_size!(BRANCH_FACTOR, size_of::<H::Output>())]: Sized,
 {
     root: H::Output,
     height: usize,
@@ -111,7 +110,7 @@ impl<const BRANCH_FACTOR: usize, const HEIGHT: usize, H: HashT> ProofBuilder<H>
     for Proof<BRANCH_FACTOR, HEIGHT, H>
 where
     [(); HEIGHT]: Sized,
-    [u8; prefixed_size!(BRANCH_FACTOR, size_of::<H::Output>())]: Sized,
+    [(); prefixed_size!(BRANCH_FACTOR, size_of::<H::Output>())]: Sized,
 {
     type Item = ProofItem<BRANCH_FACTOR, H>;
 
@@ -135,7 +134,7 @@ impl<const BRANCH_FACTOR: usize, const HEIGHT: usize, H: HashT> ProofValidator
     for Proof<BRANCH_FACTOR, HEIGHT, H>
 where
     [(); HEIGHT]: Sized,
-    [u8; prefixed_size!(BRANCH_FACTOR, size_of::<H::Output>())]: Sized,
+    [(); prefixed_size!(BRANCH_FACTOR, size_of::<H::Output>())]: Sized,
 {
     /// verifies that the input was contained in the Merkle tree that generated this proof
     fn validate(self, input: &[u8]) -> bool {
@@ -161,7 +160,7 @@ impl<const BRANCH_FACTOR: usize, const HEIGHT: usize, H: HashT> Default
     for Proof<BRANCH_FACTOR, HEIGHT, H>
 where
     [(); HEIGHT]: Sized,
-    [u8; prefixed_size!(BRANCH_FACTOR, size_of::<H::Output>())]: Sized,
+    [(); prefixed_size!(BRANCH_FACTOR, size_of::<H::Output>())]: Sized,
 {
     fn default() -> Self {
         Self {
@@ -176,7 +175,7 @@ impl<const BRANCH_FACTOR: usize, const HEIGHT: usize, H: HashT> Debug
     for Proof<BRANCH_FACTOR, HEIGHT, H>
 where
     [(); HEIGHT]: Sized,
-    [u8; prefixed_size!(BRANCH_FACTOR, size_of::<H::Output>())]: Sized,
+    [(); prefixed_size!(BRANCH_FACTOR, size_of::<H::Output>())]: Sized,
 {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> Result<(), core::fmt::Error> {
         writeln!(f, "[proof height]:   {:?}", self.height)?;
@@ -199,7 +198,7 @@ where
     [(); HEIGHT1]: Sized,
     [(); HEIGHT2]: Sized,
     [(); HEIGHT1 + HEIGHT2]: Sized,
-    [u8; prefixed_size!(BRANCH_FACTOR, size_of::<H::Output>())]: Sized,
+    [(); prefixed_size!(BRANCH_FACTOR, size_of::<H::Output>())]: Sized,
 {
     let mut proof = Proof::from_root(proof2.root());
     proof.height = proof1.height + proof2.height;

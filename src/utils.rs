@@ -1,4 +1,4 @@
-use crate::HashT;
+//use crate::HashT;
 
 #[macro_export]
 /// total size of elements in a tree with given arity and height
@@ -47,8 +47,15 @@ pub trait IsTrue {}
 impl IsTrue for Assert<true> {}
 
 // hash combined bytes from a contiguous memory chank
-pub(crate) fn hash_merged_slice<H: HashT, const LEN: usize>(contiguous_array: &[H::Output], prefix: u8) -> H::Output
-where [(); LEN]: Sized 
-{
-    H::hash(unsafe { core::slice::from_raw_parts(contiguous_array[0].as_ref().as_ptr(), LEN) })
-}
+// pub(crate) fn hash_merged_slice<H: HashT, const LEN: usize>(contiguous_array: &[H::Output], prefix: u8) -> H::Output
+// where [(); LEN]: Sized 
+// {
+// //    H::hash(unsafe { core::slice::from_raw_parts(contiguous_array[0].as_ref().as_ptr(), LEN) })
+//     let chunk = unsafe { core::slice::from_raw_parts(contiguous_array[0].as_ref().as_ptr(), LEN) };
+//     let len = self.prefixed_buffer.len();
+
+//     self.prefixed_buffer[1..len].copy_from_slice(chunk);
+
+//     H::hash(&self.prefixed_buffer)
+
+// }

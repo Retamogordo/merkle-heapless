@@ -154,32 +154,35 @@ use core::mem::size_of;
 
 use crate::proof::Proof;
 use crate::traits::{HashT, ProofBuilder, StaticTreeTrait};
-use crate::utils::{hash_merged_slice, Assert, IsTrue};
+use crate::utils::{
+//    hash_merged_slice, 
+    Assert, IsTrue};
+
 /// type alias for [StaticTree] with arity of 2
-pub type StaticBinaryTree<const HEIGHT: usize, H, PB = Proof<2, HEIGHT, H>> =
-    StaticTree<2, HEIGHT, H, PB>;
+pub type StaticBinaryTree<const HEIGHT: usize, H, const MAX_INPUT_LEN: usize = 1000, PB = Proof<2, HEIGHT, H>> =
+    StaticTree<2, HEIGHT, H, MAX_INPUT_LEN, PB>;
 /// Basic statically-allocated Merkle Tree
 pub struct StaticTree<
     const BRANCH_FACTOR: usize,
     const HEIGHT: usize,
     H,
+    const MAX_INPUT_LEN: usize = 1000,
     PB = Proof<BRANCH_FACTOR, HEIGHT, H>,
 > where
     [(); total_size!(BRANCH_FACTOR, HEIGHT)]: Sized,
-    [u8; prefixed_size!(BRANCH_FACTOR, size_of::<H::Output>())]: Sized,
+    [(); prefixed_size!(BRANCH_FACTOR, size_of::<H::Output>())]: Sized,
     Assert<{ is_pow2!(BRANCH_FACTOR) }>: IsTrue,
     H: HashT,
     PB: ProofBuilder<H>,
 {
     hashes: [H::Output; total_size!(BRANCH_FACTOR, HEIGHT)],
-    prefixed_buffer: [u8; prefixed_size!(BRANCH_FACTOR, size_of::<H::Output>())],
 }
 
-impl<const BRANCH_FACTOR: usize, const HEIGHT: usize, H, PB>
-    StaticTree<BRANCH_FACTOR, HEIGHT, H, PB>
+impl<const BRANCH_FACTOR: usize, const HEIGHT: usize, H, const MAX_INPUT_LEN: usize, PB>
+    StaticTree<BRANCH_FACTOR, HEIGHT, H, MAX_INPUT_LEN, PB>
 where
     [(); total_size!(BRANCH_FACTOR, HEIGHT)]: Sized,
-    [u8; prefixed_size!(BRANCH_FACTOR, size_of::<H::Output>())]: Sized,
+    [(); prefixed_size!(BRANCH_FACTOR, size_of::<H::Output>())]: Sized,
     Assert<{ is_pow2!(BRANCH_FACTOR) }>: IsTrue,
     H: HashT,
     PB: ProofBuilder<H>,
@@ -192,7 +195,6 @@ where
         (input_len <= Self::BASE_LAYER_SIZE)
             .then(|| Self {
                 hashes: [H::Output::default(); total_size!(BRANCH_FACTOR, HEIGHT)],
-                prefixed_buffer: [1u8; prefixed_size!(BRANCH_FACTOR, size_of::<H::Output>())],
             })
             .ok_or(())
     }
@@ -202,7 +204,6 @@ where
     }
 
     fn from_inner(mut self, input: &[&[u8]], prefix: u8) -> Self {
-        const MAX_INPUT_LEN: usize = 1000;
 
         // check input can be hold in base layer and branch factor is of power of 2
         // fill the base layer
@@ -237,21 +238,22 @@ where
         self
     }
 
-    fn hash_merged_slice(&mut self, index: usize, prefix: u8) -> H::Output
+    fn hash_merged_slice(&mut self, index: usize) -> H::Output
     {
         let chunk = unsafe { core::slice::from_raw_parts(self.hashes[index].as_ref().as_ptr(), Self::BYTES_IN_CHUNK) };
-        let len = self.prefixed_buffer.len();
+        let mut prefixed_buffer = [1u8; prefixed_size!(BRANCH_FACTOR, size_of::<H::Output>())];
 
-        self.prefixed_buffer[1..len].copy_from_slice(chunk);
+        let len = prefixed_buffer.len();
+
+        prefixed_buffer[1..len].copy_from_slice(chunk);
         
-        H::hash(&self.prefixed_buffer)
+        H::hash(&prefixed_buffer)
     }
 
     fn fill_layers(&mut self) {
         let mut start_ind = 0;
         let mut next_layer_ind = Self::BASE_LAYER_SIZE;
 
-        let prefix = 1;
         let mut j = next_layer_ind;
         while next_layer_ind < Self::TOTAL_SIZE {
             // hash packed siblings of the current layer and fill the upper layer
@@ -259,7 +261,8 @@ where
                 // hash concatenated siblings from the contiguous memory
                 // each element has (BRANCH_FACTOR-1) siblings
                 // store it as a parent hash
-                self.hashes[j] = self.hash_merged_slice(i, prefix);
+                self.hashes[j] = self.hash_merged_slice(i);
+//                self.hashes[j] = hash_merged_slice::<H, {Self::BYTES_IN_CHUNK}>(&self.hashes[i..], prefix);
 
                 j += 1;
             }
@@ -286,13 +289,13 @@ where
         let mut layer_base = 0;
         let mut index = index;
 
-        let prefix = 1;
         // start from the base layer and propagate the new hashes upwords
         for layer in 0..HEIGHT {
             let offset = index & (BRANCH_FACTOR - 1); // index modulo BRANCH_FACTOR
             let aligned = index - offset;
 
-            let parent_hashed = self.hash_merged_slice(aligned, prefix);
+//            let parent_hashed = self.hash_merged_slice(aligned, prefix);
+            let parent_hashed = self.hash_merged_slice(aligned);
 
             (index, layer_base) = self.parent_index_and_base(index, layer, layer_base);
 
@@ -301,11 +304,11 @@ where
     }
 }
 
-impl<const BRANCH_FACTOR: usize, const HEIGHT: usize, H, PB> StaticTreeTrait<H, PB>
-    for StaticTree<BRANCH_FACTOR, HEIGHT, H, PB>
+impl<const BRANCH_FACTOR: usize, const HEIGHT: usize, H, const MAX_INPUT_LEN: usize, PB> StaticTreeTrait<H, PB>
+    for StaticTree<BRANCH_FACTOR, HEIGHT, H, MAX_INPUT_LEN, PB>
 where
     [(); total_size!(BRANCH_FACTOR, HEIGHT)]: Sized,
-    [u8; prefixed_size!(BRANCH_FACTOR, size_of::<H::Output>())]: Sized,
+    [(); prefixed_size!(BRANCH_FACTOR, size_of::<H::Output>())]: Sized,
     Assert<{ is_pow2!(BRANCH_FACTOR) }>: IsTrue,
     H: HashT,
     PB: ProofBuilder<H>,
@@ -329,7 +332,7 @@ where
     /// replace an element at index with input
     /// panics if index is out of leaf layer bound
     fn replace(&mut self, index: usize, input: &[u8]) {
-        const MAX_INPUT_LEN: usize = 1000;
+//        const MAX_INPUT_LEN: usize = 1000;
 
         // check input can be hold in base layer and branch factor is of power of 2
         // fill the base layer
@@ -361,11 +364,11 @@ where
     }
 }
 
-impl<const BRANCH_FACTOR: usize, const HEIGHT: usize, H, PB> Clone
-    for StaticTree<BRANCH_FACTOR, HEIGHT, H, PB>
+impl<const BRANCH_FACTOR: usize, const HEIGHT: usize, H, const MAX_INPUT_LEN: usize, PB> Clone
+    for StaticTree<BRANCH_FACTOR, HEIGHT, H, MAX_INPUT_LEN, PB>
 where
     [(); total_size!(BRANCH_FACTOR, HEIGHT)]: Sized,
-    [u8; prefixed_size!(BRANCH_FACTOR, size_of::<H::Output>())]: Sized,
+    [(); prefixed_size!(BRANCH_FACTOR, size_of::<H::Output>())]: Sized,
     Assert<{ is_pow2!(BRANCH_FACTOR) }>: IsTrue,
     H: HashT,
     PB: ProofBuilder<H>,
@@ -373,27 +376,26 @@ where
     fn clone(&self) -> Self {
         Self {
             hashes: self.hashes.clone(),
-            prefixed_buffer: self.prefixed_buffer.clone(),
         }
     }
 }
 
-impl<const BRANCH_FACTOR: usize, const HEIGHT: usize, H, PB> Copy
-    for StaticTree<BRANCH_FACTOR, HEIGHT, H, PB>
+impl<const BRANCH_FACTOR: usize, const HEIGHT: usize, H, const MAX_INPUT_LEN: usize, PB> Copy
+    for StaticTree<BRANCH_FACTOR, HEIGHT, H, MAX_INPUT_LEN, PB>
 where
     [(); total_size!(BRANCH_FACTOR, HEIGHT)]: Sized,
-    [u8; prefixed_size!(BRANCH_FACTOR, size_of::<H::Output>())]: Sized,
+    [(); prefixed_size!(BRANCH_FACTOR, size_of::<H::Output>())]: Sized,
     Assert<{ is_pow2!(BRANCH_FACTOR) }>: IsTrue,
     H: HashT,
     PB: ProofBuilder<H>,
 {
 }
 
-impl<const BRANCH_FACTOR: usize, const HEIGHT: usize, H, PB> Default
-    for StaticTree<BRANCH_FACTOR, HEIGHT, H, PB>
+impl<const BRANCH_FACTOR: usize, const HEIGHT: usize, H, const MAX_INPUT_LEN: usize, PB> Default
+    for StaticTree<BRANCH_FACTOR, HEIGHT, H, MAX_INPUT_LEN, PB>
 where
     [(); total_size!(BRANCH_FACTOR, HEIGHT)]: Sized,
-    [u8; prefixed_size!(BRANCH_FACTOR, size_of::<H::Output>())]: Sized,
+    [(); prefixed_size!(BRANCH_FACTOR, size_of::<H::Output>())]: Sized,
     Assert<{ is_pow2!(BRANCH_FACTOR) }>: IsTrue,
     H: HashT,
     PB: ProofBuilder<H>,
@@ -401,16 +403,15 @@ where
     fn default() -> Self {
         Self {
             hashes: [H::Output::default(); total_size!(BRANCH_FACTOR, HEIGHT)],
-            prefixed_buffer: [1u8; prefixed_size!(BRANCH_FACTOR, size_of::<H::Output>())],
         }
     }
 }
 
-impl<const BRANCH_FACTOR: usize, const HEIGHT: usize, H, PB> PartialEq
-    for StaticTree<BRANCH_FACTOR, HEIGHT, H, PB>
+impl<const BRANCH_FACTOR: usize, const HEIGHT: usize, H, const MAX_INPUT_LEN: usize, PB> PartialEq
+    for StaticTree<BRANCH_FACTOR, HEIGHT, H, MAX_INPUT_LEN, PB>
 where
     [(); total_size!(BRANCH_FACTOR, HEIGHT)]: Sized,
-    [u8; prefixed_size!(BRANCH_FACTOR, size_of::<H::Output>())]: Sized,
+    [(); prefixed_size!(BRANCH_FACTOR, size_of::<H::Output>())]: Sized,
     Assert<{ is_pow2!(BRANCH_FACTOR) }>: IsTrue,
     H: HashT,
     PB: ProofBuilder<H>,
@@ -420,11 +421,11 @@ where
     }
 }
 
-impl<const BRANCH_FACTOR: usize, const HEIGHT: usize, H, PB> Debug
-    for StaticTree<BRANCH_FACTOR, HEIGHT, H, PB>
+impl<const BRANCH_FACTOR: usize, const HEIGHT: usize, H, const MAX_INPUT_LEN: usize, PB> Debug
+    for StaticTree<BRANCH_FACTOR, HEIGHT, H, MAX_INPUT_LEN, PB>
 where
     [(); total_size!(BRANCH_FACTOR, HEIGHT)]: Sized,
-    [u8; prefixed_size!(BRANCH_FACTOR, size_of::<H::Output>())]: Sized,
+    [(); prefixed_size!(BRANCH_FACTOR, size_of::<H::Output>())]: Sized,
     Assert<{ is_pow2!(BRANCH_FACTOR) }>: IsTrue,
     H: HashT,
     PB: ProofBuilder<H>,

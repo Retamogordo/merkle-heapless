@@ -171,7 +171,7 @@ pub fn mmr(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     let peak_variant_def_tokens = peak_variant_def_idents.iter()
         .map(|(peak_lit, peak_height)| {
             quote! {
-                #peak_lit(AugmentableTree<#branch_factor, #peak_height, #hash_type, #mmr_peak_proof_type>)
+                #peak_lit(AugmentableTree<#branch_factor, #peak_height, #hash_type, 1000, #mmr_peak_proof_type>)
             }
         })
         .collect::<Vec<_>>();
