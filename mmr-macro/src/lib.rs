@@ -41,6 +41,7 @@ struct MMRInput {
     num_of_peaks: usize,
     branch_factor: usize,
     hash_type: String,
+    max_input_len: usize,
 }
 
 impl MMRInput {
@@ -48,6 +49,7 @@ impl MMRInput {
     const BRANCH_FACTOR_IDENT: &str = "BranchFactor";
     const NUM_OF_PEAKS: &str = "Peaks";
     const HASH_TYPE_IDENT: &str = "Hash";
+    const MAX_INPUT_LEN_IDENT: &str = "MaxInputWordLength";
 }
 
 impl Parse for MMRInput {
@@ -107,11 +109,26 @@ impl Parse for MMRInput {
         input.parse::<Token![=]>().expect(err_msg);
         let hash_type = input.parse::<Ident>().expect(err_msg).to_string();
 
+        let err_msg = "error while parsing 'MaxInputWordLength = <usize>' section";
+        input.parse::<Token![,]>().expect(err_msg);
+
+        let max_input_len_ident = input.parse::<Ident>().expect(err_msg);
+        if Self::MAX_INPUT_LEN_IDENT != &max_input_len_ident.to_string() {
+            return Err(Error::new(
+                max_input_len_ident.span(),
+                &format!("{}, expected {}", err_msg, Self::MAX_INPUT_LEN_IDENT),
+            ));
+        }
+        input.parse::<Token![=]>().expect(err_msg);
+        let max_input_len: LitInt = input.parse().expect(err_msg);
+        let max_input_len = max_input_len.base10_parse::<usize>()?;
+
         Ok(Self {
             mmr_type,
             num_of_peaks: num_of_peaks.base10_parse::<usize>()?,
             branch_factor: branch_factor.base10_parse::<usize>()?,
             hash_type,
+            max_input_len,
         })
     }
 }
@@ -119,6 +136,10 @@ impl Parse for MMRInput {
 #[proc_macro]
 pub fn mmr(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     let input = syn::parse_macro_input!(input as MMRInput);
+
+    if input.num_of_peaks < 2 {
+        panic!("Number of peaks must be greater than 1");
+    }
 
     let peak_height = input.num_of_peaks;
     let summit_height = (8 * core::mem::size_of::<usize>() as u32
@@ -146,12 +167,15 @@ pub fn mmr(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
         proc_macro2::Span::call_site(),
     );
     let hash_type = syn::Ident::new(&input.hash_type, proc_macro2::Span::call_site());
+    let max_input_len = LitInt::new(&input.max_input_len.to_string(), proc_macro2::Span::call_site());
+                            
     let mod_ident = syn::Ident::new(
         &input.mmr_type.to_case(Case::Snake),
         proc_macro2::Span::call_site(),
     );
 
-    let peak_variant_def_idents = (0..input.num_of_peaks + 1)
+//    let peak_variant_def_idents = (0..input.num_of_peaks + 1)
+    let peak_variant_def_idents = (0..input.num_of_peaks)
         .map(|i| {
             (
                 syn::Ident::new(&format!("Peak{i}"), proc_macro2::Span::call_site()),
@@ -170,8 +194,9 @@ pub fn mmr(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
 
     let peak_variant_def_tokens = peak_variant_def_idents.iter()
         .map(|(peak_lit, peak_height)| {
+
             quote! {
-                #peak_lit(AugmentableTree<#branch_factor, #peak_height, #hash_type, 1000, #mmr_peak_proof_type>)
+                #peak_lit(AugmentableTree<#branch_factor, #peak_height, #hash_type, #max_input_len, #mmr_peak_proof_type>)
             }
         })
         .collect::<Vec<_>>();
@@ -221,7 +246,7 @@ pub fn mmr(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     let as_dyn_tree_variant_def_token = peak_variant_def_idents.iter()
         .map(|(peak_lit, _)| {
             quote! {
-                #peak_lit(tree) => tree as &dyn merkle_heapless::traits::StaticTreeTrait<#hash_type, #mmr_peak_proof_type>
+                #peak_lit(tree) => tree as &dyn merkle_heapless::traits::StaticTreeTrait<#branch_factor, #hash_type, #mmr_peak_proof_type>
             }
         })
         .collect::<Vec<_>>();
@@ -229,7 +254,7 @@ pub fn mmr(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     let as_mut_dyn_tree_variant_def_token = peak_variant_def_idents.iter()
         .map(|(peak_lit, _)| {
             quote! {
-                #peak_lit(tree) => tree as &mut dyn merkle_heapless::traits::StaticTreeTrait<#hash_type, #mmr_peak_proof_type>
+                #peak_lit(tree) => tree as &mut dyn merkle_heapless::traits::StaticTreeTrait<#branch_factor, #hash_type, #mmr_peak_proof_type>
             }
         })
         .collect::<Vec<_>>();
@@ -285,10 +310,11 @@ pub fn mmr(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
             use merkle_heapless::augmentable::{AugmentableTree};
             use merkle_heapless::traits::{HashT, StaticTreeTrait, AppendOnly};
             use merkle_heapless::proof::{Proof, chain_proofs};
+            use merkle_heapless::prefixed::{Prefixed};
             use super::#hash_type;
 
-            type #mmr_peak_proof_type = Proof<#branch_factor, #peak_height, #hash_type>;
-            type #mmr_proof_type = Proof<#branch_factor, #total_height, #hash_type>;
+            type #mmr_peak_proof_type = Proof<#branch_factor, #peak_height, #hash_type, #max_input_len>;
+            type #mmr_proof_type = Proof<#branch_factor, #total_height, #hash_type, #max_input_len>;
 
             #[derive(Debug)]
             pub enum #mmr_peak_type {
@@ -330,7 +356,7 @@ pub fn mmr(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
                 }
             }
 
-            impl StaticTreeTrait<#hash_type, #mmr_peak_proof_type> for #mmr_peak_type {
+            impl StaticTreeTrait<#branch_factor, #hash_type, #mmr_peak_proof_type> for #mmr_peak_type {
                 fn generate_proof(&mut self, index: usize) -> #mmr_peak_proof_type {
                     #impl_mut_method_body_token.generate_proof(index)
                 }
@@ -343,7 +369,7 @@ pub fn mmr(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
                 fn root(&self) -> <#hash_type as HashT>::Output {
                     #impl_method_body_token.root()
                 }
-                fn leaves(&self) -> &[<#hash_type as HashT>::Output] {
+                fn leaves(&self) -> &[Prefixed<#branch_factor, #hash_type>] {
                     #impl_method_body_token.leaves()
                 }
                 fn base_layer_size(&self) -> usize {
@@ -371,7 +397,7 @@ pub fn mmr(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
                 [(); #num_of_peaks]: Sized,
             {
                 // the tree that generates the entire proof by chaining a peak's proof
-                summit_tree: StaticTree<#branch_factor, #summit_height, #hash_type>,
+                summit_tree: StaticTree<#branch_factor, #summit_height, #hash_type, #max_input_len>,
                 peaks: [#mmr_peak_type; #num_of_peaks],
                 curr_peak_index: usize,
                 num_of_leaves: usize,
@@ -383,7 +409,7 @@ pub fn mmr(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
             {
                 pub fn from_peak(peak: #mmr_peak_type) -> Self {
                     let mut this = Self {
-                        summit_tree: StaticTree::<#branch_factor, #summit_height, #hash_type>::default(),
+                        summit_tree: StaticTree::<#branch_factor, #summit_height, #hash_type, #max_input_len>::default(),
                         peaks: [#mmr_peak_type::default(); #num_of_peaks],
                         curr_peak_index: 0,
                         num_of_leaves: 0,
@@ -396,7 +422,10 @@ pub fn mmr(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
                     let mut i = self.curr_peak_index;
                     // back propagate and merge peaks while possible
                     // the indicator that two peaks can merge is that they have the same rank (can check height or num_of_leaves)
-                    while i > 0 && self.peaks[i].height() == self.peaks[i - 1].height() {
+                    while i > 0 
+                        && self.peaks[i].height() == self.peaks[i - 1].height() 
+                        && self.peaks[i].num_of_leaves() == self.peaks[i - 1].num_of_leaves() {
+
                         match self.peaks[i - 1].try_augment_and_merge(self.peaks[i]) {
                             Ok(peak) => { self.peaks[i - 1] = peak; },
                             Err(_) => break,

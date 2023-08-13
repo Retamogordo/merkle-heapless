@@ -123,8 +123,6 @@ let mt2 = DefaultAugmentable::<BRANCH_FACTOR, HEIGHT_2, StdHash>::try_from(&[
 ]).unwrap();
 
 mt1.try_merge(mt2).unwrap();
-```
-See also ```augment_and_merge``` that efficiently combines the two functionalities.
 
 ### Reduction
 Similarly, if remove, compact and reduce semantics is needed it is achievable through a Compactable tree variation:
