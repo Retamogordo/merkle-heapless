@@ -6,7 +6,7 @@ authors = ["Yury <yury.yukhananov@tutanota.com>"]
 description = "Statically-allocated Merkle Tree and Mountain Range"
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/Retamogordo/merkle-heapless"
-keywords = ["merkle-tree", "merkle-mountain-range", "no-std", "statically-allocated", "no-alloc"]
+keywords = ["merkle-tree", "mountain-range", "no-std", "statically-allocated", "no-alloc"]
 categories = ["data-structures", "algorithms", "no-std"]
 
 [workspace]
