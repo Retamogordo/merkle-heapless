@@ -1,0 +1,15 @@
+<!doctype html>
+<html lang="en-US">
+  <head>
+    <meta charset="utf-8" />
+    <title>hello-wasm example</title>
+  </head>
+  <body>
+    <script type="module">
+      import init, { test_1 } from "./pkg/wasm_test.js";
+      init().then(() => {
+        test_1();
+      });
+    </script>
+  </body>
+</html>

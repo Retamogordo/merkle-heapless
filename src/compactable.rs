@@ -15,24 +15,24 @@
 //! ```
 //!
 
-// pub type DefaultCompactable<const BRANCH_FACTOR: usize, const HEIGHT: usize, H>
-// = CompactableHeaplessTree<BRANCH_FACTOR, HEIGHT, H, Proof<BRANCH_FACTOR, {HEIGHT+1}, H>>;
-
 /// Compactable tree with [Proof] of tree's height
 pub type DefaultCompactable<
-    const BRANCH_FACTOR: usize, 
-    const HEIGHT: usize, 
-    H, 
+    const BRANCH_FACTOR: usize,
+    const HEIGHT: usize,
+    H,
     const MAX_INPUT_LEN: usize,
-//    const MAX_INPUT_LEN: usize = DEFAULT_MAX_INPUT_LEN
-> = CompactableHeaplessTree<BRANCH_FACTOR, HEIGHT, H, MAX_INPUT_LEN, Proof<BRANCH_FACTOR, HEIGHT, H, MAX_INPUT_LEN>>;
+> = CompactableHeaplessTree<
+    BRANCH_FACTOR,
+    HEIGHT,
+    H,
+    MAX_INPUT_LEN,
+    Proof<BRANCH_FACTOR, HEIGHT, H, MAX_INPUT_LEN>,
+>;
 
 use crate::traits::CanRemove;
 use crate::{
-    location_in_prefixed,
-    is_pow2, layer_size, max_leaves, num_of_prefixed, Assert, HashT, IsTrue, Proof, ProofBuilder, StaticTree,
-//    DEFAULT_MAX_INPUT_LEN, 
-    StaticTreeTrait, Prefixed,
+    is_pow2, layer_size, location_in_prefixed, max_leaves, num_of_prefixed, Assert, HashT, IsTrue,
+    Prefixed, Proof, ProofBuilder, StaticTree, StaticTreeTrait, Error
 };
 use core::fmt::Debug;
 /// Tree that can be compacted after leaf removal and reduced to a smaller tree
@@ -43,7 +43,7 @@ pub struct CompactableHeaplessTree<
     const MAX_INPUT_LEN: usize,
     PB = Proof<BRANCH_FACTOR, HEIGHT, H, MAX_INPUT_LEN>,
 > where
-    [(); num_of_prefixed!(BRANCH_FACTOR, HEIGHT)]: Sized,  
+    [(); num_of_prefixed!(BRANCH_FACTOR, HEIGHT)]: Sized,
     [(); max_leaves!(BRANCH_FACTOR, HEIGHT)]: Sized,
     Assert<{ is_pow2!(BRANCH_FACTOR) }>: IsTrue,
     H: HashT,
@@ -57,14 +57,14 @@ pub struct CompactableHeaplessTree<
 impl<const BRANCH_FACTOR: usize, const HEIGHT: usize, H, const MAX_INPUT_LEN: usize, PB>
     CompactableHeaplessTree<BRANCH_FACTOR, HEIGHT, H, MAX_INPUT_LEN, PB>
 where
-    [(); num_of_prefixed!(BRANCH_FACTOR, HEIGHT)]: Sized,  
+    [(); num_of_prefixed!(BRANCH_FACTOR, HEIGHT)]: Sized,
     [(); max_leaves!(BRANCH_FACTOR, HEIGHT)]: Sized,
     Assert<{ is_pow2!(BRANCH_FACTOR) }>: IsTrue,
     H: HashT,
     PB: ProofBuilder<BRANCH_FACTOR, H>,
 {
     /// creates a tree from an input if possible
-    pub fn try_from(input: &[&[u8]]) -> Result<Self, ()> {
+    pub fn try_from(input: &[&[u8]]) -> Result<Self, Error> {
         let mut this = Self {
             tree: StaticTree::try_from(input)?,
             num_of_leaves: input.len(),
@@ -76,19 +76,21 @@ where
         Ok(this)
     }
     /// creates a tree from hashed leaves (of another tree)
-    pub fn try_from_leaves(prefixed: &[Prefixed<BRANCH_FACTOR, H>]) -> Result<Self, ()> {
+    pub fn try_from_leaves(prefixed: &[Prefixed<BRANCH_FACTOR, H>]) -> Result<Self, Error> {
         let mut leaves_present = [false; max_leaves!(BRANCH_FACTOR, HEIGHT)];
         let mut num_of_leaves = 0;
         let default_hash = Prefixed::<BRANCH_FACTOR, H>::default_hash();
         let mut j = 0;
         for leaf in prefixed {
-            num_of_leaves += leaf.hashes.iter()
+            num_of_leaves += leaf
+                .hashes
+                .iter()
                 .enumerate()
-                .filter_map(|(i, h)| 
+                .filter_map(|(i, h)| {
                     (h != &default_hash).then(|| {
                         leaves_present[i + j] = true;
                     })
-                )
+                })
                 .count();
             j += BRANCH_FACTOR;
         }
@@ -102,14 +104,14 @@ where
     fn try_from_compacted(
         leaves: &[Prefixed<BRANCH_FACTOR, H>; layer_size!(BRANCH_FACTOR, HEIGHT, 0)],
         num_of_leaves: usize,
-    ) -> Result<Self, ()> {
+    ) -> Result<Self, Error> {
         (num_of_leaves <= max_leaves!(BRANCH_FACTOR, HEIGHT))
-            .then(|| ())
-            .ok_or(())
+            .then_some(())
+            .ok_or(Error::Create)
             .and_then(|()| {
                 let mut leaves_present = [false; max_leaves!(BRANCH_FACTOR, HEIGHT)];
-                for i in 0..num_of_leaves {
-                    leaves_present[i] = true;
+                for present in leaves_present.iter_mut().take(num_of_leaves) {
+                    *present = true;
                 }
                 Ok(Self {
                     tree: StaticTree::try_from_leaves(leaves)?,
@@ -121,20 +123,23 @@ where
 
     fn compacted_leaves<const EXPECTED_HEIGHT: usize>(
         &self,
-    ) -> Result<[Prefixed<BRANCH_FACTOR, H>; layer_size!(BRANCH_FACTOR, EXPECTED_HEIGHT, 0)], ()> {
+    ) -> Result<[Prefixed<BRANCH_FACTOR, H>; layer_size!(BRANCH_FACTOR, EXPECTED_HEIGHT, 0)], Error>
+    {
         if self.num_of_leaves > max_leaves!(BRANCH_FACTOR, EXPECTED_HEIGHT) {
-            return Err(());
+            return Err(Error::Create);
         }
 
-        let mut prefixed = [Prefixed::<BRANCH_FACTOR, H>::default(); layer_size!(BRANCH_FACTOR, EXPECTED_HEIGHT, 0)];
+        let mut prefixed = [Prefixed::<BRANCH_FACTOR, H>::default();
+            layer_size!(BRANCH_FACTOR, EXPECTED_HEIGHT, 0)];
 
         let mut j = 0;
         for i in 0..self.leaves_present.len() {
             if self.leaves_present[i] {
                 let (old_index, old_offset) = location_in_prefixed::<BRANCH_FACTOR>(i);
                 let (new_index, new_offset) = location_in_prefixed::<BRANCH_FACTOR>(j);
-                
-                prefixed[new_index].hashes[new_offset] = self.tree.leaves()[old_index].hashes[old_offset];
+
+                prefixed[new_index].hashes[new_offset] =
+                    self.tree.leaves()[old_index].hashes[old_offset];
                 j += 1;
             }
         }
@@ -144,7 +149,7 @@ where
     /// move all existing leaves leftwards
     pub fn compact(&mut self)
     where
-        [(); num_of_prefixed!(BRANCH_FACTOR, HEIGHT)]: Sized,     
+        [(); num_of_prefixed!(BRANCH_FACTOR, HEIGHT)]: Sized,
         [(); max_leaves!(BRANCH_FACTOR, HEIGHT)]: Sized,
         H: HashT,
         PB: ProofBuilder<BRANCH_FACTOR, H>,
@@ -177,10 +182,11 @@ where
     }
 }
 
-impl<const BRANCH_FACTOR: usize, const HEIGHT: usize, H, const MAX_INPUT_LEN: usize, PB> StaticTreeTrait<BRANCH_FACTOR, H, PB>
+impl<const BRANCH_FACTOR: usize, const HEIGHT: usize, H, const MAX_INPUT_LEN: usize, PB>
+    StaticTreeTrait<BRANCH_FACTOR, H, PB>
     for CompactableHeaplessTree<BRANCH_FACTOR, HEIGHT, H, MAX_INPUT_LEN, PB>
 where
-    [(); num_of_prefixed!(BRANCH_FACTOR, HEIGHT)]: Sized,   
+    [(); num_of_prefixed!(BRANCH_FACTOR, HEIGHT)]: Sized,
     [(); max_leaves!(BRANCH_FACTOR, HEIGHT)]: Sized,
     Assert<{ is_pow2!(BRANCH_FACTOR) }>: IsTrue,
     H: HashT,
@@ -225,7 +231,7 @@ where
 impl<const BRANCH_FACTOR: usize, const HEIGHT: usize, H, const MAX_INPUT_LEN: usize, PB> CanRemove
     for CompactableHeaplessTree<BRANCH_FACTOR, HEIGHT, H, MAX_INPUT_LEN, PB>
 where
-    [(); num_of_prefixed!(BRANCH_FACTOR, HEIGHT)]: Sized, 
+    [(); num_of_prefixed!(BRANCH_FACTOR, HEIGHT)]: Sized,
     [(); max_leaves!(BRANCH_FACTOR, HEIGHT)]: Sized,
     Assert<{ is_pow2!(BRANCH_FACTOR) }>: IsTrue,
     H: HashT,
@@ -250,7 +256,7 @@ where
 impl<const BRANCH_FACTOR: usize, const HEIGHT: usize, H, const MAX_INPUT_LEN: usize, PB> Clone
     for CompactableHeaplessTree<BRANCH_FACTOR, HEIGHT, H, MAX_INPUT_LEN, PB>
 where
-    [(); num_of_prefixed!(BRANCH_FACTOR, HEIGHT)]: Sized,  
+    [(); num_of_prefixed!(BRANCH_FACTOR, HEIGHT)]: Sized,
     [(); max_leaves!(BRANCH_FACTOR, HEIGHT)]: Sized,
     Assert<{ is_pow2!(BRANCH_FACTOR) }>: IsTrue,
     H: HashT,
@@ -258,9 +264,9 @@ where
 {
     fn clone(&self) -> Self {
         Self {
-            tree: self.tree.clone(),
-            num_of_leaves: self.num_of_leaves.clone(),
-            leaves_present: self.leaves_present.clone(),
+            tree: self.tree,
+            num_of_leaves: self.num_of_leaves,
+            leaves_present: self.leaves_present,
         }
     }
 }
@@ -268,7 +274,7 @@ where
 impl<const BRANCH_FACTOR: usize, const HEIGHT: usize, H, const MAX_INPUT_LEN: usize, PB> Default
     for CompactableHeaplessTree<BRANCH_FACTOR, HEIGHT, H, MAX_INPUT_LEN, PB>
 where
-    [(); num_of_prefixed!(BRANCH_FACTOR, HEIGHT)]: Sized,  
+    [(); num_of_prefixed!(BRANCH_FACTOR, HEIGHT)]: Sized,
     [(); max_leaves!(BRANCH_FACTOR, HEIGHT)]: Sized,
     Assert<{ is_pow2!(BRANCH_FACTOR) }>: IsTrue,
     H: HashT,

@@ -1,13 +1,13 @@
 [package]
 name = "merkle-heapless"
 edition = "2021"
-version = "0.0.3"
+version = "0.0.4"
 authors = ["Yury <yury.yukhananov@tutanota.com>"]
 description = "Statically-allocated Merkle Tree and Mountain Range"
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/Retamogordo/merkle-heapless"
-keywords = ["merkle-tree", "mountain-range", "no-std", "statically-allocated"]
-categories = ["data-structures", "algorithms", "no-std", "cryptography"]
+keywords = ["merkle-tree", "merkle-mountain-range", "no-std", "statically-allocated", "no-alloc"]
+categories = ["data-structures", "algorithms", "no-std"]
 
 [workspace]
 members = ["mmr-macro", "tests"]
@@ -16,7 +16,7 @@ default-members = [".", "mmr-macro"]
 [lib]
 
 [dependencies]
-mmr-macro = {version = "0.0.3", path = "./mmr-macro"}
+mmr-macro = {version = "0.0.4", path = "./mmr-macro"}
 
 [features]
 mmr_macro = []

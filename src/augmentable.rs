@@ -1,5 +1,5 @@
 //!
-//! Augment
+//! ## Augment
 //! ```rust
 //! use merkle_heapless::augmentable::{DefaultAugmentable};
 //!
@@ -16,7 +16,7 @@
 //! assert_eq!(mt.height(), HEIGHT_1 + 1);
 //! ```
 //!
-//! Merge
+//! ## Merge
 //!
 //! You can ```try_merge``` a smaller (or equally-sized) tree into the original tree.
 //! This operation does not imply augmentation, rather it fails if merge is not possible.
@@ -31,17 +31,23 @@
 
 use crate::traits::AppendOnly;
 use crate::{
-    is_pow2, layer_size, num_of_prefixed, Assert, HashT, IsTrue, Proof, ProofBuilder, StaticTree,
-    Prefixed, StaticTreeTrait,
+    is_pow2, layer_size, num_of_prefixed, Assert, HashT, IsTrue, Prefixed, Proof, ProofBuilder,
+    StaticTree, StaticTreeTrait, Error
 };
 use core::fmt::Debug;
 /// Augmentable tree with default Proof size of (tree.height + 1)
 pub type DefaultAugmentable<
-    const BRANCH_FACTOR: usize, 
-    const HEIGHT: usize, 
-    H, 
+    const BRANCH_FACTOR: usize,
+    const HEIGHT: usize,
+    H,
     const MAX_INPUT_LEN: usize,
-> = AugmentableTree<BRANCH_FACTOR, HEIGHT, H, MAX_INPUT_LEN, Proof<BRANCH_FACTOR, { HEIGHT + 1 }, H, MAX_INPUT_LEN>>;
+> = AugmentableTree<
+    BRANCH_FACTOR,
+    HEIGHT,
+    H,
+    MAX_INPUT_LEN,
+    Proof<BRANCH_FACTOR, { HEIGHT + 1 }, H, MAX_INPUT_LEN>,
+>;
 
 /// Augmentable Tree can be converted into a bigger tree with height+1
 pub struct AugmentableTree<
@@ -51,7 +57,7 @@ pub struct AugmentableTree<
     const MAX_INPUT_LEN: usize,
     PB = Proof<BRANCH_FACTOR, HEIGHT, H, MAX_INPUT_LEN>,
 > where
-    [(); num_of_prefixed!(BRANCH_FACTOR, HEIGHT)]: Sized,  
+    [(); num_of_prefixed!(BRANCH_FACTOR, HEIGHT)]: Sized,
     Assert<{ is_pow2!(BRANCH_FACTOR) }>: IsTrue,
     H: HashT,
     PB: ProofBuilder<BRANCH_FACTOR, H>,
@@ -63,20 +69,20 @@ pub struct AugmentableTree<
 impl<const BRANCH_FACTOR: usize, const HEIGHT: usize, H, const MAX_INPUT_LEN: usize, PB>
     AugmentableTree<BRANCH_FACTOR, HEIGHT, H, MAX_INPUT_LEN, PB>
 where
-    [(); num_of_prefixed!(BRANCH_FACTOR, HEIGHT)]: Sized, 
+    [(); num_of_prefixed!(BRANCH_FACTOR, HEIGHT)]: Sized,
     Assert<{ is_pow2!(BRANCH_FACTOR) }>: IsTrue,
     H: HashT,
     PB: ProofBuilder<BRANCH_FACTOR, H>,
 {
     /// creates a tree from an input if possible
-    pub fn try_from(input: &[&[u8]]) -> Result<Self, ()> {
+    pub fn try_from(input: &[&[u8]]) -> Result<Self, Error> {
         Ok(Self {
             tree: StaticTree::try_from(input)?,
             num_of_leaves: input.len(),
         })
     }
     /// creates a tree from hashed leaves (of another tree)
-    pub fn try_from_leaves(prefixed_leaves: &[Prefixed<BRANCH_FACTOR, H>]) -> Result<Self, ()> {
+    pub fn try_from_leaves(prefixed_leaves: &[Prefixed<BRANCH_FACTOR, H>]) -> Result<Self, Error> {
         let mut num_of_leaves = 0;
         let default_hash = Prefixed::<BRANCH_FACTOR, H>::default_hash();
 
@@ -84,8 +90,8 @@ where
             num_of_leaves += leaf
                 .hashes
                 .iter()
-                .filter_map(|h| (h != &default_hash).then(|| ()))
-                .count();       
+                .filter_map(|h| (h != &default_hash).then_some(()))
+                .count();
         }
 
         Ok(Self {
@@ -98,13 +104,13 @@ where
     /// to prevent being any longer available
     pub fn augment(self) -> AugmentableTree<BRANCH_FACTOR, { HEIGHT + 1 }, H, MAX_INPUT_LEN, PB>
     where
-        [(); num_of_prefixed!(BRANCH_FACTOR, { HEIGHT + 1 })]: Sized,       
+        [(); num_of_prefixed!(BRANCH_FACTOR, { HEIGHT + 1 })]: Sized,
         H: HashT,
         PB: ProofBuilder<BRANCH_FACTOR, H>,
     {
         AugmentableTree::<BRANCH_FACTOR, { HEIGHT + 1 }, H, MAX_INPUT_LEN, PB> {
             tree: StaticTree::try_from_leaves(self.leaves())
-                                .expect("can create from smaller tree. qed"),
+                .expect("can create from smaller tree. qed"),
             num_of_leaves: self.num_of_leaves,
         }
     }
@@ -123,14 +129,15 @@ where
         PB: ProofBuilder<BRANCH_FACTOR, H>,
     {
         let mut this = self.augment();
-        this.try_merge(other).expect("can merge into augmented tree. qed");
+        this.try_merge(other)
+            .expect("can merge into augmented tree. qed");
         this
     }
     /// tries to merge a tree to this one if there is enough room in it
     pub fn try_merge<const OTHER_HEIGHT: usize, OTHERPB: ProofBuilder<BRANCH_FACTOR, H>>(
         &mut self,
         other: AugmentableTree<BRANCH_FACTOR, OTHER_HEIGHT, H, MAX_INPUT_LEN, OTHERPB>,
-    ) -> Result<(), ()>
+    ) -> Result<(), Error>
     where
         [(); num_of_prefixed!(BRANCH_FACTOR, HEIGHT)]: Sized,
         [(); num_of_prefixed!(BRANCH_FACTOR, OTHER_HEIGHT)]: Sized,
@@ -141,16 +148,17 @@ where
         let with_offset = self.num_of_leaves();
         let total_len = with_offset + other.num_of_leaves();
         if total_len > BRANCH_FACTOR * layer_size!(BRANCH_FACTOR, HEIGHT, 0) {
-            return Err(());
+            return Err(Error::Merge);
         }
-        self.tree = self.tree.from_leaves_inner(other.leaves(), with_offset);
+        self.tree = self.tree.with_leaves_inner(other.leaves(), with_offset);
         self.num_of_leaves += other.num_of_leaves();
 
         Ok(())
     }
 }
 
-impl<const BRANCH_FACTOR: usize, const HEIGHT: usize, H, const MAX_INPUT_LEN: usize, PB> StaticTreeTrait<BRANCH_FACTOR, H, PB>
+impl<const BRANCH_FACTOR: usize, const HEIGHT: usize, H, const MAX_INPUT_LEN: usize, PB>
+    StaticTreeTrait<BRANCH_FACTOR, H, PB>
     for AugmentableTree<BRANCH_FACTOR, HEIGHT, H, MAX_INPUT_LEN, PB>
 where
     [(); num_of_prefixed!(BRANCH_FACTOR, HEIGHT)]: Sized,
@@ -188,14 +196,14 @@ impl<const BRANCH_FACTOR: usize, const HEIGHT: usize, H, const MAX_INPUT_LEN: us
     for AugmentableTree<BRANCH_FACTOR, HEIGHT, H, MAX_INPUT_LEN, PB>
 where
     [(); num_of_prefixed!(BRANCH_FACTOR, HEIGHT)]: Sized,
-    
+
     Assert<{ is_pow2!(BRANCH_FACTOR) }>: IsTrue,
     H: HashT,
     PB: ProofBuilder<BRANCH_FACTOR, H>,
 {
-    fn try_append(&mut self, input: &[u8]) -> Result<(), ()> {
+    fn try_append(&mut self, input: &[u8]) -> Result<(), Error> {
         if self.num_of_leaves >= (self.base_layer_size() << BRANCH_FACTOR.trailing_zeros()) {
-            return Err(());
+            return Err(Error::Append);
         }
         self.replace(self.num_of_leaves, input);
         self.num_of_leaves += 1;
@@ -216,8 +224,8 @@ where
 {
     fn clone(&self) -> Self {
         Self {
-            tree: self.tree.clone(),
-            num_of_leaves: self.num_of_leaves.clone(),
+            tree: self.tree,
+            num_of_leaves: self.num_of_leaves,
         }
     }
 }

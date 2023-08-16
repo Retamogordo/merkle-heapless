@@ -1,23 +1,20 @@
 use crate::traits::{HashT, ProofBuilder, ProofItemT, ProofValidator};
-use crate::{Prefixed};
+use crate::Prefixed;
 use core::fmt::Debug;
 
 /// Basic implementation of an item making up a proof.
 /// Supports a power-of-2 number of siblings
-pub struct ProofItem<const BRANCH_FACTOR: usize, H: HashT> 
-{
+pub struct ProofItem<const BRANCH_FACTOR: usize, H: HashT> {
     prefixed: Prefixed<BRANCH_FACTOR, H>,
     offset: usize,
 }
 
-impl<const BRANCH_FACTOR: usize, H: HashT> ProofItemT<BRANCH_FACTOR, H> for ProofItem<BRANCH_FACTOR, H> 
+impl<const BRANCH_FACTOR: usize, H: HashT> ProofItemT<BRANCH_FACTOR, H>
+    for ProofItem<BRANCH_FACTOR, H>
 {
     /// constructor
     fn create(offset: usize, prefixed: Prefixed<BRANCH_FACTOR, H>) -> Self {
-        Self {
-            offset,
-            prefixed,
-        }
+        Self { offset, prefixed }
     }
     /// hashes a provided hashed data at offset with its siblings
     fn hash_with_siblings(mut self, word_hash: H::Output) -> Option<H::Output> {
@@ -26,21 +23,18 @@ impl<const BRANCH_FACTOR: usize, H: HashT> ProofItemT<BRANCH_FACTOR, H> for Proo
     }
 }
 
-impl<const BRANCH_FACTOR: usize, H: HashT> Copy for ProofItem<BRANCH_FACTOR, H> 
-{}
+impl<const BRANCH_FACTOR: usize, H: HashT> Copy for ProofItem<BRANCH_FACTOR, H> {}
 
-impl<const BRANCH_FACTOR: usize, H: HashT> Clone for ProofItem<BRANCH_FACTOR, H> 
-{
+impl<const BRANCH_FACTOR: usize, H: HashT> Clone for ProofItem<BRANCH_FACTOR, H> {
     fn clone(&self) -> Self {
         Self {
-            prefixed: self.prefixed.clone(),
-            offset: self.offset.clone(),
+            prefixed: self.prefixed,
+            offset: self.offset,
         }
     }
 }
 
-impl<const BRANCH_FACTOR: usize, H: HashT> Default for ProofItem<BRANCH_FACTOR, H> 
-{
+impl<const BRANCH_FACTOR: usize, H: HashT> Default for ProofItem<BRANCH_FACTOR, H> {
     fn default() -> Self {
         Self {
             prefixed: Default::default(),
@@ -49,16 +43,19 @@ impl<const BRANCH_FACTOR: usize, H: HashT> Default for ProofItem<BRANCH_FACTOR, 
     }
 }
 
-impl<const BRANCH_FACTOR: usize, H: HashT> Debug for ProofItem<BRANCH_FACTOR, H> 
-{
+impl<const BRANCH_FACTOR: usize, H: HashT> Debug for ProofItem<BRANCH_FACTOR, H> {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> Result<(), core::fmt::Error> {
         writeln!(f, "{:?}", self.prefixed.hashes)
     }
 }
 
 /// Proof implementation the StaticTree generates
-pub struct Proof<const BRANCH_FACTOR: usize, const HEIGHT: usize, H: HashT, const MAX_INPUT_LEN: usize>
-where
+pub struct Proof<
+    const BRANCH_FACTOR: usize,
+    const HEIGHT: usize,
+    H: HashT,
+    const MAX_INPUT_LEN: usize,
+> where
     [(); HEIGHT]: Sized,
 {
     root: H::Output,
@@ -66,8 +63,8 @@ where
     items: [<Self as ProofBuilder<BRANCH_FACTOR, H>>::Item; HEIGHT],
 }
 
-impl<const BRANCH_FACTOR: usize, const HEIGHT: usize, H: HashT, const MAX_INPUT_LEN: usize> ProofBuilder<BRANCH_FACTOR, H>
-    for Proof<BRANCH_FACTOR, HEIGHT, H, MAX_INPUT_LEN>
+impl<const BRANCH_FACTOR: usize, const HEIGHT: usize, H: HashT, const MAX_INPUT_LEN: usize>
+    ProofBuilder<BRANCH_FACTOR, H> for Proof<BRANCH_FACTOR, HEIGHT, H, MAX_INPUT_LEN>
 where
     [(); HEIGHT]: Sized,
 {
@@ -89,8 +86,8 @@ where
     }
 }
 
-impl<const BRANCH_FACTOR: usize, const HEIGHT: usize, H: HashT, const MAX_INPUT_LEN: usize> ProofValidator
-    for Proof<BRANCH_FACTOR, HEIGHT, H, MAX_INPUT_LEN>
+impl<const BRANCH_FACTOR: usize, const HEIGHT: usize, H: HashT, const MAX_INPUT_LEN: usize>
+    ProofValidator for Proof<BRANCH_FACTOR, HEIGHT, H, MAX_INPUT_LEN>
 where
     [(); HEIGHT]: Sized,
 {

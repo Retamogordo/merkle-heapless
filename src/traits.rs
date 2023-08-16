@@ -1,9 +1,9 @@
+use crate::prefixed::Prefixed;
+use crate::Error;
 use core::fmt::Debug;
 use core::hash::Hash;
-use crate::prefixed::Prefixed;
 
-impl<const BRANCH_FACTOR: usize, H: HashT> PartialEq for Prefixed<BRANCH_FACTOR, H>
-{
+impl<const BRANCH_FACTOR: usize, H: HashT> PartialEq for Prefixed<BRANCH_FACTOR, H> {
     fn eq(&self, other: &Self) -> bool {
         self.hashes == other.hashes
         //self.prefixed.hashes == other.prefixed.hashes
@@ -45,7 +45,8 @@ pub trait ProofValidator {
     fn validate(self, input: &[u8]) -> bool;
 }
 /// trait for a basic Merkle Tree functionality
-pub trait StaticTreeTrait<const BRANCH_FACTOR: usize, H: HashT, PB: ProofBuilder<BRANCH_FACTOR, H>> {
+pub trait StaticTreeTrait<const BRANCH_FACTOR: usize, H: HashT, PB: ProofBuilder<BRANCH_FACTOR, H>>
+{
     /// generate a proof for a leaf at index
     fn generate_proof(&mut self, index: usize) -> PB;
     /// replace a leaf at index with a new value
@@ -66,7 +67,7 @@ pub trait StaticTreeTrait<const BRANCH_FACTOR: usize, H: HashT, PB: ProofBuilder
 /// trait for append-only Merkle tree semantics
 pub trait AppendOnly {
     /// appends a new leaf into the tree unless it's full
-    fn try_append(&mut self, input: &[u8]) -> Result<(), ()>;
+    fn try_append(&mut self, input: &[u8]) -> Result<(), Error>;
     /// number of leaves currently stored in the tree
     fn num_of_leaves(&self) -> usize;
 }
@@ -75,6 +76,6 @@ pub trait AppendOnly {
 pub trait CanRemove {
     /// removes a leaf at index
     fn remove(&mut self, index: usize);
-    /// number of leaves currently stored in the tree
+    /// number of leaves currently stored in the trsee
     fn num_of_leaves(&self) -> usize;
 }

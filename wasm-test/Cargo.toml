@@ -1,0 +1,13 @@
+[package]
+name = "wasm-test"
+version = "0.1.0"
+edition = "2021"
+
+[workspace]
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+merkle-heapless = {version = "0.0.4", path=".."}
+wasm-bindgen = "0.2"

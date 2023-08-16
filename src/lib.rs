@@ -1,5 +1,5 @@
 //! # Static Tree
-//! A Merkle Tree implementation that requires no dynamic memory allocations
+//! A Merkle Tree implementation that requires no dynamic memory allocations.
 //! This Merkle tree is implemented as a contiguous memory array and does not betake to dynamic allocations.
 //! As such it allows for certain optimizations and compile-time imposed constraints on arity and size boundaries.
 //! - no std dependencies (actually no dependencies)
@@ -8,6 +8,9 @@
 //! - 99% safe Rust
 //! - optionally augmentable or reducible
 //! - optional Mountain Range proc macro (when compiled with a mmr-macro feature)
+//!
+//! ## Hashing
+//! Leaves are prefixed with ```0u8``` prior to being hashed, while the intermediate nodes are prefixed with ```[1u8; 4]```. 
 //!
 //! # Mountain Range
 //!
@@ -62,8 +65,10 @@
 //! use merkle_heapless::traits::{StaticTreeTrait, ProofValidator};
 //! // tree height 3, 8 leaves, 15 total nodes
 //! const MAX_HEIGHT: usize = 3;
+//! // stands for the maximum possible length of the longest input word
+//! const MAX_INPUT_WORD_LEN: usize = 10;
 //! // supposing the YourHash struct exists
-//! let mut tree = StaticBinaryTree::<MAX_HEIGHT, YourHash>::try_from(
+//! let mut tree = StaticBinaryTree::<MAX_HEIGHT, YourHash, MAX_INPUT_WORD_LEN>::try_from(
 //!     &[b"apple", b"banana"]
 //! ).unwrap();
 //!
@@ -91,7 +96,8 @@
 //! use merkle_heapless::{StaticTree};
 //!
 //! const BRANCH_FACTOR: usize = 4;
-//! let mut tree = StaticTree::<BRANCH_FACTOR, MAX_HEIGHT, YourHash>::try_from(
+//! const MAX_INPUT_WORD_LEN: usize = 10;
+//! let mut tree = StaticTree::<BRANCH_FACTOR, MAX_HEIGHT, YourHash, MAX_INPUT_WORD_LEN>::try_from(
 //!     &[b"apple", b"banana"]
 //! ).unwrap();
 //! // same operations can be applied
@@ -107,10 +113,10 @@
 //! // snip
 //! use merkle_heapless::{mmr_macro};
 //! // declaration with expicit type name for your MMR
-//! mmr_macro::mmr!(Type = FooMMR, BranchFactor = 2, Peaks = 3, Hash = StdHash);
+//! mmr_macro::mmr!(Type = FooMMR, BranchFactor = 2, Peaks = 3, Hash = StdHash, MaxInputWordLength = 10);
 //! let mmr = FooMMR::default();
 //! // implicitly creates MerkleMountainRange type
-//! mmr_macro::mmr!(BranchFactor = 2, Peaks = 5, Hash = StdHash);
+//! mmr_macro::mmr!(BranchFactor = 2, Peaks = 5, Hash = StdHash, MaxInputWordLength = 10);
 //! // create with default current peak of height 0
 //! let mmr = MerkleMountainRange::default();
 //! // or create with current peak of height 2
@@ -129,7 +135,7 @@
 //! assert!(proof.validate(b"apple"));
 //! ```
 
-#![cfg_attr(not(test), no_std)]
+//#![cfg_attr(not(test), no_std)]
 #![allow(incomplete_features)]
 #![feature(generic_const_exprs)]
 #![feature(trivial_bounds)]
@@ -137,15 +143,15 @@
 /// contains implementation of an extention for a Merkle Tree that can be augmented into a bigger tree
 // and merge a smaller tree into the tree
 pub mod augmentable;
-/// contains implementation of an extention for a Merkle Tree that can remove leaf, compact and reduce
+/// contains implementation of an extention for a Merkle Tree that can remove a leaf, compact and reduce
 /// the tree to a smaller tree.
 pub mod compactable;
+/// prefixed hashes
+pub mod prefixed;
 /// module containing [Proof] implementation the [StaticTree] generates
 pub mod proof;
 /// module declaring basic traits for tree and proof
 pub mod traits;
-/// prefixed hashes
-pub mod prefixed;
 mod utils;
 
 #[cfg(feature = "mmr_macro")]
@@ -154,17 +160,28 @@ pub use mmr_macro;
 use core::fmt::Debug;
 use core::mem::size_of;
 
+use crate::prefixed::Prefixed;
 use crate::proof::Proof;
 use crate::traits::{HashT, ProofBuilder, StaticTreeTrait};
 use crate::utils::{location_in_prefixed, Assert, IsTrue};
-use crate::prefixed::Prefixed;
+
+/// Merkle Tree Errors
+#[derive(Debug)]
+pub enum Error {
+    /// Error on tree creation
+    Create,
+    /// Error on trying appending an element
+    Append,
+    /// Error on merging
+    Merge,
+}
 
 /// type alias for [StaticTree] with arity of 2
 pub type StaticBinaryTree<
-    const HEIGHT: usize, 
-    H, 
-    const MAX_INPUT_LEN: usize, 
-    PB = Proof<2, HEIGHT, H, MAX_INPUT_LEN>
+    const HEIGHT: usize,
+    H,
+    const MAX_INPUT_LEN: usize,
+    PB = Proof<2, HEIGHT, H, MAX_INPUT_LEN>,
 > = StaticTree<2, HEIGHT, H, MAX_INPUT_LEN, PB>;
 /// Basic statically-allocated Merkle Tree
 pub struct StaticTree<
@@ -193,18 +210,18 @@ where
 {
     const BASE_LAYER_SIZE: usize = layer_size!(BRANCH_FACTOR, HEIGHT, 0);
 
-    fn create(input_len: usize) -> Result<Self, ()> {
+    fn create(input_len: usize) -> Result<Self, Error> {
         (input_len <= Self::BASE_LAYER_SIZE * BRANCH_FACTOR)
             .then(|| Self {
                 root: Default::default(),
                 prefixed: [Default::default(); num_of_prefixed!(BRANCH_FACTOR, HEIGHT)],
             })
-            .ok_or(())
+            .ok_or(Error::Create)
     }
 
     /// creates a tree from an input if possible
-    pub fn try_from(input: &[&[u8]]) -> Result<Self, ()> {
-        Self::create(input.len()).map(|this| this.from_inner(input, 0))
+    pub fn try_from(input: &[&[u8]]) -> Result<Self, Error> {
+        Self::create(input.len()).map(|this| this.create_inner(input, 0))
     }
 
     #[inline]
@@ -213,7 +230,7 @@ where
         let default_hashes = [default_hash; BRANCH_FACTOR];
         let to_index = core::cmp::min(
             (from_index / BRANCH_FACTOR + 1) * BRANCH_FACTOR,
-            max_leaves!(BRANCH_FACTOR, HEIGHT)
+            max_leaves!(BRANCH_FACTOR, HEIGHT),
         );
         // pad first partial prefixed hashes in the base layer
         for i in from_index..to_index {
@@ -227,7 +244,7 @@ where
         }
     }
 
-    pub(crate) fn from_inner(mut self, input: &[&[u8]], with_offset: usize) -> Self {
+    pub(crate) fn create_inner(mut self, input: &[&[u8]], with_offset: usize) -> Self {
         let mut prefixed = [0u8; MAX_INPUT_LEN];
 
         // fill the base layer
@@ -244,13 +261,17 @@ where
         self
     }
     /// creates a tree from hashed leaves (of another tree)
-    pub fn try_from_leaves(leaves: &[Prefixed<BRANCH_FACTOR, H>]) -> Result<Self, ()> {
-        Self::create(leaves.len()).map(|this| this.from_leaves_inner(leaves, 0))
+    pub fn try_from_leaves(leaves: &[Prefixed<BRANCH_FACTOR, H>]) -> Result<Self, Error> {
+        Self::create(leaves.len()).map(|this| this.with_leaves_inner(leaves, 0))
     }
 
-    pub(crate) fn from_leaves_inner(mut self, leaves: &[Prefixed<BRANCH_FACTOR, H>], with_offset: usize) -> Self {
+    pub(crate) fn with_leaves_inner(
+        mut self,
+        leaves: &[Prefixed<BRANCH_FACTOR, H>],
+        with_offset: usize,
+    ) -> Self {
         let mut i = with_offset;
-        
+
         for leaf in leaves {
             for h in leaf.hashes {
                 let (index, offset) = location_in_prefixed::<BRANCH_FACTOR>(i);
@@ -274,7 +295,7 @@ where
             for i in start_ind..next_layer_ind {
                 let offset = i & (BRANCH_FACTOR - 1); // index modulo BRANCH_FACTOR
                 let (j, _) = self.parent_index_and_base(i, h, start_ind);
-    
+
                 // hash concatenated siblings from the contiguous memory
                 // each element has (BRANCH_FACTOR-1) siblings
                 // store it as a parent hash
@@ -286,14 +307,25 @@ where
             next_layer_ind += d >> BRANCH_FACTOR.trailing_zeros();
         }
 
-        self.root = self.prefixed.iter().last().expect("prefixed buffer is not empty. qed").hash_all();
+        self.root = self
+            .prefixed
+            .iter()
+            .last()
+            .expect("prefixed buffer is not empty. qed")
+            .hash_all();
     }
 
     #[inline]
-    fn parent_index_and_base(&self, index: usize, layer: usize, layer_base: usize,) -> (usize, usize) {
+    fn parent_index_and_base(
+        &self,
+        index: usize,
+        layer: usize,
+        layer_base: usize,
+    ) -> (usize, usize) {
         let curr_layer_len = layer_size!(BRANCH_FACTOR, HEIGHT, layer);
         let parent_layer_base = layer_base + curr_layer_len;
-        let parent_index = parent_layer_base + ((index - layer_base) >> BRANCH_FACTOR.trailing_zeros());
+        let parent_index =
+            parent_layer_base + ((index - layer_base) >> BRANCH_FACTOR.trailing_zeros());
 
         (parent_index, parent_layer_base)
     }
@@ -311,14 +343,20 @@ where
 
             self.prefixed[j].hashes[offset] = parent_hashed;
         }
-        self.root = self.prefixed.iter().last().expect("prefixed buffer is not empty. qed").hash_all();
+        self.root = self
+            .prefixed
+            .iter()
+            .last()
+            .expect("prefixed buffer is not empty. qed")
+            .hash_all();
     }
 }
 
-impl<const BRANCH_FACTOR: usize, const HEIGHT: usize, H, const MAX_INPUT_LEN: usize, PB> StaticTreeTrait<BRANCH_FACTOR, H, PB>
+impl<const BRANCH_FACTOR: usize, const HEIGHT: usize, H, const MAX_INPUT_LEN: usize, PB>
+    StaticTreeTrait<BRANCH_FACTOR, H, PB>
     for StaticTree<BRANCH_FACTOR, HEIGHT, H, MAX_INPUT_LEN, PB>
 where
-    [(); num_of_prefixed!(BRANCH_FACTOR, HEIGHT)]: Sized,   
+    [(); num_of_prefixed!(BRANCH_FACTOR, HEIGHT)]: Sized,
     Assert<{ is_pow2!(BRANCH_FACTOR) }>: IsTrue,
     H: HashT,
     PB: ProofBuilder<BRANCH_FACTOR, H>,
@@ -346,7 +384,7 @@ where
         prefixed[1..prefixed_len].copy_from_slice(input);
 
         let (prefixed_index, offset) = location_in_prefixed::<BRANCH_FACTOR>(index);
-        
+
         self.prefixed[prefixed_index].hashes[offset] = H::hash(&prefixed[0..prefixed_len]);
         self.replace_inner(index);
     }
@@ -377,15 +415,15 @@ where
 impl<const BRANCH_FACTOR: usize, const HEIGHT: usize, H, const MAX_INPUT_LEN: usize, PB> Clone
     for StaticTree<BRANCH_FACTOR, HEIGHT, H, MAX_INPUT_LEN, PB>
 where
-    [(); num_of_prefixed!(BRANCH_FACTOR, HEIGHT)]: Sized,    
+    [(); num_of_prefixed!(BRANCH_FACTOR, HEIGHT)]: Sized,
     Assert<{ is_pow2!(BRANCH_FACTOR) }>: IsTrue,
     H: HashT,
     PB: ProofBuilder<BRANCH_FACTOR, H>,
 {
     fn clone(&self) -> Self {
         Self {
-            root: self.root.clone(),
-            prefixed: self.prefixed.clone(),
+            root: self.root,
+            prefixed: self.prefixed,
         }
     }
 }
@@ -393,7 +431,7 @@ where
 impl<const BRANCH_FACTOR: usize, const HEIGHT: usize, H, const MAX_INPUT_LEN: usize, PB> Copy
     for StaticTree<BRANCH_FACTOR, HEIGHT, H, MAX_INPUT_LEN, PB>
 where
-    [(); num_of_prefixed!(BRANCH_FACTOR, HEIGHT)]: Sized, 
+    [(); num_of_prefixed!(BRANCH_FACTOR, HEIGHT)]: Sized,
     Assert<{ is_pow2!(BRANCH_FACTOR) }>: IsTrue,
     H: HashT,
     PB: ProofBuilder<BRANCH_FACTOR, H>,
@@ -403,7 +441,7 @@ where
 impl<const BRANCH_FACTOR: usize, const HEIGHT: usize, H, const MAX_INPUT_LEN: usize, PB> Default
     for StaticTree<BRANCH_FACTOR, HEIGHT, H, MAX_INPUT_LEN, PB>
 where
-    [(); num_of_prefixed!(BRANCH_FACTOR, HEIGHT)]: Sized,  
+    [(); num_of_prefixed!(BRANCH_FACTOR, HEIGHT)]: Sized,
     Assert<{ is_pow2!(BRANCH_FACTOR) }>: IsTrue,
     H: HashT,
     PB: ProofBuilder<BRANCH_FACTOR, H>,
@@ -419,7 +457,7 @@ where
 impl<const BRANCH_FACTOR: usize, const HEIGHT: usize, H, const MAX_INPUT_LEN: usize, PB> PartialEq
     for StaticTree<BRANCH_FACTOR, HEIGHT, H, MAX_INPUT_LEN, PB>
 where
-    [(); num_of_prefixed!(BRANCH_FACTOR, HEIGHT)]: Sized, 
+    [(); num_of_prefixed!(BRANCH_FACTOR, HEIGHT)]: Sized,
     Assert<{ is_pow2!(BRANCH_FACTOR) }>: IsTrue,
     H: HashT,
     PB: ProofBuilder<BRANCH_FACTOR, H>,
@@ -432,7 +470,7 @@ where
 impl<const BRANCH_FACTOR: usize, const HEIGHT: usize, H, const MAX_INPUT_LEN: usize, PB> Debug
     for StaticTree<BRANCH_FACTOR, HEIGHT, H, MAX_INPUT_LEN, PB>
 where
-    [(); num_of_prefixed!(BRANCH_FACTOR, HEIGHT)]: Sized,  
+    [(); num_of_prefixed!(BRANCH_FACTOR, HEIGHT)]: Sized,
     Assert<{ is_pow2!(BRANCH_FACTOR) }>: IsTrue,
     H: HashT,
     PB: ProofBuilder<BRANCH_FACTOR, H>,
@@ -440,9 +478,16 @@ where
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> Result<(), core::fmt::Error> {
         writeln!(f, "[branch factor]:   {BRANCH_FACTOR}")?;
         writeln!(f, "[height]:          {HEIGHT}")?;
-        writeln!(f, "[num of prefixed]: {}", num_of_prefixed!(BRANCH_FACTOR, HEIGHT))?;
-        writeln!(f, "[total bytes]:     {}", 
-            size_of::<H::Output>() + size_of::<Prefixed<BRANCH_FACTOR, H>>() * num_of_prefixed!(BRANCH_FACTOR, HEIGHT)
+        writeln!(
+            f,
+            "[num of prefixed]: {}",
+            num_of_prefixed!(BRANCH_FACTOR, HEIGHT)
+        )?;
+        writeln!(
+            f,
+            "[total bytes]:     {}",
+            size_of::<H::Output>()
+                + size_of::<Prefixed<BRANCH_FACTOR, H>>() * num_of_prefixed!(BRANCH_FACTOR, HEIGHT)
         )?;
         writeln!(f, "[hash output len]: {} bytes", size_of::<H::Output>())?;
         write!(f, "{:?}", self.prefixed)

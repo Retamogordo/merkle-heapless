@@ -1,7 +1,7 @@
 [package]
 name = "mmr-macro"
 edition = "2021"
-version = "0.0.3"
+version = "0.0.4"
 description = "Macro for Merkle Mountain Range implementation with merkle-heapless"
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/Retamogordo/merkle-heapless"

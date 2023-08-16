@@ -1,7 +1,7 @@
 //use crate::HashT;
 
 #[inline]
-pub fn location_in_prefixed<const BRANCH_FACTOR: usize>(index: usize) -> (usize, usize) {     
+pub fn location_in_prefixed<const BRANCH_FACTOR: usize>(index: usize) -> (usize, usize) {
     let offset = index & (BRANCH_FACTOR - 1); // index modulo BRANCH_FACTOR
     let index = index >> BRANCH_FACTOR.trailing_zeros();
     (index, offset)
@@ -11,11 +11,9 @@ pub fn location_in_prefixed<const BRANCH_FACTOR: usize>(index: usize) -> (usize,
 /// total size of elements in a tree with given arity and height
 macro_rules! num_of_prefixed {
     ($branch_factor:expr, $height:expr) => {
-        ((1 << ($branch_factor.trailing_zeros() as usize * ($height))) - 1)
-            / ($branch_factor - 1)
+        ((1 << ($branch_factor.trailing_zeros() as usize * ($height))) - 1) / ($branch_factor - 1)
     };
 }
-
 
 #[macro_export]
 /// total size of elements in a tree with given arity and height
@@ -30,6 +28,7 @@ macro_rules! total_size {
 /// size of a layer at index in a tree with given arity and height
 macro_rules! layer_size {
     ($branch_factor:expr, $height:expr, $layer_index:expr) => {
+        //        1 << ($branch_factor.trailing_zeros() as usize * ($height - $layer_index))
         1 << ($branch_factor.trailing_zeros() as usize * ($height - $layer_index - 1))
     };
 }

@@ -18,10 +18,11 @@ This kind of tree is instantiated to its final size.
 ```rust
 use merkle_heapless::{StaticBinaryTree};
 use merkle_heapless::traits::{StaticTreeTrait, ProofValidator};
-// tree height 3, 8 leaves, 15 total nodes
+// tree height 3, 8 leaves
 const MAX_HEIGHT: usize = 3;
+const MAX_WORD_LEN: usize = 10;
 // supposing the YourHash struct exists
-let mut tree = StaticBinaryTree::<MAX_HEIGHT, YourHash>::try_from(
+let mut tree = StaticBinaryTree::<MAX_HEIGHT, YourHash, MAX_WORD_LEN>::try_from(
     &[b"apple", b"banana"]
 ).unwrap();
 
@@ -49,7 +50,7 @@ It's a generalized form of the above tree.
 use merkle_heapless::{StaticTree};
 
 const BRANCH_FACTOR: usize = 4;
-let mut tree = StaticTree::<BRANCH_FACTOR, MAX_HEIGHT, YourHash>::try_from(
+let mut tree = StaticTree::<BRANCH_FACTOR, MAX_HEIGHT, YourHash, MAX_WORD_LEN>::try_from(
     &[b"apple", b"banana"]
 ).unwrap();
 // same operations can be applied
@@ -105,8 +106,9 @@ use merkle_heapless::augmentable::{DefaultAugmentable};
 
 const BRANCH_FACTOR: usize = 4;
 const HEIGHT: usize = 3;
+const MAX_WORD_LEN: usize = 10;
 
-let mt1 = DefaultAugmentable::<BRANCH_FACTOR, HEIGHT, StdHash>::try_from(&[
+let mt1 = DefaultAugmentable::<BRANCH_FACTOR, HEIGHT, StdHash, MAX_WORD_LEN>::try_from(&[
     "apple", "apricot", "banana", "cherry",
 ]).unwrap();
 
@@ -118,7 +120,7 @@ You can ```try_merge``` a smaller (or equally-sized) tree into the original tree
 This operation does not imply augmentation, rather it fails if merge is not possible.
 ```rust
 // snip
-let mt2 = DefaultAugmentable::<BRANCH_FACTOR, HEIGHT_2, StdHash>::try_from(&[
+let mt2 = DefaultAugmentable::<BRANCH_FACTOR, HEIGHT_2, StdHash, MAX_WORD_LEN>::try_from(&[
     "kiwi", "lemon",
 ]).unwrap();
 
@@ -131,8 +133,9 @@ use merkle_heapless::compactable::{DefaultCompactable};
 
 const BRANCH_FACTOR: usize = 4;
 const HEIGHT: usize = 3;
+const MAX_WORD_LEN: usize = 10;
 
-let mut cmt = DefaultCompactable::<BRANCH_FACTOR, HEIGHT, StdHash>::try_from(&[
+let mut cmt = DefaultCompactable::<BRANCH_FACTOR, HEIGHT, StdHash, MAX_WORD_LEN>::try_from(&[
     "apple", "apricot", "banana", "cherry",
 ]).unwrap();
 
@@ -163,10 +166,10 @@ Include ```features = ["mmr_macro"]``` in the ```merkle-heapless``` dependency i
 // snip
 use merkle_heapless::{mmr_macro};
 // declaration with expicit type name for your MMR
-mmr_macro::mmr!(Type = FooMMR, BranchFactor = 2, Peaks = 3, Hash = StdHash);
+mmr_macro::mmr!(Type = FooMMR, BranchFactor = 2, Peaks = 3, Hash = StdHash, MaxInputWordLength = 10);
 let mmr = FooMMR::default();
 // implicitly creates MerkleMountainRange type
-mmr_macro::mmr!(BranchFactor = 2, Peaks = 5, Hash = StdHash);
+mmr_macro::mmr!(BranchFactor = 2, Peaks = 5, Hash = StdHash, MaxInputWordLength = 10);
 // create with default current peak of height 0
 let mmr = MerkleMountainRange::default();
 // or create with current peak of height 2

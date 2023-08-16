@@ -9,10 +9,10 @@
 //! ### Declaration and instantiation
 //! use merkle_heapless::{mmr_macro};
 //! // declaration with expicit type name for your MMR
-//! mmr_macro::mmr!(Type = FooMMR, BranchFactor = 2, Peaks = 3, Hash = StdHash);
+//! mmr_macro::mmr!(Type = FooMMR, BranchFactor = 2, Peaks = 3, Hash = StdHash, MaxInputWordLength = 10);
 //! let mmr = FooMMR::default();
 //! // implicitly creates MerkleMountainRange type
-//! mmr_macro::mmr!(BranchFactor = 2, Peaks = 5, Hash = StdHash);
+//! mmr_macro::mmr!(BranchFactor = 2, Peaks = 5, Hash = StdHash, MaxInputWordLength = 10);
 //! // create with default current peak of height 0
 //! let mmr = MerkleMountainRange::default();
 //! // or create with current peak of height 2
@@ -58,7 +58,7 @@ impl Parse for MMRInput {
         let maybe_type_ident = input.parse::<Ident>()?;
         let mmr_type: String;
 
-        if Self::TYPE_IDENT == &maybe_type_ident.to_string() {
+        if maybe_type_ident == Self::TYPE_IDENT {
             with_type = true;
             input.parse::<Token![=]>()?;
             mmr_type = input.parse::<Ident>()?.to_string();
@@ -74,10 +74,10 @@ impl Parse for MMRInput {
             maybe_type_ident
         };
 
-        if Self::BRANCH_FACTOR_IDENT != &branch_factor_ident.to_string() {
+        if branch_factor_ident != Self::BRANCH_FACTOR_IDENT {
             return Err(Error::new(
                 branch_factor_ident.span(),
-                &format!("expected {}", Self::BRANCH_FACTOR_IDENT),
+                format!("expected {}", Self::BRANCH_FACTOR_IDENT),
             ));
         }
         input.parse::<Token![=]>()?;
@@ -87,10 +87,10 @@ impl Parse for MMRInput {
         input.parse::<Token![,]>().expect(err_msg);
 
         let num_of_peaks_ident = input.parse::<Ident>().expect(err_msg);
-        if Self::NUM_OF_PEAKS != &num_of_peaks_ident.to_string() {
+        if num_of_peaks_ident != Self::NUM_OF_PEAKS {
             return Err(Error::new(
                 num_of_peaks_ident.span(),
-                &format!("expected {}", Self::NUM_OF_PEAKS),
+                format!("expected {}", Self::NUM_OF_PEAKS),
             ));
         }
         input.parse::<Token![=]>().expect(err_msg);
@@ -100,10 +100,10 @@ impl Parse for MMRInput {
         input.parse::<Token![,]>().expect(err_msg);
 
         let hash_type_ident = input.parse::<Ident>().expect(err_msg);
-        if Self::HASH_TYPE_IDENT != &hash_type_ident.to_string() {
+        if hash_type_ident != Self::HASH_TYPE_IDENT {
             return Err(Error::new(
                 hash_type_ident.span(),
-                &format!("{}, expected {}", err_msg, Self::HASH_TYPE_IDENT),
+                format!("{}, expected {}", err_msg, Self::HASH_TYPE_IDENT),
             ));
         }
         input.parse::<Token![=]>().expect(err_msg);
@@ -113,10 +113,10 @@ impl Parse for MMRInput {
         input.parse::<Token![,]>().expect(err_msg);
 
         let max_input_len_ident = input.parse::<Ident>().expect(err_msg);
-        if Self::MAX_INPUT_LEN_IDENT != &max_input_len_ident.to_string() {
+        if max_input_len_ident != Self::MAX_INPUT_LEN_IDENT {
             return Err(Error::new(
                 max_input_len_ident.span(),
-                &format!("{}, expected {}", err_msg, Self::MAX_INPUT_LEN_IDENT),
+                format!("{}, expected {}", err_msg, Self::MAX_INPUT_LEN_IDENT),
             ));
         }
         input.parse::<Token![=]>().expect(err_msg);
@@ -167,14 +167,16 @@ pub fn mmr(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
         proc_macro2::Span::call_site(),
     );
     let hash_type = syn::Ident::new(&input.hash_type, proc_macro2::Span::call_site());
-    let max_input_len = LitInt::new(&input.max_input_len.to_string(), proc_macro2::Span::call_site());
-                            
+    let max_input_len = LitInt::new(
+        &input.max_input_len.to_string(),
+        proc_macro2::Span::call_site(),
+    );
+
     let mod_ident = syn::Ident::new(
         &input.mmr_type.to_case(Case::Snake),
         proc_macro2::Span::call_site(),
     );
 
-//    let peak_variant_def_idents = (0..input.num_of_peaks + 1)
     let peak_variant_def_idents = (0..input.num_of_peaks)
         .map(|i| {
             (
@@ -305,209 +307,209 @@ pub fn mmr(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     };
 
     let output = quote! {
-        mod #mod_ident {
-            use merkle_heapless::{StaticTree};
-            use merkle_heapless::augmentable::{AugmentableTree};
-            use merkle_heapless::traits::{HashT, StaticTreeTrait, AppendOnly};
-            use merkle_heapless::proof::{Proof, chain_proofs};
-            use merkle_heapless::prefixed::{Prefixed};
-            use super::#hash_type;
+            mod #mod_ident {
+                use merkle_heapless::{StaticTree, Error};
+                use merkle_heapless::augmentable::{AugmentableTree};
+                use merkle_heapless::traits::{HashT, StaticTreeTrait, AppendOnly};
+                use merkle_heapless::proof::{Proof, chain_proofs};
+                use merkle_heapless::prefixed::{Prefixed};
+                use super::#hash_type;
 
-            type #mmr_peak_proof_type = Proof<#branch_factor, #peak_height, #hash_type, #max_input_len>;
-            type #mmr_proof_type = Proof<#branch_factor, #total_height, #hash_type, #max_input_len>;
+                type #mmr_peak_proof_type = Proof<#branch_factor, #peak_height, #hash_type, #max_input_len>;
+                type #mmr_proof_type = Proof<#branch_factor, #total_height, #hash_type, #max_input_len>;
 
-            #[derive(Debug)]
-            pub enum #mmr_peak_type {
-                #(#peak_variant_def_tokens),*
-            }
-
-            impl Clone for #mmr_peak_type {
-                fn clone(&self) -> Self {
-                    use #mmr_peak_type::*;
-                    match self {
-                        #(#clone_impl_variant_def_tokens),*
-                    }
-                }
-            }
-
-            impl Default for #mmr_peak_type {
-                fn default() -> Self {
-                    use #mmr_peak_type::*;
-                    #default_variant_def_token
-                }
-            }
-
-            impl Copy for #mmr_peak_type {}
-
-            impl #mmr_peak_type {
-                pub fn try_augment_and_merge(self, other: Self) -> Result<Self, ()> {
-                    use #mmr_peak_type::{*};
-                    match (self, other) {
-                        #(#augment_and_merge_variant_def_tokens),*,
-                        _ => Err(()),
-                    }
-                }
-                pub fn try_augment(self) -> Result<Self, ()> {
-                    use #mmr_peak_type::{*};
-                    match self {
-                        #(#augment_variant_def_tokens),*,
-                        _ => Err(()),
-                    }
-                }
-            }
-
-            impl StaticTreeTrait<#branch_factor, #hash_type, #mmr_peak_proof_type> for #mmr_peak_type {
-                fn generate_proof(&mut self, index: usize) -> #mmr_peak_proof_type {
-                    #impl_mut_method_body_token.generate_proof(index)
-                }
-                fn replace(&mut self, index: usize, input: &[u8]) {
-                    #impl_mut_method_body_token.replace(index, input)
-                }
-                fn replace_leaf(&mut self, index: usize, leaf: <#hash_type as HashT>::Output) {
-                    #impl_mut_method_body_token.replace_leaf(index, leaf)
-                }
-                fn root(&self) -> <#hash_type as HashT>::Output {
-                    #impl_method_body_token.root()
-                }
-                fn leaves(&self) -> &[Prefixed<#branch_factor, #hash_type>] {
-                    #impl_method_body_token.leaves()
-                }
-                fn base_layer_size(&self) -> usize {
-                    #impl_method_body_token.base_layer_size()
-                }
-                fn branch_factor(&self) -> usize {
-                    #impl_method_body_token.branch_factor()
-                }
-                fn height(&self) -> usize {
-                    #impl_method_body_token.height()
-                }
-            }
-
-            impl AppendOnly for #mmr_peak_type {
-                fn try_append(&mut self, input: &[u8]) -> Result<(), ()> {
-                    #impl_mut_append_only_method_body_token.try_append(input)
-                }
-                fn num_of_leaves(&self) -> usize {
-                    #impl_append_only_method_body_token.num_of_leaves()
-                }
-            }
-
-            pub struct #mmr_type
-            where
-                [(); #num_of_peaks]: Sized,
-            {
-                // the tree that generates the entire proof by chaining a peak's proof
-                summit_tree: StaticTree<#branch_factor, #summit_height, #hash_type, #max_input_len>,
-                peaks: [#mmr_peak_type; #num_of_peaks],
-                curr_peak_index: usize,
-                num_of_leaves: usize,
-            }
-
-            impl #mmr_type
-            where
-                [(); #num_of_peaks]: Sized,
-            {
-                pub fn from_peak(peak: #mmr_peak_type) -> Self {
-                    let mut this = Self {
-                        summit_tree: StaticTree::<#branch_factor, #summit_height, #hash_type, #max_input_len>::default(),
-                        peaks: [#mmr_peak_type::default(); #num_of_peaks],
-                        curr_peak_index: 0,
-                        num_of_leaves: 0,
-                    };
-                    this.peaks[0] = peak;
-                    this
+                #[derive(Debug)]
+                pub enum #mmr_peak_type {
+                    #(#peak_variant_def_tokens),*
                 }
 
-                fn merge_collapse(&mut self) {
-                    let mut i = self.curr_peak_index;
-                    // back propagate and merge peaks while possible
-                    // the indicator that two peaks can merge is that they have the same rank (can check height or num_of_leaves)
-                    while i > 0 
-                        && self.peaks[i].height() == self.peaks[i - 1].height() 
-                        && self.peaks[i].num_of_leaves() == self.peaks[i - 1].num_of_leaves() {
-
-                        match self.peaks[i - 1].try_augment_and_merge(self.peaks[i]) {
-                            Ok(peak) => { self.peaks[i - 1] = peak; },
-                            Err(_) => break,
+                impl Clone for #mmr_peak_type {
+                    fn clone(&self) -> Self {
+                        use #mmr_peak_type::*;
+                        match self {
+                            #(#clone_impl_variant_def_tokens),*
                         }
-                        self.peaks[i] = Default::default();
-                        i -= 1;
                     }
-                    self.curr_peak_index = i;
                 }
 
-                pub fn try_append(&mut self, input: &[u8]) -> Result<(), ()> {
-                    self.peaks[self.curr_peak_index]
-                        // try to append item to the current peak
-                        .try_append(input)
-                        // if couldn't append, it's because the underlying tree is full
-                        .or_else(|_| {
-                            // so if the current peak is not last...
-                            if self.curr_peak_index < #num_of_peaks - 1 {
-                                // move to the next peak and set it the new current one
-                                self.curr_peak_index += 1;
-                            } else {
-                                // try to augment the last peak
-                                self.peaks[self.curr_peak_index] = self.peaks[self.curr_peak_index].try_augment()?;
+                impl Default for #mmr_peak_type {
+                    fn default() -> Self {
+                        use #mmr_peak_type::*;
+                        #default_variant_def_token
+                    }
+                }
+
+                impl Copy for #mmr_peak_type {}
+
+                impl #mmr_peak_type {
+                    pub fn try_augment_and_merge(self, other: Self) -> Result<Self, Error> {
+                        use #mmr_peak_type::{*};
+                        match (self, other) {
+                            #(#augment_and_merge_variant_def_tokens),*,
+                            _ => Err(Error::Merge),
+                        }
+                    }
+                    pub fn try_augment(self) -> Result<Self, Error> {
+                        use #mmr_peak_type::{*};
+                        match self {
+                            #(#augment_variant_def_tokens),*,
+                            _ => Err(Error::Merge),
+                        }
+                    }
+                }
+
+                impl StaticTreeTrait<#branch_factor, #hash_type, #mmr_peak_proof_type> for #mmr_peak_type {
+                    fn generate_proof(&mut self, index: usize) -> #mmr_peak_proof_type {
+                        #impl_mut_method_body_token.generate_proof(index)
+                    }
+                    fn replace(&mut self, index: usize, input: &[u8]) {
+                        #impl_mut_method_body_token.replace(index, input)
+                    }
+                    fn replace_leaf(&mut self, index: usize, leaf: <#hash_type as HashT>::Output) {
+                        #impl_mut_method_body_token.replace_leaf(index, leaf)
+                    }
+                    fn root(&self) -> <#hash_type as HashT>::Output {
+                        #impl_method_body_token.root()
+                    }
+                    fn leaves(&self) -> &[Prefixed<#branch_factor, #hash_type>] {
+                        #impl_method_body_token.leaves()
+                    }
+                    fn base_layer_size(&self) -> usize {
+                        #impl_method_body_token.base_layer_size()
+                    }
+                    fn branch_factor(&self) -> usize {
+                        #impl_method_body_token.branch_factor()
+                    }
+                    fn height(&self) -> usize {
+                        #impl_method_body_token.height()
+                    }
+                }
+
+                impl AppendOnly for #mmr_peak_type {
+                    fn try_append(&mut self, input: &[u8]) -> Result<(), Error> {
+                        #impl_mut_append_only_method_body_token.try_append(input)
+                    }
+                    fn num_of_leaves(&self) -> usize {
+                        #impl_append_only_method_body_token.num_of_leaves()
+                    }
+                }
+
+                pub struct #mmr_type
+                where
+                    [(); #num_of_peaks]: Sized,
+                {
+                    // the tree that generates the entire proof by chaining a peak's proof
+                    summit_tree: StaticTree<#branch_factor, #summit_height, #hash_type, #max_input_len>,
+                    peaks: [#mmr_peak_type; #num_of_peaks],
+                    curr_peak_index: usize,
+                    num_of_leaves: usize,
+                }
+
+                impl #mmr_type
+                where
+                    [(); #num_of_peaks]: Sized,
+                {
+                    pub fn from_peak(peak: #mmr_peak_type) -> Self {
+                        let mut this = Self {
+                            summit_tree: StaticTree::<#branch_factor, #summit_height, #hash_type, #max_input_len>::default(),
+                            peaks: [#mmr_peak_type::default(); #num_of_peaks],
+                            curr_peak_index: 0,
+                            num_of_leaves: 0,
+                        };
+                        this.peaks[0] = peak;
+                        this
+                    }
+
+                    fn merge_collapse(&mut self) {
+                        let mut i = self.curr_peak_index;
+                        // back propagate and merge peaks while possible
+                        // the indicator that two peaks can merge is that they have the same rank (can check height or num_of_leaves)
+                        while i > 0
+    //                        && self.peaks[i].height() == self.peaks[i - 1].height()
+                            && self.peaks[i].num_of_leaves() == self.peaks[i - 1].num_of_leaves() {
+
+                            match self.peaks[i - 1].try_augment_and_merge(self.peaks[i]) {
+                                Ok(peak) => { self.peaks[i - 1] = peak; },
+                                Err(_) => break,
                             }
-                            // now try append the item to the new peak
-                            self.peaks[self.curr_peak_index].try_append(input)
-                        })
-                        .map(|_| {
-                            // now back propagate the peaks and merge them if necessary
-                            self.merge_collapse();
-
-                            let root = self.peaks[self.curr_peak_index].root();
-                            self.summit_tree.replace_leaf(self.curr_peak_index, root);
-
-                            self.num_of_leaves += 1;
-                        })
-                }
-
-                // panics if the index is out of bounds
-                pub fn generate_proof(&mut self, index: usize) -> #mmr_proof_type {
-                    let mut accrue_len = 0;
-                    let mut i = 0;
-                    // find the peak corresponding to the index
-                    while accrue_len + self.peaks[i].num_of_leaves() <= index {
-                        accrue_len += self.peaks[i].num_of_leaves();
-                        i += 1;
+                            self.peaks[i] = Default::default();
+                            i -= 1;
+                        }
+                        self.curr_peak_index = i;
                     }
-                    // make thy entire proof by chaining the peak proof
-                    // to the upper tree proof
-                    chain_proofs(
-                        self.peaks[i].generate_proof(index - accrue_len),
-                        self.summit_tree.generate_proof(i)
-                    )
+
+                    pub fn try_append(&mut self, input: &[u8]) -> Result<(), Error> {
+                        self.peaks[self.curr_peak_index]
+                            // try to append item to the current peak
+                            .try_append(input)
+                            // if couldn't append, it's because the underlying tree is full
+                            .or_else(|_| {
+                                // so if the current peak is not last...
+                                if self.curr_peak_index < #num_of_peaks - 1 {
+                                    // move to the next peak and set it the new current one
+                                    self.curr_peak_index += 1;
+                                } else {
+                                    // try to augment the last peak
+                                    self.peaks[self.curr_peak_index] = self.peaks[self.curr_peak_index].try_augment()?;
+                                }
+                                // now try append the item to the new peak
+                                self.peaks[self.curr_peak_index].try_append(input)
+                            })
+                            .map(|_| {
+                                // now back propagate the peaks and merge them if necessary
+                                self.merge_collapse();
+
+                                let root = self.peaks[self.curr_peak_index].root();
+                                self.summit_tree.replace_leaf(self.curr_peak_index, root);
+
+                                self.num_of_leaves += 1;
+                            })
+                    }
+
+                    // panics if the index is out of bounds
+                    pub fn generate_proof(&mut self, index: usize) -> #mmr_proof_type {
+                        let mut accrue_len = 0;
+                        let mut i = 0;
+                        // find the peak corresponding to the index
+                        while accrue_len + self.peaks[i].num_of_leaves() <= index {
+                            accrue_len += self.peaks[i].num_of_leaves();
+                            i += 1;
+                        }
+                        // make thy entire proof by chaining the peak proof
+                        // to the upper tree proof
+                        chain_proofs(
+                            self.peaks[i].generate_proof(index - accrue_len),
+                            self.summit_tree.generate_proof(i)
+                        )
+                    }
+
+                    pub fn base_layer_size(&self) -> usize {
+                        self.peaks.iter().map(|peak| peak.base_layer_size()).sum()
+                    }
+                    pub fn num_of_leaves(&self) -> usize {
+                        self.num_of_leaves
+                    }
+                    pub fn curr_peak_index(&self) -> usize {
+                        self.curr_peak_index
+                    }
+                    pub fn peaks(&self) -> &[#mmr_peak_type] {
+                        &self.peaks[..]
+                    }
                 }
 
-                pub fn base_layer_size(&self) -> usize {
-                    self.peaks.iter().map(|peak| peak.base_layer_size()).sum()
-                }
-                pub fn num_of_leaves(&self) -> usize {
-                    self.num_of_leaves
-                }
-                pub fn curr_peak_index(&self) -> usize {
-                    self.curr_peak_index
-                }
-                pub fn peaks(&self) -> &[#mmr_peak_type] {
-                    &self.peaks[..]
-                }
+                impl Default for #mmr_type
+                where
+                    [(); #num_of_peaks]: Sized,
+                    {
+                        fn default() -> Self {
+                            Self::from_peak(Default::default())
+                        }
+                    }
             }
 
-            impl Default for #mmr_type
-            where
-                [(); #num_of_peaks]: Sized,
-                {
-                    fn default() -> Self {
-                        Self::from_peak(Default::default())
-                    }
-                }
-        }
-
-        use #mod_ident::#mmr_type as #mmr_type;
-        use #mod_ident::#mmr_peak_type as #mmr_peak_type;
-    };
+            use #mod_ident::#mmr_type as #mmr_type;
+            use #mod_ident::#mmr_peak_type as #mmr_peak_type;
+        };
 
     proc_macro::TokenStream::from(output)
 }
