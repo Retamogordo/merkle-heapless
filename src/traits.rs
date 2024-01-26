@@ -6,16 +6,27 @@ use core::hash::Hash;
 impl<const BRANCH_FACTOR: usize, H: HashT> PartialEq for Prefixed<BRANCH_FACTOR, H> {
     fn eq(&self, other: &Self) -> bool {
         self.hashes == other.hashes
-        //self.prefixed.hashes == other.prefixed.hashes
     }
 }
 
 /// trait for a hash pluggable to Merkle tree at compile time
 pub trait HashT {
     /// output returned by hash implementor
-    type Output: Hash + Default + Copy + AsRef<[u8]> + PartialEq + Debug;
+    type Output: Hash + Default + Copy + PartialEq + Debug;
     /// hash implementation
     fn hash(input: &[u8]) -> Self::Output;
+    /// default implementation for concatenating and hashing hash values contained in the nodes
+    /// used by proof items for hashing with prefix
+    fn concat_then_hash(hashes: &[Self::Output]) -> Self::Output {
+        unsafe {
+            Self::hash(
+                core::slice::from_raw_parts(
+                    hashes.as_ref().as_ptr() as *const u8,
+                    core::mem::size_of::<Self::Output>() * hashes.len(),
+                )
+            )
+        }
+    }
 }
 /// trait that an item contained in a proof implements.
 /// [ProofBuilder] implementor relies on it
@@ -33,8 +44,6 @@ pub trait ProofBuilder<const BRANCH_FACTOR: usize, H: HashT>: Default {
     type Item: ProofItemT<BRANCH_FACTOR, H>;
     /// create a proof instance and assign its root
     fn from_root(root: H::Output) -> Self;
-    /// return proof's root
-    fn root(&self) -> H::Output;
     /// add a new item to proof
     fn push(&mut self, offset: usize, prefixed: Prefixed<BRANCH_FACTOR, H>);
 }

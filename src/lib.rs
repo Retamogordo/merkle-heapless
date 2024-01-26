@@ -68,7 +68,7 @@
 //! // stands for the maximum possible length of the longest input word
 //! const MAX_INPUT_WORD_LEN: usize = 10;
 //! // supposing the YourHash struct exists
-//! let mut tree = StaticBinaryTree::<MAX_HEIGHT, YourHash, MAX_INPUT_WORD_LEN>::try_from(
+//! let mut tree = StaticBinaryTree::<MAX_HEIGHT, YourHash, MAX_INPUT_WORD_LEN>::try_from::<&[u8]>(
 //!     &[b"apple", b"banana"]
 //! ).unwrap();
 //!
@@ -97,7 +97,7 @@
 //!
 //! const BRANCH_FACTOR: usize = 4;
 //! const MAX_INPUT_WORD_LEN: usize = 10;
-//! let mut tree = StaticTree::<BRANCH_FACTOR, MAX_HEIGHT, YourHash, MAX_INPUT_WORD_LEN>::try_from(
+//! let mut tree = StaticTree::<BRANCH_FACTOR, MAX_HEIGHT, YourHash, MAX_INPUT_WORD_LEN>::try_from::<&[u8]>(
 //!     &[b"apple", b"banana"]
 //! ).unwrap();
 //! // same operations can be applied
@@ -159,6 +159,7 @@ pub use mmr_macro;
 
 use core::fmt::Debug;
 use core::mem::size_of;
+use core::ops::Deref;
 
 use crate::prefixed::Prefixed;
 use crate::proof::Proof;
@@ -220,7 +221,7 @@ where
     }
 
     /// creates a tree from an input if possible
-    pub fn try_from(input: &[&[u8]]) -> Result<Self, Error> {
+    pub fn try_from<T: AsRef<[u8]> + Deref<Target = [u8]>>(input: &[T]) -> Result<Self, Error> {
         Self::create(input.len()).map(|this| this.create_inner(input, 0))
     }
 
@@ -244,15 +245,16 @@ where
         }
     }
 
-    pub(crate) fn create_inner(mut self, input: &[&[u8]], with_offset: usize) -> Self {
+    pub(crate) fn create_inner<T: AsRef<[u8]> + Deref<Target = [u8]>>(mut self, input: &[T], with_offset: usize) -> Self {
         let mut prefixed = [0u8; MAX_INPUT_LEN];
 
+        let start_index = if input.iter().map(|d| d.len()).max() < Some(MAX_INPUT_LEN) {1} else {0};
         // fill the base layer
         for (i, d) in input.iter().enumerate() {
-            prefixed[1..d.len() + 1].copy_from_slice(d);
+            prefixed[start_index..d.len() + start_index].copy_from_slice(d.as_ref());
 
             let (index, offset) = location_in_prefixed::<BRANCH_FACTOR>(i + with_offset);
-            self.prefixed[index].hashes[offset] = H::hash(&prefixed[0..d.len() + 1]);
+            self.prefixed[index].hashes[offset] = H::hash(&prefixed[0..d.len() + start_index]);
         }
 
         self.pad_leaves(input.len());
@@ -260,6 +262,7 @@ where
         self.fill_layers();
         self
     }
+
     /// creates a tree from hashed leaves (of another tree)
     pub fn try_from_leaves(leaves: &[Prefixed<BRANCH_FACTOR, H>]) -> Result<Self, Error> {
         Self::create(leaves.len()).map(|this| this.with_leaves_inner(leaves, 0))

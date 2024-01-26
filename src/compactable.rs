@@ -4,7 +4,7 @@
 //! const BRANCH_FACTOR: usize = 4;
 //! const HEIGHT: usize = 3;
 //!
-//! let mut cmt = DefaultCompactable::<BRANCH_FACTOR, HEIGHT, StdHash>::try_from(&[
+//! let mut cmt = DefaultCompactable::<BRANCH_FACTOR, HEIGHT, StdHash>::try_from::<&[u8]>(&[
 //!     "apple", "apricot", "banana", "cherry",
 //! ]).unwrap();
 //!
@@ -29,6 +29,7 @@ pub type DefaultCompactable<
     Proof<BRANCH_FACTOR, HEIGHT, H, MAX_INPUT_LEN>,
 >;
 
+use core::ops::Deref;
 use crate::traits::CanRemove;
 use crate::{
     is_pow2, layer_size, location_in_prefixed, max_leaves, num_of_prefixed, Assert, HashT, IsTrue,
@@ -64,7 +65,7 @@ where
     PB: ProofBuilder<BRANCH_FACTOR, H>,
 {
     /// creates a tree from an input if possible
-    pub fn try_from(input: &[&[u8]]) -> Result<Self, Error> {
+    pub fn try_from<T: AsRef<[u8]> + Deref<Target = [u8]>>(input: &[T]) -> Result<Self, Error> {
         let mut this = Self {
             tree: StaticTree::try_from(input)?,
             num_of_leaves: input.len(),

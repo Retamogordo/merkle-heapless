@@ -22,7 +22,7 @@ use merkle_heapless::traits::{StaticTreeTrait, ProofValidator};
 const MAX_HEIGHT: usize = 3;
 const MAX_WORD_LEN: usize = 10;
 // supposing the YourHash struct exists
-let mut tree = StaticBinaryTree::<MAX_HEIGHT, YourHash, MAX_WORD_LEN>::try_from(
+let mut tree = StaticBinaryTree::<MAX_HEIGHT, YourHash, MAX_WORD_LEN>::try_from::<&[u8]>(
     &[b"apple", b"banana"]
 ).unwrap();
 
@@ -50,7 +50,7 @@ It's a generalized form of the above tree.
 use merkle_heapless::{StaticTree};
 
 const BRANCH_FACTOR: usize = 4;
-let mut tree = StaticTree::<BRANCH_FACTOR, MAX_HEIGHT, YourHash, MAX_WORD_LEN>::try_from(
+let mut tree = StaticTree::<BRANCH_FACTOR, MAX_HEIGHT, YourHash, MAX_WORD_LEN>::try_from::<&[u8]>(
     &[b"apple", b"banana"]
 ).unwrap();
 // same operations can be applied
@@ -108,7 +108,7 @@ const BRANCH_FACTOR: usize = 4;
 const HEIGHT: usize = 3;
 const MAX_WORD_LEN: usize = 10;
 
-let mt1 = DefaultAugmentable::<BRANCH_FACTOR, HEIGHT, StdHash, MAX_WORD_LEN>::try_from(&[
+let mt1 = DefaultAugmentable::<BRANCH_FACTOR, HEIGHT, StdHash, MAX_WORD_LEN>::try_from::<&[u8]>(&[
     "apple", "apricot", "banana", "cherry",
 ]).unwrap();
 
@@ -120,7 +120,7 @@ You can ```try_merge``` a smaller (or equally-sized) tree into the original tree
 This operation does not imply augmentation, rather it fails if merge is not possible.
 ```rust
 // snip
-let mt2 = DefaultAugmentable::<BRANCH_FACTOR, HEIGHT_2, StdHash, MAX_WORD_LEN>::try_from(&[
+let mt2 = DefaultAugmentable::<BRANCH_FACTOR, HEIGHT_2, StdHash, MAX_WORD_LEN>::try_from::<&[u8]>(&[
     "kiwi", "lemon",
 ]).unwrap();
 
@@ -135,7 +135,7 @@ const BRANCH_FACTOR: usize = 4;
 const HEIGHT: usize = 3;
 const MAX_WORD_LEN: usize = 10;
 
-let mut cmt = DefaultCompactable::<BRANCH_FACTOR, HEIGHT, StdHash, MAX_WORD_LEN>::try_from(&[
+let mut cmt = DefaultCompactable::<BRANCH_FACTOR, HEIGHT, StdHash, MAX_WORD_LEN>::try_from::<&[u8]>(&[
     "apple", "apricot", "banana", "cherry",
 ]).unwrap();
 

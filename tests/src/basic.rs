@@ -46,7 +46,7 @@ mod basic {
 
     #[test]
     fn basic_1() {
-        let mut mt = StaticTree::<2, 1, Blake2_256Hash, 100>::try_from(&[b"apple"]);
+        let mut mt = StaticTree::<2, 1, Blake2_256Hash, 100>::try_from::<&[u8]>(&[b"apple"]);
         let word_index = 0;
         let proof = mt.as_mut().unwrap().generate_proof(word_index);
         let word: &str = "apple";
@@ -63,7 +63,7 @@ mod basic {
 
     #[test]
     fn validate_default_padding_word_4branches() {
-        let mut mt = StaticTree::<4, 6, Blake2_256Hash, 15>::try_from(&[
+        let mut mt = StaticTree::<4, 6, Blake2_256Hash, 15>::try_from::<&[u8]>(&[
             b"apple", b"banana", b"kiwi", b"kotleta",
         ]);
         let word_index = 7;
@@ -85,7 +85,7 @@ mod basic {
         const HEIGHT: usize = 4;
         const BRANCH_FACTOR: usize = 2;
 
-        let mut mt = StaticTree::<BRANCH_FACTOR, HEIGHT, Blake2_256Hash, 100>::try_from(&[
+        let mut mt = StaticTree::<BRANCH_FACTOR, HEIGHT, Blake2_256Hash, 100>::try_from::<&[u8]>(&[
             b"apple", b"banana", b"kiwi", b"kotleta",
         ]);
         let word_index = 7;
@@ -97,7 +97,7 @@ mod basic {
 
     #[test]
     fn fail_creating_merkle_tree_too_few_layers_for_input() {
-        let mt = StaticBinaryTree::<2, StdHash, 100>::try_from(&[
+        let mt = StaticBinaryTree::<2, StdHash, 100>::try_from::<&[u8]>(&[
             b"apple", b"banana", b"kiwi", b"kotleta", b"apple", b"banana", b"kiwi", b"kotleta",
             b"apple",
         ]);
@@ -109,7 +109,7 @@ mod basic {
     fn insert_replace_binary() {
         const HEIGHT: usize = 4;
         const BRANCH_FACTOR: usize = 2;
-        let mut mt = StaticTree::<BRANCH_FACTOR, HEIGHT, StdHash, 100>::try_from(&[
+        let mut mt = StaticTree::<BRANCH_FACTOR, HEIGHT, StdHash, 100>::try_from::<&[u8]>(&[
             b"apple", b"banana", b"kiwi", b"kotleta",
         ]);
         let word_index = 6;
@@ -132,7 +132,7 @@ mod basic {
     fn insert_replace_branch_factor_8() {
         const HEIGHT: usize = 4;
         const BRANCH_FACTOR: usize = 8;
-        let mut mt = StaticTree::<BRANCH_FACTOR, HEIGHT, StdHash, 100>::try_from(&[
+        let mut mt = StaticTree::<BRANCH_FACTOR, HEIGHT, StdHash, 100>::try_from::<&[u8]>(&[
             b"apple", b"banana", b"kiwi", b"kotleta",
         ]);
         let word_index = 32;
@@ -155,7 +155,7 @@ mod basic {
     #[should_panic]
     fn fail_insertion_out_of_bound() {
         let mut mt =
-            StaticTree::<4, 1, StdHash, 100>::try_from(&[b"apple", b"banana", b"kiwi", b"kotleta"]);
+            StaticTree::<4, 1, StdHash, 100>::try_from::<&[u8]>(&[b"apple", b"banana", b"kiwi", b"kotleta"]);
         let word_index = 8;
 
         mt.as_mut().unwrap().replace(word_index, b"ciruela");
@@ -187,7 +187,7 @@ mod basic {
             "blackcurrant",
             "cherry",
         ];
-        let mut mt = StaticTree::<BRANCH_FACTOR, HEIGHT, StdHash, 100>::try_from(
+        let mut mt = StaticTree::<BRANCH_FACTOR, HEIGHT, StdHash, 100>::try_from::<&[u8]>(
             &words.iter().map(|w| w.as_bytes()).collect::<Vec<_>>(),
         );
 
@@ -225,7 +225,7 @@ mod basic {
             "blackcurrant",
             "cherry",
         ];
-        let mut mt = StaticTree::<BRANCH_FACTOR, HEIGHT, StdHash, 100>::try_from(
+        let mut mt = StaticTree::<BRANCH_FACTOR, HEIGHT, StdHash, 100>::try_from::<&[u8]>(
             &words.iter().map(|w| w.as_bytes()).collect::<Vec<_>>(),
         );
 
@@ -252,7 +252,7 @@ mod basic {
             "blackcurrant",
             "cherry",
         ];
-        let mt = StaticTree::<BRANCH_FACTOR, HEIGHT, StdHash, 100>::try_from(
+        let mt = StaticTree::<BRANCH_FACTOR, HEIGHT, StdHash, 100>::try_from::<&[u8]>(
             &words.iter().map(|w| w.as_bytes()).collect::<Vec<_>>(),
         );
 
@@ -275,7 +275,7 @@ mod basic {
             "blackcurrant",
             "cherry",
         ];
-        let mt = StaticTree::<BRANCH_FACTOR, HEIGHT, StdHash, 100>::try_from(
+        let mt = StaticTree::<BRANCH_FACTOR, HEIGHT, StdHash, 100>::try_from::<&[u8]>(
             &words.iter().map(|w| w.as_bytes()).collect::<Vec<_>>(),
         );
 
@@ -290,7 +290,7 @@ mod basic {
     fn try_reduce() {
         const HEIGHT: usize = 4;
         const BRANCH_FACTOR: usize = 2;
-        let cmt = DefaultCompactable::<BRANCH_FACTOR, HEIGHT, StdHash, 100>::try_from(&[
+        let cmt = DefaultCompactable::<BRANCH_FACTOR, HEIGHT, StdHash, 100>::try_from::<&[u8]>(&[
             b"apple", b"banana", b"kiwi", b"kotleta",
         ])
         .unwrap();
@@ -312,7 +312,7 @@ mod basic {
             "blackberry",
             "blackcurrant",
         ];
-        let cmt = DefaultCompactable::<BRANCH_FACTOR, HEIGHT, StdHash, 100>::try_from(
+        let cmt = DefaultCompactable::<BRANCH_FACTOR, HEIGHT, StdHash, 100>::try_from::<&[u8]>(
             &words.iter().map(|w| w.as_bytes()).collect::<Vec<_>>(),
         )
         .unwrap();
@@ -325,7 +325,7 @@ mod basic {
         const HEIGHT: usize = 1;
         const BRANCH_FACTOR: usize = 2;
         let mut cmt =
-            DefaultCompactable::<BRANCH_FACTOR, HEIGHT, StdHash, 100>::try_from(&[b"apple"])
+            DefaultCompactable::<BRANCH_FACTOR, HEIGHT, StdHash, 100>::try_from::<&[u8]>(&[b"apple"])
                 .unwrap();
 
         println!("before removal: {:?}", cmt);
@@ -348,7 +348,7 @@ mod basic {
         let words: &[&str] = &["apple", "apricot", "banana", "kiwi", "kotleta"];
         let test_words: &[&str] = &["apple", "apricot", "kiwi", "kotleta"];
 
-        let mut cmt = DefaultCompactable::<BRANCH_FACTOR, HEIGHT, StdHash, 100>::try_from(
+        let mut cmt = DefaultCompactable::<BRANCH_FACTOR, HEIGHT, StdHash, 100>::try_from::<&[u8]>(
             &words.iter().map(|w| w.as_bytes()).collect::<Vec<_>>(),
         )
         .unwrap();
@@ -372,7 +372,7 @@ mod basic {
         let words: &[&str] = &["apple", "apricot", "banana", "kiwi", "kotleta"];
         let test_words: &[&str] = &["cherry", "kiwi", "kotleta", "ciruela"];
 
-        let mut cmt = DefaultCompactable::<BRANCH_FACTOR, HEIGHT, StdHash, 100>::try_from(
+        let mut cmt = DefaultCompactable::<BRANCH_FACTOR, HEIGHT, StdHash, 100>::try_from::<&[u8]>(
             &words.iter().map(|w| w.as_bytes()).collect::<Vec<_>>(),
         )
         .unwrap();
@@ -402,7 +402,7 @@ mod basic {
         let words: &[&str] = &["apple", "apricot", "banana", "kiwi", "kotleta"];
         let test_words: &[&str] = &["apple", "apricot", "banana", "kiwi", "kotleta"];
 
-        let mt = StaticTree::<BRANCH_FACTOR, HEIGHT, StdHash, 100>::try_from(
+        let mt = StaticTree::<BRANCH_FACTOR, HEIGHT, StdHash, 100>::try_from::<&[u8]>(
             &words.iter().map(|w| w.as_bytes()).collect::<Vec<_>>(),
         )
         .unwrap();
@@ -425,7 +425,7 @@ mod basic {
         const BRANCH_FACTOR: usize = 2;
         const HEIGHT: usize = 4;
         let words1: &[&str] = &["apple", "apricot", "banana", "cherry"];
-        let cmt1 = DefaultAugmentable::<BRANCH_FACTOR, HEIGHT, StdHash, 100>::try_from(
+        let cmt1 = DefaultAugmentable::<BRANCH_FACTOR, HEIGHT, StdHash, 100>::try_from::<&[u8]>(
             &words1.iter().map(|w| w.as_bytes()).collect::<Vec<_>>(),
         )
         .unwrap();
@@ -451,7 +451,7 @@ mod basic {
         const HEIGHT_1: usize = 3;
         const HEIGHT_2: usize = 3;
         let words1: &[&str] = &["apple", "apricot", "banana", "cherry"];
-        let mut cmt1 = DefaultAugmentable::<BRANCH_FACTOR, HEIGHT_1, StdHash, 100>::try_from(
+        let mut cmt1 = DefaultAugmentable::<BRANCH_FACTOR, HEIGHT_1, StdHash, 100>::try_from::<&[u8]>(
             &words1.iter().map(|w| w.as_bytes()).collect::<Vec<_>>(),
         )
         .unwrap();
@@ -464,7 +464,7 @@ mod basic {
         }
 
         let words2: &[&str] = &["kiwi", "kotleta"];
-        let cmt2 = DefaultAugmentable::<BRANCH_FACTOR, HEIGHT_2, StdHash, 100>::try_from(
+        let cmt2 = DefaultAugmentable::<BRANCH_FACTOR, HEIGHT_2, StdHash, 100>::try_from::<&[u8]>(
             &words2.iter().map(|w| w.as_bytes()).collect::<Vec<_>>(),
         )
         .unwrap();
@@ -489,13 +489,13 @@ mod basic {
         const HEIGHT_2: usize = 3;
 
         let words1: &[&str] = &["apple", "apricot", "banana", "cherry", "blueberry"];
-        let mut cmt1 = DefaultAugmentable::<BRANCH_FACTOR, HEIGHT_1, StdHash, 100>::try_from(
+        let mut cmt1 = DefaultAugmentable::<BRANCH_FACTOR, HEIGHT_1, StdHash, 100>::try_from::<&[u8]>(
             &words1.iter().map(|w| w.as_bytes()).collect::<Vec<_>>(),
         )
         .unwrap();
 
         let words2: &[&str] = &["kiwi", "kotleta"];
-        let cmt2 = DefaultAugmentable::<BRANCH_FACTOR, HEIGHT_2, StdHash, 100>::try_from(
+        let cmt2 = DefaultAugmentable::<BRANCH_FACTOR, HEIGHT_2, StdHash, 100>::try_from::<&[u8]>(
             &words2.iter().map(|w| w.as_bytes()).collect::<Vec<_>>(),
         )
         .unwrap();
@@ -527,7 +527,7 @@ mod basic {
 
         let input = (0u8..8).map(|i| vec![i]).collect::<Vec<_>>();
 
-        let mut amt1 = DefaultAugmentable::<BRANCH_FACTOR, HEIGHT, StdHash, 100>::try_from(
+        let mut amt1 = DefaultAugmentable::<BRANCH_FACTOR, HEIGHT, StdHash, 100>::try_from::<&[u8]>(
             &input.iter().map(|d| d.as_ref()).collect::<Vec<_>>(),
         )
         .unwrap();
@@ -539,7 +539,7 @@ mod basic {
         }
 
         let input_2 = (100u8..108).map(|i| vec![i]).collect::<Vec<_>>();
-        let mut amt2 = DefaultAugmentable::<BRANCH_FACTOR, HEIGHT, StdHash, 100>::try_from(
+        let mut amt2 = DefaultAugmentable::<BRANCH_FACTOR, HEIGHT, StdHash, 100>::try_from::<&[u8]>(
             &input_2.iter().map(|d| d.as_ref()).collect::<Vec<_>>(),
         )
         .unwrap();
@@ -574,13 +574,13 @@ mod basic {
         const HEIGHT_2: usize = 3;
 
         let words1: &[&str] = &["apple", "apricot", "banana", "cherry", "blueberry"];
-        let mut cmt1 = DefaultAugmentable::<BRANCH_FACTOR, HEIGHT_1, StdHash, 100>::try_from(
+        let mut cmt1 = DefaultAugmentable::<BRANCH_FACTOR, HEIGHT_1, StdHash, 100>::try_from::<&[u8]>(
             &words1.iter().map(|w| w.as_bytes()).collect::<Vec<_>>(),
         )
         .unwrap();
 
         let words2: &[&str] = &["kiwi", "kotleta"];
-        let cmt2 = DefaultAugmentable::<BRANCH_FACTOR, HEIGHT_2, StdHash, 100>::try_from(
+        let cmt2 = DefaultAugmentable::<BRANCH_FACTOR, HEIGHT_2, StdHash, 100>::try_from::<&[u8]>(
             &words2.iter().map(|w| w.as_bytes()).collect::<Vec<_>>(),
         )
         .unwrap();
@@ -612,13 +612,13 @@ mod basic {
         const HEIGHT_2: usize = 3;
 
         let words1: &[&str] = &["apple", "apricot", "banana", "cherry", "blueberry"];
-        let mut cmt1 = DefaultAugmentable::<BRANCH_FACTOR, HEIGHT_1, StdHash, 100>::try_from(
+        let mut cmt1 = DefaultAugmentable::<BRANCH_FACTOR, HEIGHT_1, StdHash, 100>::try_from::<&[u8]>(
             &words1.iter().map(|w| w.as_bytes()).collect::<Vec<_>>(),
         )
         .unwrap();
 
         let words2: &[&str] = &[];
-        let cmt2 = DefaultAugmentable::<BRANCH_FACTOR, HEIGHT_2, StdHash, 100>::try_from(
+        let cmt2 = DefaultAugmentable::<BRANCH_FACTOR, HEIGHT_2, StdHash, 100>::try_from::<&[u8]>(
             &words2.iter().map(|w| w.as_bytes()).collect::<Vec<_>>(),
         )
         .unwrap();
@@ -652,13 +652,13 @@ mod basic {
             "kiwi",
             "kotleta",
         ];
-        let mut cmt1 = DefaultAugmentable::<BRANCH_FACTOR, HEIGHT_1, StdHash, 100>::try_from(
+        let mut cmt1 = DefaultAugmentable::<BRANCH_FACTOR, HEIGHT_1, StdHash, 100>::try_from::<&[u8]>(
             &words1.iter().map(|w| w.as_bytes()).collect::<Vec<_>>(),
         )
         .unwrap();
 
         let words2: &[&str] = &["lemon", "lime"];
-        let cmt2 = DefaultAugmentable::<BRANCH_FACTOR, HEIGHT_2, StdHash, 100>::try_from(
+        let cmt2 = DefaultAugmentable::<BRANCH_FACTOR, HEIGHT_2, StdHash, 100>::try_from::<&[u8]>(
             &words2.iter().map(|w| w.as_bytes()).collect::<Vec<_>>(),
         )
         .unwrap();
@@ -673,13 +673,13 @@ mod basic {
         const HEIGHT_2: usize = 3;
 
         let words1: &[&str] = &["apple", "apricot", "banana", "cherry", "blueberry"];
-        let mut cmt1 = DefaultCompactable::<BRANCH_FACTOR, HEIGHT_1, StdHash, 100>::try_from(
+        let mut cmt1 = DefaultCompactable::<BRANCH_FACTOR, HEIGHT_1, StdHash, 100>::try_from::<&[u8]>(
             &words1.iter().map(|w| w.as_bytes()).collect::<Vec<_>>(),
         )
         .unwrap();
 
         let words2: &[&str] = &["kiwi", "kompot", "kotleta", "sardina"];
-        let mut cmt2 = DefaultCompactable::<BRANCH_FACTOR, HEIGHT_2, StdHash, 100>::try_from(
+        let mut cmt2 = DefaultCompactable::<BRANCH_FACTOR, HEIGHT_2, StdHash, 100>::try_from::<&[u8]>(
             &words2.iter().map(|w| w.as_bytes()).collect::<Vec<_>>(),
         )
         .unwrap();
@@ -749,7 +749,7 @@ mod basic {
         const HEIGHT: usize = 4;
 
         let words1: &[&str] = &["apple", "apricot", "banana", "cherry", "blueberry"];
-        let mut cmt = DefaultAugmentable::<BRANCH_FACTOR, HEIGHT, StdHash, 100>::try_from(
+        let mut cmt = DefaultAugmentable::<BRANCH_FACTOR, HEIGHT, StdHash, 100>::try_from::<&[u8]>(
             &words1.iter().map(|w| w.as_bytes()).collect::<Vec<_>>(),
         )
         .unwrap();
@@ -781,7 +781,7 @@ mod basic {
         const HEIGHT: usize = 3;
 
         let words1: &[&str] = &["apple", "apricot", "banana", "cherry", "blueberry"];
-        let mut amt = DefaultAugmentable::<BRANCH_FACTOR, HEIGHT, StdHash, 100>::try_from(
+        let mut amt = DefaultAugmentable::<BRANCH_FACTOR, HEIGHT, StdHash, 100>::try_from::<&[u8]>(
             &words1.iter().map(|w| w.as_bytes()).collect::<Vec<_>>(),
         )
         .unwrap();
@@ -806,7 +806,7 @@ mod basic {
             "kiwi",
             "kotleta",
         ];
-        let cmt1 = DefaultAugmentable::<BRANCH_FACTOR, HEIGHT, StdHash, 100>::try_from(
+        let cmt1 = DefaultAugmentable::<BRANCH_FACTOR, HEIGHT, StdHash, 100>::try_from::<&[u8]>(
             &words1.iter().map(|w| w.as_bytes()).collect::<Vec<_>>(),
         )
         .unwrap();
@@ -839,7 +839,7 @@ mod basic {
 
         let input = (0u8..20).map(|i| vec![i]).collect::<Vec<_>>();
 
-        let mut cmt1 = DefaultCompactable::<BRANCH_FACTOR, HEIGHT, StdHash, 100>::try_from(
+        let mut cmt1 = DefaultCompactable::<BRANCH_FACTOR, HEIGHT, StdHash, 100>::try_from::<&[u8]>(
             &input.iter().map(|d| d.as_ref()).collect::<Vec<_>>(),
         )
         .unwrap();
@@ -904,7 +904,7 @@ mod basic {
 
         let input1 = (200u8..220).map(|i| vec![i]).collect::<Vec<_>>();
 
-        let cmt2 = DefaultCompactable::<BRANCH_FACTOR, HEIGHT, StdHash, 100>::try_from(
+        let cmt2 = DefaultCompactable::<BRANCH_FACTOR, HEIGHT, StdHash, 100>::try_from::<&[u8]>(
             &input1.iter().map(|d| d.as_ref()).collect::<Vec<_>>(),
         )
         .unwrap();
@@ -953,28 +953,27 @@ mod basic {
             let res = proof.validate(d);
             assert!(res);
         }
+
     }
 
     // #[test]
     // fn break_it() {
     //     use merkle_heapless::proof::Proof;
-    //     use merkle_heapless::traits::{ProofBuilder, ProofValidator, StaticTreeTrait};
-    //     use merkle_heapless::StaticBinaryTree;
-    //     // tree height 1, 2 leaves, 3 total nodes
+    //     use merkle_heapless::traits::ProofBuilder;
+    //     use merkle_heapless::prefixed::Prefixed;
+        
     //     const MAX_HEIGHT: usize = 1;
-    //     const _FAKE_MAX_HEIGHT: usize = 2;
+    //     const FAKE_MAX_HEIGHT: usize = 2;
 
-    //     // let mut prefixed: Prefixed<2, H>;
-
-    //     // let mut prefixed = [0u8; 10];
-    //     // prefixed[1..b"hi0".len() + 1].copy_from_slice(b"hi0");
-
-    //     let fake_0 = Blake2_256Hash::hash(b"hi0");
-    //     let fake_1 = Blake2_256Hash::hash(b"hi1");
+    //     let fake_0 = Blake2_256Hash::hash(b"1234567890123456789012345678901234567890123456789012345678901234");
+    //     let fake_1 = Blake2_256Hash::hash(b"1234567890123456789012345678901234567890123456789012345678901234");
     //     let mut fake_concat = [0u8; 64];
     //     fake_concat[..32].copy_from_slice(&fake_0);
     //     fake_concat[32..].copy_from_slice(&fake_1);
-    //     let fc_hash = Blake2_256Hash::hash(&fake_concat);
+    //     let fc_hash = Blake2_256Hash::concat_then_hash(&[fake_0, fake_1]);
+    //     let fc_hash1 = Blake2_256Hash::hash(&fake_concat);
+
+    //     assert_eq!(fc_hash, fc_hash1);
     //     // Merkle tree as the creator of the tree sees it
     //     //
     //     //             root
@@ -989,16 +988,27 @@ mod basic {
     //     //
     //     //
     //     let mut tree =
-    //         StaticBinaryTree::<MAX_HEIGHT, Blake2_256Hash, 10>::try_from(&[b"apple", &fake_concat])
+    //         StaticBinaryTree::<MAX_HEIGHT, Blake2_256Hash, 64>::try_from::<&[u8]>(&[b"kiwi", &fake_concat])
     //             .unwrap();
 
     //     let proof = tree.generate_proof(1);
-    //     let apple_hash = Blake2_256Hash::hash(b"apple");
+    //     let apple_hash = Blake2_256Hash::hash(b"kiwi");
 
-    //     let mut alt_proof: Proof<2, 2, Blake2_256Hash, 10> = Proof::from_root(proof.root());
-    //     alt_proof.push(0, &[fake_0, fake_1]);
-    //     alt_proof.push(1, &[apple_hash, fc_hash]);
+    //     println!("proof root: {:?}", proof.root());
+
+    //     let mut alt_proof: Proof<2, FAKE_MAX_HEIGHT, Blake2_256Hash, 64> = Proof::from_root(proof.root());
+    //     alt_proof.push(0, Prefixed {
+    //                             prefix: <Blake2_256Hash as HashT>::Output::default(),
+    //                             hashes: [fake_0, fake_1]
+    //                     });
+
+    //     alt_proof.push(1, Prefixed {
+    //                             prefix: <Blake2_256Hash as HashT>::Output::default(),
+    //                             hashes: [apple_hash, fc_hash]
+    //                     });
+
     //     assert!(proof.validate(&fake_concat));
-    //     assert!(alt_proof.validate(b"hi0"));
+    //     assert!(alt_proof.validate(b"1234567890123456789012345678901234567890123456789012345678901234"));
     // }
+
 }

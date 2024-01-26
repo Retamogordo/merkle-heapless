@@ -45,11 +45,11 @@ struct MMRInput {
 }
 
 impl MMRInput {
-    const TYPE_IDENT: &str = "Type";
-    const BRANCH_FACTOR_IDENT: &str = "BranchFactor";
-    const NUM_OF_PEAKS: &str = "Peaks";
-    const HASH_TYPE_IDENT: &str = "Hash";
-    const MAX_INPUT_LEN_IDENT: &str = "MaxInputWordLength";
+    const TYPE_IDENT: &'static str = "Type";
+    const BRANCH_FACTOR_IDENT: &'static str = "BranchFactor";
+    const NUM_OF_PEAKS: &'static str = "Peaks";
+    const HASH_TYPE_IDENT: &'static str = "Hash";
+    const MAX_INPUT_LEN_IDENT: &'static str = "MaxInputWordLength";
 }
 
 impl Parse for MMRInput {

@@ -8,7 +8,7 @@
 //! const HEIGHT_2: usize = 2;
 //! const MAX_WORD_LEN: usize = 10;
 //!
-//! let mt1 = DefaultAugmentable::<BRANCH_FACTOR, HEIGHT, StdHash, MAX_WORD_LEN>::try_from(&[
+//! let mt1 = DefaultAugmentable::<BRANCH_FACTOR, HEIGHT, StdHash, MAX_WORD_LEN>::try_from::<&[u8]>(&[
 //!     "apple", "apricot", "banana", "cherry",
 //! ]).unwrap();
 //!
@@ -22,13 +22,14 @@
 //! This operation does not imply augmentation, rather it fails if merge is not possible.
 //! ```rust
 //! // snip
-//! let mt2 = DefaultAugmentable::<BRANCH_FACTOR, HEIGHT_2, StdHash, MAX_WORD_LEN>::try_from(&[
+//! let mt2 = DefaultAugmentable::<BRANCH_FACTOR, HEIGHT_2, StdHash, MAX_WORD_LEN>::try_from::<&[u8]>(&[
 //!     "kiwi", "lemon",
 //! ]).unwrap();
 //!
 //! mt.try_merge(mt2).unwrap();
 //! ```
 
+use core::ops::Deref;
 use crate::traits::AppendOnly;
 use crate::{
     is_pow2, layer_size, num_of_prefixed, Assert, HashT, IsTrue, Prefixed, Proof, ProofBuilder,
@@ -75,7 +76,7 @@ where
     PB: ProofBuilder<BRANCH_FACTOR, H>,
 {
     /// creates a tree from an input if possible
-    pub fn try_from(input: &[&[u8]]) -> Result<Self, Error> {
+    pub fn try_from<T: AsRef<[u8]> + Deref<Target = [u8]>>(input: &[T]) -> Result<Self, Error> {
         Ok(Self {
             tree: StaticTree::try_from(input)?,
             num_of_leaves: input.len(),

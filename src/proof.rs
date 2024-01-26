@@ -9,6 +9,18 @@ pub struct ProofItem<const BRANCH_FACTOR: usize, H: HashT> {
     offset: usize,
 }
 
+impl<const BRANCH_FACTOR: usize, H: HashT> ProofItem<BRANCH_FACTOR, H> {
+    /// returns item's hashes
+    pub fn hashes(&self) -> &[H::Output; BRANCH_FACTOR] {
+        &self.prefixed.hashes
+    }
+
+    /// returns item's offset
+    pub fn offset(&self) -> usize {
+        self.offset
+    }
+}
+
 impl<const BRANCH_FACTOR: usize, H: HashT> ProofItemT<BRANCH_FACTOR, H>
     for ProofItem<BRANCH_FACTOR, H>
 {
@@ -77,9 +89,7 @@ where
             height: 0,
         }
     }
-    fn root(&self) -> H::Output {
-        self.root
-    }
+
     fn push(&mut self, offset: usize, prefixed: Prefixed<BRANCH_FACTOR, H>) {
         self.items[self.height] = Self::Item::create(offset, prefixed);
         self.height += 1;
@@ -93,10 +103,8 @@ where
 {
     /// verifies that the input was contained in the Merkle tree that generated this proof
     fn validate(self, input: &[u8]) -> bool {
-        let mut prefixed = [0u8; MAX_INPUT_LEN];
-        prefixed[1..input.len() + 1].copy_from_slice(input);
+        let mut curr_hash = Some(Self::hash_as_leaf(input));
 
-        let mut curr_hash = Some(H::hash(&prefixed[0..input.len() + 1]));
         // start from the base layer,
         // and for every item in the proof
         // put the hash derived from input into the proof item
@@ -107,6 +115,37 @@ where
         }
         // validated iff the resulting hash is identical to the root
         curr_hash.as_ref() == Some(&self.root)
+    }
+}
+
+impl<const BRANCH_FACTOR: usize, const HEIGHT: usize, H: HashT, const MAX_INPUT_LEN: usize> Proof<BRANCH_FACTOR, HEIGHT, H, MAX_INPUT_LEN>
+where
+    [(); HEIGHT]: Sized,
+{
+    /// returns the proof's length
+    pub fn height(&self) -> usize {
+        self.height
+    }
+
+    /// returns the proof's root
+    pub fn root(&self) -> H::Output {
+        self.root
+    }
+
+    /// returns the proof's path
+    pub fn path(&self) -> &[<Self as ProofBuilder<BRANCH_FACTOR, H>>::Item] {
+        &self.items
+    }
+
+    /// prepends input with leaf prefix and hashes it
+    pub fn hash_as_leaf(input: &[u8]) -> H::Output {
+        let start_index = if input.len() < MAX_INPUT_LEN {1} else {0};
+
+        let n = input.len() + start_index;
+        let mut prefixed = [0u8; MAX_INPUT_LEN];
+        prefixed[start_index..n].copy_from_slice(input);
+
+        H::hash(&prefixed[0..n])
     }
 }
 
