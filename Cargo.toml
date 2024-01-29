@@ -22,7 +22,7 @@ default-members = [".", "mmr-macro"]
 [lib]
 
 [dependencies]
-mmr-macro = { version = "0.0.4", path = "./mmr-macro" }
+mmr-macro = { version = "0.0.5", path = "./mmr-macro" }
 
 [features]
 mmr_macro = []
