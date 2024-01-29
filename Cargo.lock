@@ -998,14 +998,14 @@ dependencies = [
 
 [[package]]
 name = "merkle-heapless"
-version = "0.0.4"
+version = "0.0.5"
 dependencies = [
  "mmr-macro",
 ]
 
 [[package]]
 name = "merkle-heapless-tests"
-version = "0.0.4"
+version = "0.0.5"
 dependencies = [
  "merkle-heapless",
  "sp-core",

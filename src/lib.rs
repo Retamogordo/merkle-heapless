@@ -201,6 +201,21 @@ pub struct StaticTree<
     prefixed: [Prefixed<BRANCH_FACTOR, H>; num_of_prefixed!(BRANCH_FACTOR, HEIGHT)],
 }
 
+// impl<'a, T, const BRANCH_FACTOR: usize, const HEIGHT: usize, H, const MAX_INPUT_LEN: usize, PB> TryFrom<&'a [T]> for
+//     StaticTree<BRANCH_FACTOR, HEIGHT, H, MAX_INPUT_LEN, PB>
+// where
+//     T: AsRef<[u8]> + Deref<Target = [u8]>,
+//     [(); num_of_prefixed!(BRANCH_FACTOR, HEIGHT)]: Sized,
+//     Assert<{ is_pow2!(BRANCH_FACTOR) }>: IsTrue,
+//     H: HashT,
+//     PB: ProofBuilder<BRANCH_FACTOR, H>,
+// {
+//     type Error = Error;
+//     fn try_from(input: &'a [T]) -> Result<Self, Error> {
+//         Self::create(input.len()).map(|this| this.create_inner(input, 0))
+//     }
+// }
+
 impl<const BRANCH_FACTOR: usize, const HEIGHT: usize, H, const MAX_INPUT_LEN: usize, PB>
     StaticTree<BRANCH_FACTOR, HEIGHT, H, MAX_INPUT_LEN, PB>
 where
@@ -213,7 +228,7 @@ where
 
     fn create(input_len: usize) -> Result<Self, Error> {
         (input_len <= Self::BASE_LAYER_SIZE * BRANCH_FACTOR)
-            .then(|| Self {
+            .then_some(Self {
                 root: Default::default(),
                 prefixed: [Default::default(); num_of_prefixed!(BRANCH_FACTOR, HEIGHT)],
             })
@@ -223,6 +238,15 @@ where
     /// creates a tree from an input if possible
     pub fn try_from<T: AsRef<[u8]> + Deref<Target = [u8]>>(input: &[T]) -> Result<Self, Error> {
         Self::create(input.len()).map(|this| this.create_inner(input, 0))
+    }
+
+    /// creates a tree from an input if possible
+    pub fn from<T: AsRef<[u8]> + Deref<Target = [u8]>>(input: &[T]) -> Self {
+        Self {
+            root: Default::default(),
+            prefixed: [Default::default(); num_of_prefixed!(BRANCH_FACTOR, HEIGHT)],
+        }
+        .create_inner(input, 0)
     }
 
     #[inline]
@@ -247,7 +271,7 @@ where
 
     pub(crate) fn create_inner<T: AsRef<[u8]> + Deref<Target = [u8]>>(mut self, input: &[T], with_offset: usize) -> Self {
         let mut prefixed = [0u8; MAX_INPUT_LEN];
-
+        
         let start_index = if input.iter().map(|d| d.len()).max() < Some(MAX_INPUT_LEN) {1} else {0};
         // fill the base layer
         for (i, d) in input.iter().enumerate() {
@@ -424,10 +448,7 @@ where
     PB: ProofBuilder<BRANCH_FACTOR, H>,
 {
     fn clone(&self) -> Self {
-        Self {
-            root: self.root,
-            prefixed: self.prefixed,
-        }
+        *self
     }
 }
 

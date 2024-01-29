@@ -44,10 +44,7 @@ impl<const BRANCH_FACTOR: usize, H: HashT> Prefixed<BRANCH_FACTOR, H> {
 
 impl<const BRANCH_FACTOR: usize, H: HashT> Clone for Prefixed<BRANCH_FACTOR, H> {
     fn clone(&self) -> Self {
-        Self {
-            prefix: self.prefix,
-            hashes: self.hashes,
-        }
+        *self
     }
 }
 impl<const BRANCH_FACTOR: usize, H: HashT> Copy for Prefixed<BRANCH_FACTOR, H> {}

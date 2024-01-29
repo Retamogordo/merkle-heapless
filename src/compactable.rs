@@ -76,6 +76,20 @@ where
         }
         Ok(this)
     }
+
+    /// creates a tree from an input if possible
+    pub fn from<T: AsRef<[u8]> + Deref<Target = [u8]>>(input: &[T]) -> Self {
+        let mut this = Self {
+            tree: StaticTree::from(input),
+            num_of_leaves: input.len(),
+            leaves_present: [false; max_leaves!(BRANCH_FACTOR, HEIGHT)],
+        };
+        for i in 0..input.len() {
+            this.leaves_present[i] = true;
+        }
+        this
+    }
+    
     /// creates a tree from hashed leaves (of another tree)
     pub fn try_from_leaves(prefixed: &[Prefixed<BRANCH_FACTOR, H>]) -> Result<Self, Error> {
         let mut leaves_present = [false; max_leaves!(BRANCH_FACTOR, HEIGHT)];
@@ -87,10 +101,9 @@ where
                 .hashes
                 .iter()
                 .enumerate()
-                .filter_map(|(i, h)| {
-                    (h != &default_hash).then(|| {
-                        leaves_present[i + j] = true;
-                    })
+                .filter(|&(_, h)| (h != &default_hash))
+                .map(|(i, _)| {
+                    leaves_present[i + j] = true;
                 })
                 .count();
             j += BRANCH_FACTOR;

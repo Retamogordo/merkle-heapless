@@ -82,6 +82,13 @@ where
             num_of_leaves: input.len(),
         })
     }
+    /// creates a tree from an input if possible
+    pub fn from<T: AsRef<[u8]> + Deref<Target = [u8]>>(input: &[T]) -> Self {
+        Self {
+            tree: StaticTree::from(input),
+            num_of_leaves: input.len(),
+        }
+    }
     /// creates a tree from hashed leaves (of another tree)
     pub fn try_from_leaves(prefixed_leaves: &[Prefixed<BRANCH_FACTOR, H>]) -> Result<Self, Error> {
         let mut num_of_leaves = 0;
@@ -224,10 +231,7 @@ where
     PB: ProofBuilder<BRANCH_FACTOR, H>,
 {
     fn clone(&self) -> Self {
-        Self {
-            tree: self.tree,
-            num_of_leaves: self.num_of_leaves,
-        }
+        *self
     }
 }
 

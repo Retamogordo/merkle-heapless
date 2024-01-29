@@ -8,7 +8,7 @@ pub fn location_in_prefixed<const BRANCH_FACTOR: usize>(index: usize) -> (usize,
 }
 
 #[macro_export]
-/// total size of elements in a tree with given arity and height
+/// 
 macro_rules! num_of_prefixed {
     ($branch_factor:expr, $height:expr) => {
         ((1 << ($branch_factor.trailing_zeros() as usize * ($height))) - 1) / ($branch_factor - 1)

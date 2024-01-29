@@ -22,7 +22,7 @@ pub trait HashT {
             Self::hash(
                 core::slice::from_raw_parts(
                     hashes.as_ref().as_ptr() as *const u8,
-                    core::mem::size_of::<Self::Output>() * hashes.len(),
+                    core::mem::size_of_val(hashes),
                 )
             )
         }

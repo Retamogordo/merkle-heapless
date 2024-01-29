@@ -39,10 +39,7 @@ impl<const BRANCH_FACTOR: usize, H: HashT> Copy for ProofItem<BRANCH_FACTOR, H> 
 
 impl<const BRANCH_FACTOR: usize, H: HashT> Clone for ProofItem<BRANCH_FACTOR, H> {
     fn clone(&self) -> Self {
-        Self {
-            prefixed: self.prefixed,
-            offset: self.offset,
-        }
+        *self
     }
 }
 
