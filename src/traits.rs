@@ -57,7 +57,7 @@ pub trait ProofValidator {
 pub trait StaticTreeTrait<const BRANCH_FACTOR: usize, H: HashT, PB: ProofBuilder<BRANCH_FACTOR, H>>
 {
     /// generate a proof for a leaf at index
-    fn generate_proof(&mut self, index: usize) -> PB;
+    fn generate_proof(&self, index: usize) -> PB;
     /// replace a leaf at index with a new value
     fn replace(&mut self, index: usize, input: &[u8]);
     /// replace a hashed leaf at index with a new hashed value

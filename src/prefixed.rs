@@ -13,10 +13,10 @@ pub struct Prefixed<const BRANCH_FACTOR: usize, H: HashT> {
 }
 
 impl<const BRANCH_FACTOR: usize, H: HashT> Prefixed<BRANCH_FACTOR, H> {
-    /// hash of &[] prefixed with 0u8
+    /// hash of &[] prefixed with LEAF_HASH_PREPEND_VALUE
     #[inline]
     pub fn default_hash() -> H::Output {
-        H::hash(&[0u8; 1])
+        H::hash(&[crate::LEAF_HASH_PREPEND_VALUE; 1])
 //        H::Output::default()
     }
     /// hash the prefix together with inner hashes

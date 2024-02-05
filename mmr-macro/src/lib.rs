@@ -359,8 +359,9 @@ pub fn mmr(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
                 }
 
                 impl StaticTreeTrait<#branch_factor, #hash_type, #mmr_peak_proof_type> for #mmr_peak_type {
-                    fn generate_proof(&mut self, index: usize) -> #mmr_peak_proof_type {
-                        #impl_mut_method_body_token.generate_proof(index)
+                    fn generate_proof(&self, index: usize) -> #mmr_peak_proof_type {
+                        #impl_method_body_token.generate_proof(index)
+                        // #impl_mut_method_body_token.generate_proof(index)
                     }
                     fn replace(&mut self, index: usize, input: &[u8]) {
                         #impl_mut_method_body_token.replace(index, input)
@@ -467,7 +468,7 @@ pub fn mmr(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
                     }
 
                     // panics if the index is out of bounds
-                    pub fn generate_proof(&mut self, index: usize) -> #mmr_proof_type {
+                    pub fn generate_proof(&self, index: usize) -> #mmr_proof_type {
                         let mut accrue_len = 0;
                         let mut i = 0;
                         // find the peak corresponding to the index

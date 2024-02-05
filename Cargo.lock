@@ -998,14 +998,14 @@ dependencies = [
 
 [[package]]
 name = "merkle-heapless"
-version = "0.0.5"
+version = "0.0.6"
 dependencies = [
  "mmr-macro",
 ]
 
 [[package]]
 name = "merkle-heapless-tests"
-version = "0.0.5"
+version = "0.0.6"
 dependencies = [
  "merkle-heapless",
  "sp-core",
@@ -1025,7 +1025,7 @@ dependencies = [
 
 [[package]]
 name = "mmr-macro"
-version = "0.0.4"
+version = "0.0.6"
 dependencies = [
  "convert_case",
  "proc-macro2",

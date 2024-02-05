@@ -206,7 +206,7 @@ where
     H: HashT,
     PB: ProofBuilder<BRANCH_FACTOR, H>,
 {
-    fn generate_proof(&mut self, index: usize) -> PB {
+    fn generate_proof(&self, index: usize) -> PB {
         self.tree.generate_proof(index)
     }
     fn replace(&mut self, index: usize, input: &[u8]) {

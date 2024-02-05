@@ -384,7 +384,7 @@ mod basic {
         cmt.replace(7, b"ciruela");
 
         cmt.compact();
-        let mut reduced = cmt.try_reduce().unwrap().try_reduce().unwrap();
+        let reduced = cmt.try_reduce().unwrap().try_reduce().unwrap();
 
         for (i, w) in test_words.iter().enumerate() {
             let proof = reduced.generate_proof(i);
@@ -408,7 +408,7 @@ mod basic {
         .unwrap();
 
         const NEW_HEIGHT: usize = 5;
-        let mut mt =
+        let mt =
             StaticTree::<BRANCH_FACTOR, NEW_HEIGHT, StdHash, 100>::try_from_leaves(&mt.leaves())
                 .unwrap();
 
@@ -432,7 +432,7 @@ mod basic {
 
         let test_words: &[&str] = &["apple", "apricot", "banana", "cherry"];
 
-        let mut cmt = cmt1.augment();
+        let cmt = cmt1.augment();
 
         assert_eq!(cmt.num_of_leaves(), words1.len());
         assert_eq!(cmt.height(), HEIGHT + 1);
@@ -451,7 +451,7 @@ mod basic {
         const HEIGHT_1: usize = 3;
         const HEIGHT_2: usize = 3;
         let words1: &[&str] = &["apple", "apricot", "banana", "cherry"];
-        let mut cmt1 = DefaultAugmentable::<BRANCH_FACTOR, HEIGHT_1, StdHash, 100>::try_from::<&[u8]>(
+        let cmt1 = DefaultAugmentable::<BRANCH_FACTOR, HEIGHT_1, StdHash, 100>::try_from::<&[u8]>(
             &words1.iter().map(|w| w.as_bytes()).collect::<Vec<_>>(),
         )
         .unwrap();
@@ -471,7 +471,7 @@ mod basic {
 
         let test_words: &[&str] = &["apple", "apricot", "banana", "cherry", "kiwi", "kotleta"];
 
-        let mut cmt = cmt1.augment_and_merge(cmt2);
+        let cmt = cmt1.augment_and_merge(cmt2);
         assert_eq!(cmt.height(), HEIGHT_1 + 1);
 
         for (i, w) in test_words.iter().enumerate() {
@@ -527,7 +527,7 @@ mod basic {
 
         let input = (0u8..8).map(|i| vec![i]).collect::<Vec<_>>();
 
-        let mut amt1 = DefaultAugmentable::<BRANCH_FACTOR, HEIGHT, StdHash, 100>::try_from::<&[u8]>(
+        let amt1 = DefaultAugmentable::<BRANCH_FACTOR, HEIGHT, StdHash, 100>::try_from::<&[u8]>(
             &input.iter().map(|d| d.as_ref()).collect::<Vec<_>>(),
         )
         .unwrap();
@@ -539,7 +539,7 @@ mod basic {
         }
 
         let input_2 = (100u8..108).map(|i| vec![i]).collect::<Vec<_>>();
-        let mut amt2 = DefaultAugmentable::<BRANCH_FACTOR, HEIGHT, StdHash, 100>::try_from::<&[u8]>(
+        let amt2 = DefaultAugmentable::<BRANCH_FACTOR, HEIGHT, StdHash, 100>::try_from::<&[u8]>(
             &input_2.iter().map(|d| d.as_ref()).collect::<Vec<_>>(),
         )
         .unwrap();
@@ -551,7 +551,7 @@ mod basic {
         }
 
         let num_of_leaves_before_merge_1 = amt1.num_of_leaves();
-        let mut amt1 = amt1.augment_and_merge(amt2);
+        let amt1 = amt1.augment_and_merge(amt2);
 
         for (i, d) in input.iter().enumerate() {
             let proof = amt1.generate_proof(i);
@@ -817,7 +817,7 @@ mod basic {
         .unwrap();
         assert_eq!(cmt1.num_of_leaves(), cmt2.num_of_leaves());
 
-        let mut cmt3 = DefaultAugmentable::<BRANCH_FACTOR, HEIGHT, StdHash, 100>::try_from_leaves(
+        let cmt3 = DefaultAugmentable::<BRANCH_FACTOR, HEIGHT, StdHash, 100>::try_from_leaves(
             &cmt2.leaves(),
         )
         .unwrap();
@@ -859,7 +859,7 @@ mod basic {
             }
         }
 
-        let mut amt1 = DefaultAugmentable::<BRANCH_FACTOR, HEIGHT, StdHash, 100>::try_from_leaves(
+        let amt1 = DefaultAugmentable::<BRANCH_FACTOR, HEIGHT, StdHash, 100>::try_from_leaves(
             &cmt1.leaves(),
         )
         .unwrap();
@@ -909,7 +909,7 @@ mod basic {
         )
         .unwrap();
 
-        let mut amt2 = DefaultAugmentable::<BRANCH_FACTOR, HEIGHT, StdHash, 100>::try_from_leaves(
+        let amt2 = DefaultAugmentable::<BRANCH_FACTOR, HEIGHT, StdHash, 100>::try_from_leaves(
             &cmt2.leaves(),
         )
         .unwrap();
@@ -954,6 +954,30 @@ mod basic {
             assert!(res);
         }
 
+    }
+
+    #[test]
+    fn claim_index_from_proof() {
+        const BRANCH_FACTOR: usize = 4;
+        const HEIGHT: usize = 3;
+
+        let input = (0u8..20).map(|i| vec![i]).collect::<Vec<_>>();
+
+        let mt = StaticTree::<BRANCH_FACTOR, HEIGHT, StdHash, 100>::try_from::<&[u8]>(
+            &input.iter().map(|d| d.as_ref()).collect::<Vec<_>>(),
+        )
+        .unwrap();
+
+        for (i, d) in input.iter().enumerate() {
+            let proof = mt.generate_proof(i);
+            
+            let ind = proof.claim_index();
+            assert_eq!(i, ind);
+//            println!("ind: {ind}");
+
+            let res = proof.validate(d);
+            assert!(res);
+        }
     }
 
     // #[test]

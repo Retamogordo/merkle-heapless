@@ -10,7 +10,7 @@
 //! - optional Mountain Range proc macro (when compiled with a mmr-macro feature)
 //!
 //! ## Hashing
-//! Leaves are prefixed with ```0u8``` prior to being hashed, while the intermediate nodes are prefixed with ```[1u8; 4]```. 
+//! Leaves are prefixed with ```LEAF_HASH_PREPEND_VALUE``` prior to being hashed, while the intermediate nodes are prefixed with ```[1u8; 4]```. 
 //!
 //! # Mountain Range
 //!
@@ -166,6 +166,9 @@ use crate::proof::Proof;
 use crate::traits::{HashT, ProofBuilder, StaticTreeTrait};
 use crate::utils::{location_in_prefixed, Assert, IsTrue};
 
+/// leaves will be pretended with this value prior to hashing
+pub const LEAF_HASH_PREPEND_VALUE: u8 = 0;
+
 /// Merkle Tree Errors
 #[derive(Debug)]
 pub enum Error {
@@ -270,7 +273,7 @@ where
     }
 
     pub(crate) fn create_inner<T: AsRef<[u8]> + Deref<Target = [u8]>>(mut self, input: &[T], with_offset: usize) -> Self {
-        let mut prefixed = [0u8; MAX_INPUT_LEN];
+        let mut prefixed = [LEAF_HASH_PREPEND_VALUE; MAX_INPUT_LEN];
         
         let start_index = if input.iter().map(|d| d.len()).max() < Some(MAX_INPUT_LEN) {1} else {0};
         // fill the base layer
@@ -389,7 +392,7 @@ where
     PB: ProofBuilder<BRANCH_FACTOR, H>,
 {
     /// generate proof at given index on base layer
-    fn generate_proof(&mut self, index: usize) -> PB {
+    fn generate_proof(&self, index: usize) -> PB {
         let mut proof = PB::from_root(self.root());
         let mut layer_base = 0;
         let mut j = index / BRANCH_FACTOR;
@@ -406,7 +409,7 @@ where
     /// replace an element at index with input
     /// panics if index is out of leaf layer bound
     fn replace(&mut self, index: usize, input: &[u8]) {
-        let mut prefixed = [0u8; MAX_INPUT_LEN];
+        let mut prefixed = [LEAF_HASH_PREPEND_VALUE; MAX_INPUT_LEN];
         let prefixed_len = input.len() + 1;
         prefixed[1..prefixed_len].copy_from_slice(input);
 

@@ -139,10 +139,20 @@ where
         let start_index = if input.len() < MAX_INPUT_LEN {1} else {0};
 
         let n = input.len() + start_index;
-        let mut prefixed = [0u8; MAX_INPUT_LEN];
+        let mut prefixed = [crate::LEAF_HASH_PREPEND_VALUE; MAX_INPUT_LEN];
         prefixed[start_index..n].copy_from_slice(input);
 
         H::hash(&prefixed[0..n])
+    }
+    /// returns the index of claim as tree's leaf
+    pub fn claim_index(&self) -> usize {
+        let mut a = 1usize;
+        let mut index = 0;
+        for item in self.items.iter() {
+            index += a * item.offset();
+            a *= BRANCH_FACTOR;
+        }
+        index
     }
 }
 
