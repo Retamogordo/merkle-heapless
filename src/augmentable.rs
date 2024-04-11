@@ -3,12 +3,12 @@
 //! ```rust
 //! use merkle_heapless::augmentable::{DefaultAugmentable};
 //!
-//! const BRANCH_FACTOR: usize = 4;
+//! const ARITY: usize = 4;
 //! const HEIGHT_1: usize = 3;
 //! const HEIGHT_2: usize = 2;
 //! const MAX_WORD_LEN: usize = 10;
 //!
-//! let mt1 = DefaultAugmentable::<BRANCH_FACTOR, HEIGHT, StdHash, MAX_WORD_LEN>::try_from::<&[u8]>(&[
+//! let mt1 = DefaultAugmentable::<ARITY, HEIGHT, StdHash, MAX_WORD_LEN>::try_from::<&[u8]>(&[
 //!     "apple", "apricot", "banana", "cherry",
 //! ]).unwrap();
 //!
@@ -22,58 +22,58 @@
 //! This operation does not imply augmentation, rather it fails if merge is not possible.
 //! ```rust
 //! // snip
-//! let mt2 = DefaultAugmentable::<BRANCH_FACTOR, HEIGHT_2, StdHash, MAX_WORD_LEN>::try_from::<&[u8]>(&[
+//! let mt2 = DefaultAugmentable::<ARITY, HEIGHT_2, StdHash, MAX_WORD_LEN>::try_from::<&[u8]>(&[
 //!     "kiwi", "lemon",
 //! ]).unwrap();
 //!
 //! mt.try_merge(mt2).unwrap();
 //! ```
 
-use core::ops::Deref;
 use crate::traits::AppendOnly;
 use crate::{
-    is_pow2, layer_size, num_of_prefixed, Assert, HashT, IsTrue, Prefixed, Proof, ProofBuilder,
-    StaticTree, StaticTreeTrait, Error
+    is_pow2, layer_size, num_of_prefixed, Assert, Error, HashT, IsTrue, Prefixed, Proof,
+    ProofBuilder, StaticTree, StaticTreeTrait,
 };
 use core::fmt::Debug;
+use core::ops::Deref;
 /// Augmentable tree with default Proof size of (tree.height + 1)
 pub type DefaultAugmentable<
-    const BRANCH_FACTOR: usize,
+    const ARITY: usize,
     const HEIGHT: usize,
     H,
     const MAX_INPUT_LEN: usize,
 > = AugmentableTree<
-    BRANCH_FACTOR,
+    ARITY,
     HEIGHT,
     H,
     MAX_INPUT_LEN,
-    Proof<BRANCH_FACTOR, { HEIGHT + 1 }, H, MAX_INPUT_LEN>,
+    Proof<ARITY, { HEIGHT + 1 }, H, MAX_INPUT_LEN>,
 >;
 
 /// Augmentable Tree can be converted into a bigger tree with height+1
 pub struct AugmentableTree<
-    const BRANCH_FACTOR: usize,
+    const ARITY: usize,
     const HEIGHT: usize,
     H,
     const MAX_INPUT_LEN: usize,
-    PB = Proof<BRANCH_FACTOR, HEIGHT, H, MAX_INPUT_LEN>,
+    PB = Proof<ARITY, HEIGHT, H, MAX_INPUT_LEN>,
 > where
-    [(); num_of_prefixed!(BRANCH_FACTOR, HEIGHT)]: Sized,
-    Assert<{ is_pow2!(BRANCH_FACTOR) }>: IsTrue,
+    [(); num_of_prefixed!(ARITY, HEIGHT)]: Sized,
+    Assert<{ is_pow2!(ARITY) }>: IsTrue,
     H: HashT,
-    PB: ProofBuilder<BRANCH_FACTOR, H>,
+    PB: ProofBuilder<ARITY, H>,
 {
-    tree: StaticTree<BRANCH_FACTOR, HEIGHT, H, MAX_INPUT_LEN, PB>,
+    tree: StaticTree<ARITY, HEIGHT, H, MAX_INPUT_LEN, PB>,
     num_of_leaves: usize,
 }
 
-impl<const BRANCH_FACTOR: usize, const HEIGHT: usize, H, const MAX_INPUT_LEN: usize, PB>
-    AugmentableTree<BRANCH_FACTOR, HEIGHT, H, MAX_INPUT_LEN, PB>
+impl<const ARITY: usize, const HEIGHT: usize, H, const MAX_INPUT_LEN: usize, PB>
+    AugmentableTree<ARITY, HEIGHT, H, MAX_INPUT_LEN, PB>
 where
-    [(); num_of_prefixed!(BRANCH_FACTOR, HEIGHT)]: Sized,
-    Assert<{ is_pow2!(BRANCH_FACTOR) }>: IsTrue,
+    [(); num_of_prefixed!(ARITY, HEIGHT)]: Sized,
+    Assert<{ is_pow2!(ARITY) }>: IsTrue,
     H: HashT,
-    PB: ProofBuilder<BRANCH_FACTOR, H>,
+    PB: ProofBuilder<ARITY, H>,
 {
     /// creates a tree from an input if possible
     pub fn try_from<T: AsRef<[u8]> + Deref<Target = [u8]>>(input: &[T]) -> Result<Self, Error> {
@@ -90,9 +90,9 @@ where
         }
     }
     /// creates a tree from hashed leaves (of another tree)
-    pub fn try_from_leaves(prefixed_leaves: &[Prefixed<BRANCH_FACTOR, H>]) -> Result<Self, Error> {
+    pub fn try_from_leaves(prefixed_leaves: &[Prefixed<ARITY, H>]) -> Result<Self, Error> {
         let mut num_of_leaves = 0;
-        let default_hash = Prefixed::<BRANCH_FACTOR, H>::default_hash();
+        let default_hash = Prefixed::<ARITY, H>::default_hash();
 
         for leaf in prefixed_leaves {
             num_of_leaves += leaf
@@ -110,13 +110,13 @@ where
     /// creates a tree with height+1 and copies the contents of this tree to the new one
     /// Note: takes ownership, but as it implements Copy trait may need explicit dropping
     /// to prevent being any longer available
-    pub fn augment(self) -> AugmentableTree<BRANCH_FACTOR, { HEIGHT + 1 }, H, MAX_INPUT_LEN, PB>
+    pub fn augment(self) -> AugmentableTree<ARITY, { HEIGHT + 1 }, H, MAX_INPUT_LEN, PB>
     where
-        [(); num_of_prefixed!(BRANCH_FACTOR, { HEIGHT + 1 })]: Sized,
+        [(); num_of_prefixed!(ARITY, { HEIGHT + 1 })]: Sized,
         H: HashT,
-        PB: ProofBuilder<BRANCH_FACTOR, H>,
+        PB: ProofBuilder<ARITY, H>,
     {
-        AugmentableTree::<BRANCH_FACTOR, { HEIGHT + 1 }, H, MAX_INPUT_LEN, PB> {
+        AugmentableTree::<ARITY, { HEIGHT + 1 }, H, MAX_INPUT_LEN, PB> {
             tree: StaticTree::try_from_leaves(self.leaves())
                 .expect("can create from smaller tree. qed"),
             num_of_leaves: self.num_of_leaves,
@@ -125,16 +125,16 @@ where
     /// create a tree with height+1 and copies the contents of this and another tree to the new one
     /// Note: takes ownership, but as it implements Copy trait may need explicit dropping
     /// to prevent being any longer available
-    pub fn augment_and_merge<const OTHER_HEIGHT: usize, OTHERPB: ProofBuilder<BRANCH_FACTOR, H>>(
+    pub fn augment_and_merge<const OTHER_HEIGHT: usize, OTHERPB: ProofBuilder<ARITY, H>>(
         self,
-        other: AugmentableTree<BRANCH_FACTOR, OTHER_HEIGHT, H, MAX_INPUT_LEN, OTHERPB>,
-    ) -> AugmentableTree<BRANCH_FACTOR, { HEIGHT + 1 }, H, MAX_INPUT_LEN, PB>
+        other: AugmentableTree<ARITY, OTHER_HEIGHT, H, MAX_INPUT_LEN, OTHERPB>,
+    ) -> AugmentableTree<ARITY, { HEIGHT + 1 }, H, MAX_INPUT_LEN, PB>
     where
-        [(); num_of_prefixed!(BRANCH_FACTOR, { HEIGHT + 1 })]: Sized,
-        [(); num_of_prefixed!(BRANCH_FACTOR, OTHER_HEIGHT)]: Sized,
+        [(); num_of_prefixed!(ARITY, { HEIGHT + 1 })]: Sized,
+        [(); num_of_prefixed!(ARITY, OTHER_HEIGHT)]: Sized,
         Assert<{ OTHER_HEIGHT <= { HEIGHT + 1 } }>: IsTrue,
         H: HashT,
-        PB: ProofBuilder<BRANCH_FACTOR, H>,
+        PB: ProofBuilder<ARITY, H>,
     {
         let mut this = self.augment();
         this.try_merge(other)
@@ -142,20 +142,20 @@ where
         this
     }
     /// tries to merge a tree to this one if there is enough room in it
-    pub fn try_merge<const OTHER_HEIGHT: usize, OTHERPB: ProofBuilder<BRANCH_FACTOR, H>>(
+    pub fn try_merge<const OTHER_HEIGHT: usize, OTHERPB: ProofBuilder<ARITY, H>>(
         &mut self,
-        other: AugmentableTree<BRANCH_FACTOR, OTHER_HEIGHT, H, MAX_INPUT_LEN, OTHERPB>,
+        other: AugmentableTree<ARITY, OTHER_HEIGHT, H, MAX_INPUT_LEN, OTHERPB>,
     ) -> Result<(), Error>
     where
-        [(); num_of_prefixed!(BRANCH_FACTOR, HEIGHT)]: Sized,
-        [(); num_of_prefixed!(BRANCH_FACTOR, OTHER_HEIGHT)]: Sized,
+        [(); num_of_prefixed!(ARITY, HEIGHT)]: Sized,
+        [(); num_of_prefixed!(ARITY, OTHER_HEIGHT)]: Sized,
         Assert<{ OTHER_HEIGHT <= HEIGHT }>: IsTrue,
         H: HashT,
-        PB: ProofBuilder<BRANCH_FACTOR, H>,
+        PB: ProofBuilder<ARITY, H>,
     {
         let with_offset = self.num_of_leaves();
         let total_len = with_offset + other.num_of_leaves();
-        if total_len > BRANCH_FACTOR * layer_size!(BRANCH_FACTOR, HEIGHT, 0) {
+        if total_len > ARITY * layer_size!(ARITY, HEIGHT, 0) {
             return Err(Error::Merge);
         }
         self.tree = self.tree.with_leaves_inner(other.leaves(), with_offset);
@@ -165,14 +165,13 @@ where
     }
 }
 
-impl<const BRANCH_FACTOR: usize, const HEIGHT: usize, H, const MAX_INPUT_LEN: usize, PB>
-    StaticTreeTrait<BRANCH_FACTOR, H, PB>
-    for AugmentableTree<BRANCH_FACTOR, HEIGHT, H, MAX_INPUT_LEN, PB>
+impl<const ARITY: usize, const HEIGHT: usize, H, const MAX_INPUT_LEN: usize, PB>
+    StaticTreeTrait<ARITY, H, PB> for AugmentableTree<ARITY, HEIGHT, H, MAX_INPUT_LEN, PB>
 where
-    [(); num_of_prefixed!(BRANCH_FACTOR, HEIGHT)]: Sized,
-    Assert<{ is_pow2!(BRANCH_FACTOR) }>: IsTrue,
+    [(); num_of_prefixed!(ARITY, HEIGHT)]: Sized,
+    Assert<{ is_pow2!(ARITY) }>: IsTrue,
     H: HashT,
-    PB: ProofBuilder<BRANCH_FACTOR, H>,
+    PB: ProofBuilder<ARITY, H>,
 {
     fn generate_proof(&self, index: usize) -> PB {
         self.tree.generate_proof(index)
@@ -186,31 +185,31 @@ where
     fn root(&self) -> H::Output {
         self.tree.root()
     }
-    fn leaves(&self) -> &[Prefixed<BRANCH_FACTOR, H>] {
-        &self.tree.prefixed[..layer_size!(BRANCH_FACTOR, HEIGHT, 0)]
+    fn leaves(&self) -> &[Prefixed<ARITY, H>] {
+        &self.tree.prefixed[..layer_size!(ARITY, HEIGHT, 0)]
     }
     fn base_layer_size(&self) -> usize {
-        layer_size!(BRANCH_FACTOR, HEIGHT, 0)
+        layer_size!(ARITY, HEIGHT, 0)
     }
-    fn branch_factor(&self) -> usize {
-        BRANCH_FACTOR
+    fn arity(&self) -> usize {
+        ARITY
     }
     fn height(&self) -> usize {
         HEIGHT
     }
 }
 
-impl<const BRANCH_FACTOR: usize, const HEIGHT: usize, H, const MAX_INPUT_LEN: usize, PB> AppendOnly
-    for AugmentableTree<BRANCH_FACTOR, HEIGHT, H, MAX_INPUT_LEN, PB>
+impl<const ARITY: usize, const HEIGHT: usize, H, const MAX_INPUT_LEN: usize, PB> AppendOnly
+    for AugmentableTree<ARITY, HEIGHT, H, MAX_INPUT_LEN, PB>
 where
-    [(); num_of_prefixed!(BRANCH_FACTOR, HEIGHT)]: Sized,
+    [(); num_of_prefixed!(ARITY, HEIGHT)]: Sized,
 
-    Assert<{ is_pow2!(BRANCH_FACTOR) }>: IsTrue,
+    Assert<{ is_pow2!(ARITY) }>: IsTrue,
     H: HashT,
-    PB: ProofBuilder<BRANCH_FACTOR, H>,
+    PB: ProofBuilder<ARITY, H>,
 {
     fn try_append(&mut self, input: &[u8]) -> Result<(), Error> {
-        if self.num_of_leaves >= (self.base_layer_size() << BRANCH_FACTOR.trailing_zeros()) {
+        if self.num_of_leaves >= (self.base_layer_size() << ARITY.trailing_zeros()) {
             return Err(Error::Append);
         }
         self.replace(self.num_of_leaves, input);
@@ -222,26 +221,26 @@ where
     }
 }
 
-impl<const BRANCH_FACTOR: usize, const HEIGHT: usize, H, const MAX_INPUT_LEN: usize, PB> Clone
-    for AugmentableTree<BRANCH_FACTOR, HEIGHT, H, MAX_INPUT_LEN, PB>
+impl<const ARITY: usize, const HEIGHT: usize, H, const MAX_INPUT_LEN: usize, PB> Clone
+    for AugmentableTree<ARITY, HEIGHT, H, MAX_INPUT_LEN, PB>
 where
-    [(); num_of_prefixed!(BRANCH_FACTOR, HEIGHT)]: Sized,
-    Assert<{ is_pow2!(BRANCH_FACTOR) }>: IsTrue,
+    [(); num_of_prefixed!(ARITY, HEIGHT)]: Sized,
+    Assert<{ is_pow2!(ARITY) }>: IsTrue,
     H: HashT,
-    PB: ProofBuilder<BRANCH_FACTOR, H>,
+    PB: ProofBuilder<ARITY, H>,
 {
     fn clone(&self) -> Self {
         *self
     }
 }
 
-impl<const BRANCH_FACTOR: usize, const HEIGHT: usize, H, const MAX_INPUT_LEN: usize, PB> Default
-    for AugmentableTree<BRANCH_FACTOR, HEIGHT, H, MAX_INPUT_LEN, PB>
+impl<const ARITY: usize, const HEIGHT: usize, H, const MAX_INPUT_LEN: usize, PB> Default
+    for AugmentableTree<ARITY, HEIGHT, H, MAX_INPUT_LEN, PB>
 where
-    [(); num_of_prefixed!(BRANCH_FACTOR, HEIGHT)]: Sized,
-    Assert<{ is_pow2!(BRANCH_FACTOR) }>: IsTrue,
+    [(); num_of_prefixed!(ARITY, HEIGHT)]: Sized,
+    Assert<{ is_pow2!(ARITY) }>: IsTrue,
     H: HashT,
-    PB: ProofBuilder<BRANCH_FACTOR, H>,
+    PB: ProofBuilder<ARITY, H>,
 {
     fn default() -> Self {
         Self {
@@ -251,25 +250,25 @@ where
     }
 }
 
-impl<const BRANCH_FACTOR: usize, const HEIGHT: usize, H, const MAX_INPUT_LEN: usize, PB> Debug
-    for AugmentableTree<BRANCH_FACTOR, HEIGHT, H, MAX_INPUT_LEN, PB>
+impl<const ARITY: usize, const HEIGHT: usize, H, const MAX_INPUT_LEN: usize, PB> Debug
+    for AugmentableTree<ARITY, HEIGHT, H, MAX_INPUT_LEN, PB>
 where
-    [(); num_of_prefixed!(BRANCH_FACTOR, HEIGHT)]: Sized,
-    Assert<{ is_pow2!(BRANCH_FACTOR) }>: IsTrue,
+    [(); num_of_prefixed!(ARITY, HEIGHT)]: Sized,
+    Assert<{ is_pow2!(ARITY) }>: IsTrue,
     H: HashT,
-    PB: ProofBuilder<BRANCH_FACTOR, H>,
+    PB: ProofBuilder<ARITY, H>,
 {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> Result<(), core::fmt::Error> {
         write!(f, "{:?}", self.tree)
     }
 }
 
-impl<const BRANCH_FACTOR: usize, const HEIGHT: usize, H, const MAX_INPUT_LEN: usize, PB> Copy
-    for AugmentableTree<BRANCH_FACTOR, HEIGHT, H, MAX_INPUT_LEN, PB>
+impl<const ARITY: usize, const HEIGHT: usize, H, const MAX_INPUT_LEN: usize, PB> Copy
+    for AugmentableTree<ARITY, HEIGHT, H, MAX_INPUT_LEN, PB>
 where
-    [(); num_of_prefixed!(BRANCH_FACTOR, HEIGHT)]: Sized,
-    Assert<{ is_pow2!(BRANCH_FACTOR) }>: IsTrue,
+    [(); num_of_prefixed!(ARITY, HEIGHT)]: Sized,
+    Assert<{ is_pow2!(ARITY) }>: IsTrue,
     H: HashT,
-    PB: ProofBuilder<BRANCH_FACTOR, H>,
+    PB: ProofBuilder<ARITY, H>,
 {
 }

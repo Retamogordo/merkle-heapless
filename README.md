@@ -49,8 +49,8 @@ It's a generalized form of the above tree.
 ```rust
 use merkle_heapless::{StaticTree};
 
-const BRANCH_FACTOR: usize = 4;
-let mut tree = StaticTree::<BRANCH_FACTOR, MAX_HEIGHT, YourHash, MAX_WORD_LEN>::try_from::<&[u8]>(
+const ARITY: usize = 4;
+let mut tree = StaticTree::<ARITY, MAX_HEIGHT, YourHash, MAX_WORD_LEN>::try_from::<&[u8]>(
     &[b"apple", b"banana"]
 ).unwrap();
 // same operations can be applied
@@ -64,12 +64,20 @@ use merkle_heapless::traits::HashT;
 
 #[derive(Debug)]
 struct Blake2_256Hash;
-
+#[derive(Hash, Clone, Copy, Default, PartialEq, Debug)]
+pub struct Wrapped32([u8; 32]);
+impl From<u8> for Wrapped32 {
+    fn from(n: u8) -> Self {
+        let mut arr = [0u8; 32];
+        arr[0] = n;
+        Self(arr)
+    }
+}
 impl HashT for Blake2_256Hash {
-    type Output = [u8; 32];
+    type Output = Wrapped32;
 
     fn hash(input: &[u8]) -> Self::Output {
-        sp_core::blake2_256(input)
+        Wrapped32(sp_core::blake2_256(input))
     }
 }
 ```
@@ -82,14 +90,22 @@ use std::{
 use merkle_heapless::traits::HashT;
 #[derive(Debug)]
 pub struct StdHash;
-
+#[derive(Hash, Clone, Copy, Default, PartialEq, Debug)]
+pub struct Wrapped8([u8; 8]);
+impl From<u8> for Wrapped8 {
+    fn from(n: u8) -> Self {
+        let mut arr = [0u8; 8];
+        arr[0] = n;
+        Self(arr)
+    }
+}
 impl HashT for StdHash {
-    type Output = [u8; 8];
+    type Output = Wrapped8;
 
     fn hash(input: &[u8]) -> Self::Output {
         let mut s = DefaultHasher::new();
         input.hash(&mut s);
-        s.finish().to_ne_bytes()
+        Wrapped8(s.finish().to_ne_bytes())
     }
 }
 ```
@@ -104,11 +120,11 @@ Then the contents of the former tree are copied and hashes recalculated.
 ```rust
 use merkle_heapless::augmentable::{DefaultAugmentable};
 
-const BRANCH_FACTOR: usize = 4;
+const ARITY: usize = 4;
 const HEIGHT: usize = 3;
 const MAX_WORD_LEN: usize = 10;
 
-let mt1 = DefaultAugmentable::<BRANCH_FACTOR, HEIGHT, StdHash, MAX_WORD_LEN>::try_from::<&[u8]>(&[
+let mt1 = DefaultAugmentable::<ARITY, HEIGHT, StdHash, MAX_WORD_LEN>::try_from::<&[u8]>(&[
     "apple", "apricot", "banana", "cherry",
 ]).unwrap();
 
@@ -120,7 +136,7 @@ You can ```try_merge``` a smaller (or equally-sized) tree into the original tree
 This operation does not imply augmentation, rather it fails if merge is not possible.
 ```rust
 // snip
-let mt2 = DefaultAugmentable::<BRANCH_FACTOR, HEIGHT_2, StdHash, MAX_WORD_LEN>::try_from::<&[u8]>(&[
+let mt2 = DefaultAugmentable::<ARITY, HEIGHT_2, StdHash, MAX_WORD_LEN>::try_from::<&[u8]>(&[
     "kiwi", "lemon",
 ]).unwrap();
 
@@ -131,11 +147,11 @@ Similarly, if remove, compact and reduce semantics is needed it is achievable th
 ```rust
 use merkle_heapless::compactable::{DefaultCompactable};
 
-const BRANCH_FACTOR: usize = 4;
+const ARITY: usize = 4;
 const HEIGHT: usize = 3;
 const MAX_WORD_LEN: usize = 10;
 
-let mut cmt = DefaultCompactable::<BRANCH_FACTOR, HEIGHT, StdHash, MAX_WORD_LEN>::try_from::<&[u8]>(&[
+let mut cmt = DefaultCompactable::<ARITY, HEIGHT, StdHash, MAX_WORD_LEN>::try_from::<&[u8]>(&[
     "apple", "apricot", "banana", "cherry",
 ]).unwrap();
 

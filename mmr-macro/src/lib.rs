@@ -39,7 +39,7 @@ use syn::{Error, Ident, LitInt, Token};
 struct MMRInput {
     mmr_type: String,
     num_of_peaks: usize,
-    branch_factor: usize,
+    arity: usize,
     hash_type: String,
     max_input_len: usize,
 }
@@ -81,7 +81,7 @@ impl Parse for MMRInput {
             ));
         }
         input.parse::<Token![=]>()?;
-        let branch_factor: LitInt = input.parse().expect(err_msg);
+        let arity: LitInt = input.parse().expect(err_msg);
 
         let err_msg = "error while parsing 'Peaks = <peak number>' section";
         input.parse::<Token![,]>().expect(err_msg);
@@ -126,7 +126,7 @@ impl Parse for MMRInput {
         Ok(Self {
             mmr_type,
             num_of_peaks: num_of_peaks.base10_parse::<usize>()?,
-            branch_factor: branch_factor.base10_parse::<usize>()?,
+            arity: arity.base10_parse::<usize>()?,
             hash_type,
             max_input_len,
         })
@@ -189,16 +189,13 @@ pub fn mmr(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
         })
         .collect::<Vec<(syn::Ident, LitInt)>>();
 
-    let branch_factor = LitInt::new(
-        &input.branch_factor.to_string(),
-        proc_macro2::Span::call_site(),
-    );
+    let arity = LitInt::new(&input.arity.to_string(), proc_macro2::Span::call_site());
 
     let peak_variant_def_tokens = peak_variant_def_idents.iter()
         .map(|(peak_lit, peak_height)| {
 
             quote! {
-                #peak_lit(AugmentableTree<#branch_factor, #peak_height, #hash_type, #max_input_len, #mmr_peak_proof_type>)
+                #peak_lit(AugmentableTree<#arity, #peak_height, #hash_type, #max_input_len, #mmr_peak_proof_type>)
             }
         })
         .collect::<Vec<_>>();
@@ -248,7 +245,7 @@ pub fn mmr(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     let as_dyn_tree_variant_def_token = peak_variant_def_idents.iter()
         .map(|(peak_lit, _)| {
             quote! {
-                #peak_lit(tree) => tree as &dyn merkle_heapless::traits::StaticTreeTrait<#branch_factor, #hash_type, #mmr_peak_proof_type>
+                #peak_lit(tree) => tree as &dyn merkle_heapless::traits::StaticTreeTrait<#arity, #hash_type, #mmr_peak_proof_type>
             }
         })
         .collect::<Vec<_>>();
@@ -256,7 +253,7 @@ pub fn mmr(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     let as_mut_dyn_tree_variant_def_token = peak_variant_def_idents.iter()
         .map(|(peak_lit, _)| {
             quote! {
-                #peak_lit(tree) => tree as &mut dyn merkle_heapless::traits::StaticTreeTrait<#branch_factor, #hash_type, #mmr_peak_proof_type>
+                #peak_lit(tree) => tree as &mut dyn merkle_heapless::traits::StaticTreeTrait<#arity, #hash_type, #mmr_peak_proof_type>
             }
         })
         .collect::<Vec<_>>();
@@ -315,8 +312,8 @@ pub fn mmr(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
                 use merkle_heapless::prefixed::{Prefixed};
                 use super::#hash_type;
 
-                type #mmr_peak_proof_type = Proof<#branch_factor, #peak_height, #hash_type, #max_input_len>;
-                type #mmr_proof_type = Proof<#branch_factor, #total_height, #hash_type, #max_input_len>;
+                type #mmr_peak_proof_type = Proof<#arity, #peak_height, #hash_type, #max_input_len>;
+                type #mmr_proof_type = Proof<#arity, #total_height, #hash_type, #max_input_len>;
 
                 #[derive(Debug)]
                 pub enum #mmr_peak_type {
@@ -358,7 +355,7 @@ pub fn mmr(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
                     }
                 }
 
-                impl StaticTreeTrait<#branch_factor, #hash_type, #mmr_peak_proof_type> for #mmr_peak_type {
+                impl StaticTreeTrait<#arity, #hash_type, #mmr_peak_proof_type> for #mmr_peak_type {
                     fn generate_proof(&self, index: usize) -> #mmr_peak_proof_type {
                         #impl_method_body_token.generate_proof(index)
                         // #impl_mut_method_body_token.generate_proof(index)
@@ -372,15 +369,15 @@ pub fn mmr(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
                     fn root(&self) -> <#hash_type as HashT>::Output {
                         #impl_method_body_token.root()
                     }
-                    fn leaves(&self) -> &[Prefixed<#branch_factor, #hash_type>] {
+                    fn leaves(&self) -> &[Prefixed<#arity, #hash_type>] {
                         #impl_method_body_token.leaves()
                     }
                     fn base_layer_size(&self) -> usize {
                         #impl_method_body_token.base_layer_size()
                     }
-                    fn branch_factor(&self) -> usize {
-                        #impl_method_body_token.branch_factor()
-                    }
+                    // fn arity(&self) -> usize {
+                    //     #impl_method_body_token.arity()
+                    // }
                     fn height(&self) -> usize {
                         #impl_method_body_token.height()
                     }
@@ -400,7 +397,7 @@ pub fn mmr(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
                     [(); #num_of_peaks]: Sized,
                 {
                     // the tree that generates the entire proof by chaining a peak's proof
-                    summit_tree: StaticTree<#branch_factor, #summit_height, #hash_type, #max_input_len>,
+                    summit_tree: StaticTree<#arity, #summit_height, #hash_type, #max_input_len>,
                     peaks: [#mmr_peak_type; #num_of_peaks],
                     curr_peak_index: usize,
                     num_of_leaves: usize,
@@ -412,7 +409,7 @@ pub fn mmr(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
                 {
                     pub fn from_peak(peak: #mmr_peak_type) -> Self {
                         let mut this = Self {
-                            summit_tree: StaticTree::<#branch_factor, #summit_height, #hash_type, #max_input_len>::default(),
+                            summit_tree: StaticTree::<#arity, #summit_height, #hash_type, #max_input_len>::default(),
                             peaks: [#mmr_peak_type::default(); #num_of_peaks],
                             curr_peak_index: 0,
                             num_of_leaves: 0,

@@ -10,7 +10,7 @@
 //! - optional Mountain Range proc macro (when compiled with a mmr-macro feature)
 //!
 //! ## Hashing
-//! Leaves are prefixed with ```LEAF_HASH_PREPEND_VALUE``` prior to being hashed, while the intermediate nodes are prefixed with ```[1u8; 4]```. 
+//! Leaves are prefixed with ```LEAF_HASH_PREPEND_VALUE``` prior to being hashed, while the intermediate nodes are prefixed with ```[1u8; 4]```.
 //!
 //! # Mountain Range
 //!
@@ -95,9 +95,9 @@
 //! ```rust
 //! use merkle_heapless::{StaticTree};
 //!
-//! const BRANCH_FACTOR: usize = 4;
+//! const ARITY: usize = 4;
 //! const MAX_INPUT_WORD_LEN: usize = 10;
-//! let mut tree = StaticTree::<BRANCH_FACTOR, MAX_HEIGHT, YourHash, MAX_INPUT_WORD_LEN>::try_from::<&[u8]>(
+//! let mut tree = StaticTree::<ARITY, MAX_HEIGHT, YourHash, MAX_INPUT_WORD_LEN>::try_from::<&[u8]>(
 //!     &[b"apple", b"banana"]
 //! ).unwrap();
 //! // same operations can be applied
@@ -166,8 +166,10 @@ use crate::proof::Proof;
 use crate::traits::{HashT, ProofBuilder, StaticTreeTrait};
 use crate::utils::{location_in_prefixed, Assert, IsTrue};
 
-/// leaves will be pretended with this value prior to hashing
+/// leaves will be prepended with this value prior to hashing
 pub const LEAF_HASH_PREPEND_VALUE: u8 = 0;
+/// inner nodes will be prepended with this value prior to hashing
+pub const INNER_HASH_PREPEND_VALUE: u8 = 1;
 
 /// Merkle Tree Errors
 #[derive(Debug)]
@@ -189,29 +191,29 @@ pub type StaticBinaryTree<
 > = StaticTree<2, HEIGHT, H, MAX_INPUT_LEN, PB>;
 /// Basic statically-allocated Merkle Tree
 pub struct StaticTree<
-    const BRANCH_FACTOR: usize,
+    const ARITY: usize,
     const HEIGHT: usize,
     H,
     const MAX_INPUT_LEN: usize,
-    PB = Proof<BRANCH_FACTOR, HEIGHT, H, MAX_INPUT_LEN>,
+    PB = Proof<ARITY, HEIGHT, H, MAX_INPUT_LEN>,
 > where
-    [(); num_of_prefixed!(BRANCH_FACTOR, HEIGHT)]: Sized,
-    Assert<{ is_pow2!(BRANCH_FACTOR) }>: IsTrue,
+    [(); num_of_prefixed!(ARITY, HEIGHT)]: Sized,
+    Assert<{ is_pow2!(ARITY) }>: IsTrue,
     H: HashT,
-    PB: ProofBuilder<BRANCH_FACTOR, H>,
+    PB: ProofBuilder<ARITY, H>,
 {
     root: H::Output,
-    prefixed: [Prefixed<BRANCH_FACTOR, H>; num_of_prefixed!(BRANCH_FACTOR, HEIGHT)],
+    prefixed: [Prefixed<ARITY, H>; num_of_prefixed!(ARITY, HEIGHT)],
 }
 
-// impl<'a, T, const BRANCH_FACTOR: usize, const HEIGHT: usize, H, const MAX_INPUT_LEN: usize, PB> TryFrom<&'a [T]> for
-//     StaticTree<BRANCH_FACTOR, HEIGHT, H, MAX_INPUT_LEN, PB>
+// impl<'a, T, const ARITY: usize, const HEIGHT: usize, H, const MAX_INPUT_LEN: usize, PB> TryFrom<&'a [T]> for
+//     StaticTree<ARITY, HEIGHT, H, MAX_INPUT_LEN, PB>
 // where
 //     T: AsRef<[u8]> + Deref<Target = [u8]>,
-//     [(); num_of_prefixed!(BRANCH_FACTOR, HEIGHT)]: Sized,
-//     Assert<{ is_pow2!(BRANCH_FACTOR) }>: IsTrue,
+//     [(); num_of_prefixed!(ARITY, HEIGHT)]: Sized,
+//     Assert<{ is_pow2!(ARITY) }>: IsTrue,
 //     H: HashT,
-//     PB: ProofBuilder<BRANCH_FACTOR, H>,
+//     PB: ProofBuilder<ARITY, H>,
 // {
 //     type Error = Error;
 //     fn try_from(input: &'a [T]) -> Result<Self, Error> {
@@ -219,21 +221,21 @@ pub struct StaticTree<
 //     }
 // }
 
-impl<const BRANCH_FACTOR: usize, const HEIGHT: usize, H, const MAX_INPUT_LEN: usize, PB>
-    StaticTree<BRANCH_FACTOR, HEIGHT, H, MAX_INPUT_LEN, PB>
+impl<const ARITY: usize, const HEIGHT: usize, H, const MAX_INPUT_LEN: usize, PB>
+    StaticTree<ARITY, HEIGHT, H, MAX_INPUT_LEN, PB>
 where
-    [(); num_of_prefixed!(BRANCH_FACTOR, HEIGHT)]: Sized,
-    Assert<{ is_pow2!(BRANCH_FACTOR) }>: IsTrue,
+    [(); num_of_prefixed!(ARITY, HEIGHT)]: Sized,
+    Assert<{ is_pow2!(ARITY) }>: IsTrue,
     H: HashT,
-    PB: ProofBuilder<BRANCH_FACTOR, H>,
+    PB: ProofBuilder<ARITY, H>,
 {
-    const BASE_LAYER_SIZE: usize = layer_size!(BRANCH_FACTOR, HEIGHT, 0);
+    const BASE_LAYER_SIZE: usize = layer_size!(ARITY, HEIGHT, 0);
 
     fn create(input_len: usize) -> Result<Self, Error> {
-        (input_len <= Self::BASE_LAYER_SIZE * BRANCH_FACTOR)
+        (input_len <= Self::BASE_LAYER_SIZE * ARITY)
             .then_some(Self {
                 root: Default::default(),
-                prefixed: [Default::default(); num_of_prefixed!(BRANCH_FACTOR, HEIGHT)],
+                prefixed: [Default::default(); num_of_prefixed!(ARITY, HEIGHT)],
             })
             .ok_or(Error::Create)
     }
@@ -247,64 +249,69 @@ where
     pub fn from<T: AsRef<[u8]> + Deref<Target = [u8]>>(input: &[T]) -> Self {
         Self {
             root: Default::default(),
-            prefixed: [Default::default(); num_of_prefixed!(BRANCH_FACTOR, HEIGHT)],
+            prefixed: [Default::default(); num_of_prefixed!(ARITY, HEIGHT)],
         }
         .create_inner(input, 0)
     }
 
     #[inline]
     pub(crate) fn pad_leaves(&mut self, from_index: usize) {
-        let default_hash = Prefixed::<BRANCH_FACTOR, H>::default_hash();
-        let default_hashes = [default_hash; BRANCH_FACTOR];
-        let to_index = core::cmp::min(
-            (from_index / BRANCH_FACTOR + 1) * BRANCH_FACTOR,
-            max_leaves!(BRANCH_FACTOR, HEIGHT),
-        );
+        let default_hash = Prefixed::<ARITY, H>::default_hash();
+        let default_hashes = [default_hash; ARITY];
+        let to_index = core::cmp::min((from_index / ARITY + 1) * ARITY, max_leaves!(ARITY, HEIGHT));
         // pad first partial prefixed hashes in the base layer
         for i in from_index..to_index {
-            let (index, offset) = location_in_prefixed::<BRANCH_FACTOR>(i);
+            let (index, offset) = location_in_prefixed::<ARITY>(i);
             self.prefixed[index].hashes[offset] = default_hash;
         }
         // pad the rest of hashes in the base layer
-        let start_prefixed_index = to_index / BRANCH_FACTOR;
-        for i in start_prefixed_index..layer_size!(BRANCH_FACTOR, HEIGHT, 0) {
+        let start_prefixed_index = to_index / ARITY;
+        for i in start_prefixed_index..layer_size!(ARITY, HEIGHT, 0) {
             self.prefixed[i].hashes = default_hashes;
         }
     }
 
-    pub(crate) fn create_inner<T: AsRef<[u8]> + Deref<Target = [u8]>>(mut self, input: &[T], with_offset: usize) -> Self {
+    pub(crate) fn create_inner<T: AsRef<[u8]> + Deref<Target = [u8]>>(
+        mut self,
+        input: &[T],
+        with_offset: usize,
+    ) -> Self {
         let mut prefixed = [LEAF_HASH_PREPEND_VALUE; MAX_INPUT_LEN];
-        
-        let start_index = if input.iter().map(|d| d.len()).max() < Some(MAX_INPUT_LEN) {1} else {0};
+
+        let start_index = if input.iter().map(|d| d.len()).max() < Some(MAX_INPUT_LEN) {
+            1
+        } else {
+            0
+        };
         // fill the base layer
         for (i, d) in input.iter().enumerate() {
             prefixed[start_index..d.len() + start_index].copy_from_slice(d.as_ref());
 
-            let (index, offset) = location_in_prefixed::<BRANCH_FACTOR>(i + with_offset);
+            let (index, offset) = location_in_prefixed::<ARITY>(i + with_offset);
             self.prefixed[index].hashes[offset] = H::hash(&prefixed[0..d.len() + start_index]);
         }
 
         self.pad_leaves(input.len());
         // fill the rest of layers
-        self.fill_layers();
+        self.fill_layers(input.len());
         self
     }
 
     /// creates a tree from hashed leaves (of another tree)
-    pub fn try_from_leaves(leaves: &[Prefixed<BRANCH_FACTOR, H>]) -> Result<Self, Error> {
+    pub fn try_from_leaves(leaves: &[Prefixed<ARITY, H>]) -> Result<Self, Error> {
         Self::create(leaves.len()).map(|this| this.with_leaves_inner(leaves, 0))
     }
 
     pub(crate) fn with_leaves_inner(
         mut self,
-        leaves: &[Prefixed<BRANCH_FACTOR, H>],
+        leaves: &[Prefixed<ARITY, H>],
         with_offset: usize,
     ) -> Self {
         let mut i = with_offset;
 
         for leaf in leaves {
             for h in leaf.hashes {
-                let (index, offset) = location_in_prefixed::<BRANCH_FACTOR>(i);
+                let (index, offset) = location_in_prefixed::<ARITY>(i);
 
                 self.prefixed[index].hashes[offset] = h;
                 i += 1;
@@ -312,29 +319,49 @@ where
         }
         self.pad_leaves(i);
         // fill the rest of layers
-        self.fill_layers();
+        self.fill_layers(with_offset + leaves.len() * ARITY);
         self
     }
 
-    fn fill_layers(&mut self) {
+    fn fill_layers(&mut self, data_len: usize) {
         let mut start_ind = 0;
         let mut next_layer_ind = Self::BASE_LAYER_SIZE;
+        let mut data_len_aligned = if data_len & (ARITY - 1) == 0 {
+            data_len / ARITY
+        } else {
+            data_len / ARITY + 1
+        };
+        let default_hash = Prefixed::<ARITY, H>::default_hash();
 
         for h in 0..HEIGHT - 1 {
             // hash packed siblings of the current layer and fill the upper layer
-            for i in start_ind..next_layer_ind {
-                let offset = i & (BRANCH_FACTOR - 1); // index modulo BRANCH_FACTOR
+            for i in start_ind..data_len_aligned {
+                let offset = i & (ARITY - 1); // index modulo ARITY
                 let (j, _) = self.parent_index_and_base(i, h, start_ind);
 
                 // hash concatenated siblings from the contiguous memory
-                // each element has (BRANCH_FACTOR-1) siblings
+                // each element has (ARITY-1) siblings
                 // store it as a parent hash
                 self.prefixed[j].hashes[offset] = self.prefixed[i].hash_all();
             }
+            for i in data_len_aligned..next_layer_ind {
+                let offset = i & (ARITY - 1); // index modulo ARITY
+                let (j, _) = self.parent_index_and_base(i, h, start_ind);
+
+                self.prefixed[j].hashes[offset] = default_hash;
+            }
+
             let d = next_layer_ind - start_ind;
             // move on to the upper layer
             start_ind = next_layer_ind;
-            next_layer_ind += d >> BRANCH_FACTOR.trailing_zeros();
+            next_layer_ind += d >> ARITY.trailing_zeros();
+            data_len_aligned = start_ind
+                + if data_len_aligned & (ARITY - 1) == 0 {
+                    data_len_aligned / ARITY
+                } else {
+                    data_len_aligned / ARITY + 1
+                };
+            data_len_aligned = core::cmp::min(data_len_aligned, next_layer_ind);
         }
 
         self.root = self
@@ -352,23 +379,24 @@ where
         layer: usize,
         layer_base: usize,
     ) -> (usize, usize) {
-        let curr_layer_len = layer_size!(BRANCH_FACTOR, HEIGHT, layer);
+        let curr_layer_len = layer_size!(ARITY, HEIGHT, layer);
         let parent_layer_base = layer_base + curr_layer_len;
-        let parent_index =
-            parent_layer_base + ((index - layer_base) >> BRANCH_FACTOR.trailing_zeros());
+        //        println!("index: {index}, layer_base: {layer_base}");
+        let parent_index = parent_layer_base + ((index - layer_base) >> ARITY.trailing_zeros());
+        //        println!("parent_index: {parent_index}");
 
         (parent_index, parent_layer_base)
     }
 
     fn replace_inner(&mut self, index: usize) {
         let mut layer_base = 0;
-        let mut j = index / BRANCH_FACTOR;
+        let mut j = index / ARITY;
 
         // start from the base layer and propagate the new hashes upwords
         for layer in 0..HEIGHT - 1 {
             let parent_hashed = self.prefixed[j].hash_all();
 
-            let offset = j & (BRANCH_FACTOR - 1); // index modulo BRANCH_FACTOR
+            let offset = j & (ARITY - 1); // index modulo ARITY
             (j, layer_base) = self.parent_index_and_base(j, layer, layer_base);
 
             self.prefixed[j].hashes[offset] = parent_hashed;
@@ -382,26 +410,25 @@ where
     }
 }
 
-impl<const BRANCH_FACTOR: usize, const HEIGHT: usize, H, const MAX_INPUT_LEN: usize, PB>
-    StaticTreeTrait<BRANCH_FACTOR, H, PB>
-    for StaticTree<BRANCH_FACTOR, HEIGHT, H, MAX_INPUT_LEN, PB>
+impl<const ARITY: usize, const HEIGHT: usize, H, const MAX_INPUT_LEN: usize, PB>
+    StaticTreeTrait<ARITY, H, PB> for StaticTree<ARITY, HEIGHT, H, MAX_INPUT_LEN, PB>
 where
-    [(); num_of_prefixed!(BRANCH_FACTOR, HEIGHT)]: Sized,
-    Assert<{ is_pow2!(BRANCH_FACTOR) }>: IsTrue,
+    [(); num_of_prefixed!(ARITY, HEIGHT)]: Sized,
+    Assert<{ is_pow2!(ARITY) }>: IsTrue,
     H: HashT,
-    PB: ProofBuilder<BRANCH_FACTOR, H>,
+    PB: ProofBuilder<ARITY, H>,
 {
     /// generate proof at given index on base layer
     fn generate_proof(&self, index: usize) -> PB {
         let mut proof = PB::from_root(self.root());
         let mut layer_base = 0;
-        let mut j = index / BRANCH_FACTOR;
-        let mut offset = index & (BRANCH_FACTOR - 1); // index modulo BRANCH_FACTOR (power of 2)
+        let mut j = index / ARITY;
+        let mut offset = index & (ARITY - 1); // index modulo ARITY (power of 2)
 
         for layer in 0..HEIGHT {
             proof.push(offset, self.prefixed[j]);
 
-            offset = j & (BRANCH_FACTOR - 1); // index modulo BRANCH_FACTOR
+            offset = j & (ARITY - 1); // index modulo ARITY
             (j, layer_base) = self.parent_index_and_base(j, layer, layer_base);
         }
         proof
@@ -413,14 +440,14 @@ where
         let prefixed_len = input.len() + 1;
         prefixed[1..prefixed_len].copy_from_slice(input);
 
-        let (prefixed_index, offset) = location_in_prefixed::<BRANCH_FACTOR>(index);
+        let (prefixed_index, offset) = location_in_prefixed::<ARITY>(index);
 
         self.prefixed[prefixed_index].hashes[offset] = H::hash(&prefixed[0..prefixed_len]);
         self.replace_inner(index);
     }
 
     fn replace_leaf(&mut self, index: usize, leaf: H::Output) {
-        let (prefixed_index, offset) = location_in_prefixed::<BRANCH_FACTOR>(index);
+        let (prefixed_index, offset) = location_in_prefixed::<ARITY>(index);
         self.prefixed[prefixed_index].hashes[offset] = leaf;
 
         self.replace_inner(index);
@@ -428,93 +455,89 @@ where
     fn root(&self) -> H::Output {
         self.root
     }
-    fn leaves(&self) -> &[Prefixed<BRANCH_FACTOR, H>] {
-        &self.prefixed[..layer_size!(BRANCH_FACTOR, HEIGHT, 0)]
+    fn leaves(&self) -> &[Prefixed<ARITY, H>] {
+        &self.prefixed[..layer_size!(ARITY, HEIGHT, 0)]
     }
     fn base_layer_size(&self) -> usize {
-        layer_size!(BRANCH_FACTOR, HEIGHT, 0)
+        layer_size!(ARITY, HEIGHT, 0)
     }
-    fn branch_factor(&self) -> usize {
-        BRANCH_FACTOR
-    }
+    // fn arity(&self) -> usize {
+    //     ARITY
+    // }
     fn height(&self) -> usize {
         HEIGHT
     }
 }
 
-impl<const BRANCH_FACTOR: usize, const HEIGHT: usize, H, const MAX_INPUT_LEN: usize, PB> Clone
-    for StaticTree<BRANCH_FACTOR, HEIGHT, H, MAX_INPUT_LEN, PB>
+impl<const ARITY: usize, const HEIGHT: usize, H, const MAX_INPUT_LEN: usize, PB> Clone
+    for StaticTree<ARITY, HEIGHT, H, MAX_INPUT_LEN, PB>
 where
-    [(); num_of_prefixed!(BRANCH_FACTOR, HEIGHT)]: Sized,
-    Assert<{ is_pow2!(BRANCH_FACTOR) }>: IsTrue,
+    [(); num_of_prefixed!(ARITY, HEIGHT)]: Sized,
+    Assert<{ is_pow2!(ARITY) }>: IsTrue,
     H: HashT,
-    PB: ProofBuilder<BRANCH_FACTOR, H>,
+    PB: ProofBuilder<ARITY, H>,
 {
     fn clone(&self) -> Self {
         *self
     }
 }
 
-impl<const BRANCH_FACTOR: usize, const HEIGHT: usize, H, const MAX_INPUT_LEN: usize, PB> Copy
-    for StaticTree<BRANCH_FACTOR, HEIGHT, H, MAX_INPUT_LEN, PB>
+impl<const ARITY: usize, const HEIGHT: usize, H, const MAX_INPUT_LEN: usize, PB> Copy
+    for StaticTree<ARITY, HEIGHT, H, MAX_INPUT_LEN, PB>
 where
-    [(); num_of_prefixed!(BRANCH_FACTOR, HEIGHT)]: Sized,
-    Assert<{ is_pow2!(BRANCH_FACTOR) }>: IsTrue,
+    [(); num_of_prefixed!(ARITY, HEIGHT)]: Sized,
+    Assert<{ is_pow2!(ARITY) }>: IsTrue,
     H: HashT,
-    PB: ProofBuilder<BRANCH_FACTOR, H>,
+    PB: ProofBuilder<ARITY, H>,
 {
 }
 
-impl<const BRANCH_FACTOR: usize, const HEIGHT: usize, H, const MAX_INPUT_LEN: usize, PB> Default
-    for StaticTree<BRANCH_FACTOR, HEIGHT, H, MAX_INPUT_LEN, PB>
+impl<const ARITY: usize, const HEIGHT: usize, H, const MAX_INPUT_LEN: usize, PB> Default
+    for StaticTree<ARITY, HEIGHT, H, MAX_INPUT_LEN, PB>
 where
-    [(); num_of_prefixed!(BRANCH_FACTOR, HEIGHT)]: Sized,
-    Assert<{ is_pow2!(BRANCH_FACTOR) }>: IsTrue,
+    [(); num_of_prefixed!(ARITY, HEIGHT)]: Sized,
+    Assert<{ is_pow2!(ARITY) }>: IsTrue,
     H: HashT,
-    PB: ProofBuilder<BRANCH_FACTOR, H>,
+    PB: ProofBuilder<ARITY, H>,
 {
     fn default() -> Self {
         Self {
             root: Default::default(),
-            prefixed: [Default::default(); num_of_prefixed!(BRANCH_FACTOR, HEIGHT)],
+            prefixed: [Default::default(); num_of_prefixed!(ARITY, HEIGHT)],
         }
     }
 }
 
-impl<const BRANCH_FACTOR: usize, const HEIGHT: usize, H, const MAX_INPUT_LEN: usize, PB> PartialEq
-    for StaticTree<BRANCH_FACTOR, HEIGHT, H, MAX_INPUT_LEN, PB>
+impl<const ARITY: usize, const HEIGHT: usize, H, const MAX_INPUT_LEN: usize, PB> PartialEq
+    for StaticTree<ARITY, HEIGHT, H, MAX_INPUT_LEN, PB>
 where
-    [(); num_of_prefixed!(BRANCH_FACTOR, HEIGHT)]: Sized,
-    Assert<{ is_pow2!(BRANCH_FACTOR) }>: IsTrue,
+    [(); num_of_prefixed!(ARITY, HEIGHT)]: Sized,
+    Assert<{ is_pow2!(ARITY) }>: IsTrue,
     H: HashT,
-    PB: ProofBuilder<BRANCH_FACTOR, H>,
+    PB: ProofBuilder<ARITY, H>,
 {
     fn eq(&self, other: &Self) -> bool {
         self.root() == other.root() && self.height() == other.height()
     }
 }
 
-impl<const BRANCH_FACTOR: usize, const HEIGHT: usize, H, const MAX_INPUT_LEN: usize, PB> Debug
-    for StaticTree<BRANCH_FACTOR, HEIGHT, H, MAX_INPUT_LEN, PB>
+impl<const ARITY: usize, const HEIGHT: usize, H, const MAX_INPUT_LEN: usize, PB> Debug
+    for StaticTree<ARITY, HEIGHT, H, MAX_INPUT_LEN, PB>
 where
-    [(); num_of_prefixed!(BRANCH_FACTOR, HEIGHT)]: Sized,
-    Assert<{ is_pow2!(BRANCH_FACTOR) }>: IsTrue,
+    [(); num_of_prefixed!(ARITY, HEIGHT)]: Sized,
+    Assert<{ is_pow2!(ARITY) }>: IsTrue,
     H: HashT,
-    PB: ProofBuilder<BRANCH_FACTOR, H>,
+    PB: ProofBuilder<ARITY, H>,
 {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> Result<(), core::fmt::Error> {
-        writeln!(f, "[branch factor]:   {BRANCH_FACTOR}")?;
+        writeln!(f, "[arity]:   {ARITY}")?;
         writeln!(f, "[height]:          {HEIGHT}")?;
-        writeln!(
-            f,
-            "[num of prefixed]: {}",
-            num_of_prefixed!(BRANCH_FACTOR, HEIGHT)
-        )?;
+        writeln!(f, "[num of prefixed]: {}", num_of_prefixed!(ARITY, HEIGHT))?;
         writeln!(
             f,
             "[total bytes]:     {}",
             size_of::<H::Output>()
-                + size_of::<Prefixed<BRANCH_FACTOR, H>>() * num_of_prefixed!(BRANCH_FACTOR, HEIGHT)
+                + size_of::<Prefixed<ARITY, H>>() * num_of_prefixed!(ARITY, HEIGHT)
         )?;
         writeln!(f, "[hash output len]: {} bytes", size_of::<H::Output>())?;
         write!(f, "{:?}", self.prefixed)

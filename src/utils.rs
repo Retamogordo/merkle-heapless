@@ -1,43 +1,42 @@
 //use crate::HashT;
 
 #[inline]
-pub fn location_in_prefixed<const BRANCH_FACTOR: usize>(index: usize) -> (usize, usize) {
-    let offset = index & (BRANCH_FACTOR - 1); // index modulo BRANCH_FACTOR
-    let index = index >> BRANCH_FACTOR.trailing_zeros();
+pub fn location_in_prefixed<const ARITY: usize>(index: usize) -> (usize, usize) {
+    let offset = index & (ARITY - 1); // index modulo ARITY
+    let index = index >> ARITY.trailing_zeros();
     (index, offset)
 }
 
 #[macro_export]
-/// 
+///
 macro_rules! num_of_prefixed {
-    ($branch_factor:expr, $height:expr) => {
-        ((1 << ($branch_factor.trailing_zeros() as usize * ($height))) - 1) / ($branch_factor - 1)
+    ($arity:expr, $height:expr) => {
+        ((1 << ($arity.trailing_zeros() as usize * ($height))) - 1) / ($arity - 1)
     };
 }
 
 #[macro_export]
 /// total size of elements in a tree with given arity and height
 macro_rules! total_size {
-    ($branch_factor:expr, $height:expr) => {
-        ((1 << ($branch_factor.trailing_zeros() as usize * ($height + 1))) - 1)
-            / ($branch_factor - 1)
+    ($arity:expr, $height:expr) => {
+        ((1 << ($arity.trailing_zeros() as usize * ($height + 1))) - 1) / ($arity - 1)
     };
 }
 
 #[macro_export]
 /// size of a layer at index in a tree with given arity and height
 macro_rules! layer_size {
-    ($branch_factor:expr, $height:expr, $layer_index:expr) => {
-        //        1 << ($branch_factor.trailing_zeros() as usize * ($height - $layer_index))
-        1 << ($branch_factor.trailing_zeros() as usize * ($height - $layer_index - 1))
+    ($arity:expr, $height:expr, $layer_index:expr) => {
+        //1 << ($arity.trailing_zeros() as usize * ($height - $layer_index))
+        1 << ($arity.trailing_zeros() as usize * ($height - $layer_index - 1))
     };
 }
 
 #[macro_export]
 /// size of a layer at index in a tree with given arity and height
 macro_rules! max_leaves {
-    ($branch_factor:expr, $height:expr) => {
-        $branch_factor * layer_size!($branch_factor, $height, 0)
+    ($arity:expr, $height:expr) => {
+        $arity * layer_size!($arity, $height, 0)
     };
 }
 

@@ -10,25 +10,44 @@ mod mmr_tests {
 
     #[derive(Debug)]
     pub struct StdHash;
+    #[derive(Hash, Clone, Copy, Default, PartialEq, Debug)]
+    pub struct Wrapped8([u8; 8]);
+    impl From<u8> for Wrapped8 {
+        fn from(n: u8) -> Self {
+            let mut arr = [0u8; 8];
+            arr[0] = n;
+            Self(arr)
+        }
+    }
 
     impl HashT for StdHash {
-        type Output = [u8; 8];
+//        type Output = [u8; 8];
+        type Output = Wrapped8;
 
         fn hash(input: &[u8]) -> Self::Output {
             let mut s = DefaultHasher::new();
             input.hash(&mut s);
-            s.finish().to_ne_bytes()
+            Wrapped8(s.finish().to_ne_bytes())
         }
     }
 
     #[derive(Debug)]
     pub struct Blake2_256Hash;
-
+    #[derive(Hash, Clone, Copy, Default, PartialEq, Debug)]
+    pub struct Wrapped32([u8; 32]);
+    impl From<u8> for Wrapped32 {
+        fn from(n: u8) -> Self {
+            let mut arr = [0u8; 32];
+            arr[0] = n;
+            Self(arr)
+        }
+    }
     impl HashT for Blake2_256Hash {
-        type Output = [u8; 32];
+//        type Output = [u8; 32];
+        type Output = Wrapped32;
 
         fn hash(input: &[u8]) -> Self::Output {
-            sp_core::blake2_256(input)
+            Wrapped32(sp_core::blake2_256(input))
         }
     }
 

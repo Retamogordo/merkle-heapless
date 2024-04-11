@@ -4,14 +4,14 @@ use core::fmt::Debug;
 
 /// Basic implementation of an item making up a proof.
 /// Supports a power-of-2 number of siblings
-pub struct ProofItem<const BRANCH_FACTOR: usize, H: HashT> {
-    prefixed: Prefixed<BRANCH_FACTOR, H>,
+pub struct ProofItem<const ARITY: usize, H: HashT> {
+    prefixed: Prefixed<ARITY, H>,
     offset: usize,
 }
 
-impl<const BRANCH_FACTOR: usize, H: HashT> ProofItem<BRANCH_FACTOR, H> {
+impl<const ARITY: usize, H: HashT> ProofItem<ARITY, H> {
     /// returns item's hashes
-    pub fn hashes(&self) -> &[H::Output; BRANCH_FACTOR] {
+    pub fn hashes(&self) -> &[H::Output; ARITY] {
         &self.prefixed.hashes
     }
 
@@ -21,11 +21,9 @@ impl<const BRANCH_FACTOR: usize, H: HashT> ProofItem<BRANCH_FACTOR, H> {
     }
 }
 
-impl<const BRANCH_FACTOR: usize, H: HashT> ProofItemT<BRANCH_FACTOR, H>
-    for ProofItem<BRANCH_FACTOR, H>
-{
+impl<const ARITY: usize, H: HashT> ProofItemT<ARITY, H> for ProofItem<ARITY, H> {
     /// constructor
-    fn create(offset: usize, prefixed: Prefixed<BRANCH_FACTOR, H>) -> Self {
+    fn create(offset: usize, prefixed: Prefixed<ARITY, H>) -> Self {
         Self { offset, prefixed }
     }
     /// hashes a provided hashed data at offset with its siblings
@@ -35,15 +33,15 @@ impl<const BRANCH_FACTOR: usize, H: HashT> ProofItemT<BRANCH_FACTOR, H>
     }
 }
 
-impl<const BRANCH_FACTOR: usize, H: HashT> Copy for ProofItem<BRANCH_FACTOR, H> {}
+impl<const ARITY: usize, H: HashT> Copy for ProofItem<ARITY, H> {}
 
-impl<const BRANCH_FACTOR: usize, H: HashT> Clone for ProofItem<BRANCH_FACTOR, H> {
+impl<const ARITY: usize, H: HashT> Clone for ProofItem<ARITY, H> {
     fn clone(&self) -> Self {
         *self
     }
 }
 
-impl<const BRANCH_FACTOR: usize, H: HashT> Default for ProofItem<BRANCH_FACTOR, H> {
+impl<const ARITY: usize, H: HashT> Default for ProofItem<ARITY, H> {
     fn default() -> Self {
         Self {
             prefixed: Default::default(),
@@ -52,32 +50,28 @@ impl<const BRANCH_FACTOR: usize, H: HashT> Default for ProofItem<BRANCH_FACTOR, 
     }
 }
 
-impl<const BRANCH_FACTOR: usize, H: HashT> Debug for ProofItem<BRANCH_FACTOR, H> {
+impl<const ARITY: usize, H: HashT> Debug for ProofItem<ARITY, H> {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> Result<(), core::fmt::Error> {
         writeln!(f, "{:?}", self.prefixed.hashes)
     }
 }
 
 /// Proof implementation the StaticTree generates
-pub struct Proof<
-    const BRANCH_FACTOR: usize,
-    const HEIGHT: usize,
-    H: HashT,
-    const MAX_INPUT_LEN: usize,
-> where
+pub struct Proof<const ARITY: usize, const HEIGHT: usize, H: HashT, const MAX_INPUT_LEN: usize>
+where
     [(); HEIGHT]: Sized,
 {
     root: H::Output,
     height: usize,
-    items: [<Self as ProofBuilder<BRANCH_FACTOR, H>>::Item; HEIGHT],
+    items: [<Self as ProofBuilder<ARITY, H>>::Item; HEIGHT],
 }
 
-impl<const BRANCH_FACTOR: usize, const HEIGHT: usize, H: HashT, const MAX_INPUT_LEN: usize>
-    ProofBuilder<BRANCH_FACTOR, H> for Proof<BRANCH_FACTOR, HEIGHT, H, MAX_INPUT_LEN>
+impl<const ARITY: usize, const HEIGHT: usize, H: HashT, const MAX_INPUT_LEN: usize>
+    ProofBuilder<ARITY, H> for Proof<ARITY, HEIGHT, H, MAX_INPUT_LEN>
 where
     [(); HEIGHT]: Sized,
 {
-    type Item = ProofItem<BRANCH_FACTOR, H>;
+    type Item = ProofItem<ARITY, H>;
 
     fn from_root(root: H::Output) -> Self {
         Self {
@@ -87,14 +81,14 @@ where
         }
     }
 
-    fn push(&mut self, offset: usize, prefixed: Prefixed<BRANCH_FACTOR, H>) {
+    fn push(&mut self, offset: usize, prefixed: Prefixed<ARITY, H>) {
         self.items[self.height] = Self::Item::create(offset, prefixed);
         self.height += 1;
     }
 }
 
-impl<const BRANCH_FACTOR: usize, const HEIGHT: usize, H: HashT, const MAX_INPUT_LEN: usize>
-    ProofValidator for Proof<BRANCH_FACTOR, HEIGHT, H, MAX_INPUT_LEN>
+impl<const ARITY: usize, const HEIGHT: usize, H: HashT, const MAX_INPUT_LEN: usize> ProofValidator
+    for Proof<ARITY, HEIGHT, H, MAX_INPUT_LEN>
 where
     [(); HEIGHT]: Sized,
 {
@@ -115,7 +109,8 @@ where
     }
 }
 
-impl<const BRANCH_FACTOR: usize, const HEIGHT: usize, H: HashT, const MAX_INPUT_LEN: usize> Proof<BRANCH_FACTOR, HEIGHT, H, MAX_INPUT_LEN>
+impl<const ARITY: usize, const HEIGHT: usize, H: HashT, const MAX_INPUT_LEN: usize>
+    Proof<ARITY, HEIGHT, H, MAX_INPUT_LEN>
 where
     [(); HEIGHT]: Sized,
 {
@@ -130,13 +125,18 @@ where
     }
 
     /// returns the proof's path
-    pub fn path(&self) -> &[<Self as ProofBuilder<BRANCH_FACTOR, H>>::Item] {
+    pub fn path(&self) -> &[<Self as ProofBuilder<ARITY, H>>::Item] {
         &self.items
+    }
+
+    /// returns the proof's arity
+    pub fn arity() -> usize {
+        ARITY
     }
 
     /// prepends input with leaf prefix and hashes it
     pub fn hash_as_leaf(input: &[u8]) -> H::Output {
-        let start_index = if input.len() < MAX_INPUT_LEN {1} else {0};
+        let start_index = if input.len() < MAX_INPUT_LEN { 1 } else { 0 };
 
         let n = input.len() + start_index;
         let mut prefixed = [crate::LEAF_HASH_PREPEND_VALUE; MAX_INPUT_LEN];
@@ -150,14 +150,14 @@ where
         let mut index = 0;
         for item in self.items.iter() {
             index += a * item.offset();
-            a *= BRANCH_FACTOR;
+            a *= ARITY;
         }
         index
     }
 }
 
-impl<const BRANCH_FACTOR: usize, const HEIGHT: usize, H: HashT, const MAX_INPUT_LEN: usize> Default
-    for Proof<BRANCH_FACTOR, HEIGHT, H, MAX_INPUT_LEN>
+impl<const ARITY: usize, const HEIGHT: usize, H: HashT, const MAX_INPUT_LEN: usize> Default
+    for Proof<ARITY, HEIGHT, H, MAX_INPUT_LEN>
 where
     [(); HEIGHT]: Sized,
 {
@@ -170,8 +170,8 @@ where
     }
 }
 
-impl<const BRANCH_FACTOR: usize, const HEIGHT: usize, H: HashT, const MAX_INPUT_LEN: usize> Debug
-    for Proof<BRANCH_FACTOR, HEIGHT, H, MAX_INPUT_LEN>
+impl<const ARITY: usize, const HEIGHT: usize, H: HashT, const MAX_INPUT_LEN: usize> Debug
+    for Proof<ARITY, HEIGHT, H, MAX_INPUT_LEN>
 where
     [(); HEIGHT]: Sized,
 {
@@ -184,15 +184,15 @@ where
 /// Chains two proofs into one
 /// The second root becomes the root of the target proof
 pub fn chain_proofs<
-    const BRANCH_FACTOR: usize,
+    const ARITY: usize,
     const HEIGHT1: usize,
     const HEIGHT2: usize,
     H: HashT,
     const MAX_INPUT_LEN: usize,
 >(
-    proof1: Proof<BRANCH_FACTOR, HEIGHT1, H, MAX_INPUT_LEN>,
-    proof2: Proof<BRANCH_FACTOR, HEIGHT2, H, MAX_INPUT_LEN>,
-) -> Proof<BRANCH_FACTOR, { HEIGHT1 + HEIGHT2 }, H, MAX_INPUT_LEN>
+    proof1: Proof<ARITY, HEIGHT1, H, MAX_INPUT_LEN>,
+    proof2: Proof<ARITY, HEIGHT2, H, MAX_INPUT_LEN>,
+) -> Proof<ARITY, { HEIGHT1 + HEIGHT2 }, H, MAX_INPUT_LEN>
 where
     [(); HEIGHT1]: Sized,
     [(); HEIGHT2]: Sized,

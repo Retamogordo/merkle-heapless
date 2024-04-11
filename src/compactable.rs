@@ -1,10 +1,10 @@
 //! ```rust
 //! use merkle_heapless::compactable::{DefaultCompactable};
 //!
-//! const BRANCH_FACTOR: usize = 4;
+//! const ARITY: usize = 4;
 //! const HEIGHT: usize = 3;
 //!
-//! let mut cmt = DefaultCompactable::<BRANCH_FACTOR, HEIGHT, StdHash>::try_from::<&[u8]>(&[
+//! let mut cmt = DefaultCompactable::<ARITY, HEIGHT, StdHash>::try_from::<&[u8]>(&[
 //!     "apple", "apricot", "banana", "cherry",
 //! ]).unwrap();
 //!
@@ -17,59 +17,59 @@
 
 /// Compactable tree with [Proof] of tree's height
 pub type DefaultCompactable<
-    const BRANCH_FACTOR: usize,
+    const ARITY: usize,
     const HEIGHT: usize,
     H,
     const MAX_INPUT_LEN: usize,
 > = CompactableHeaplessTree<
-    BRANCH_FACTOR,
+    ARITY,
     HEIGHT,
     H,
     MAX_INPUT_LEN,
-    Proof<BRANCH_FACTOR, HEIGHT, H, MAX_INPUT_LEN>,
+    Proof<ARITY, HEIGHT, H, MAX_INPUT_LEN>,
 >;
 
-use core::ops::Deref;
 use crate::traits::CanRemove;
 use crate::{
-    is_pow2, layer_size, location_in_prefixed, max_leaves, num_of_prefixed, Assert, HashT, IsTrue,
-    Prefixed, Proof, ProofBuilder, StaticTree, StaticTreeTrait, Error
+    is_pow2, layer_size, location_in_prefixed, max_leaves, num_of_prefixed, Assert, Error, HashT,
+    IsTrue, Prefixed, Proof, ProofBuilder, StaticTree, StaticTreeTrait,
 };
 use core::fmt::Debug;
+use core::ops::Deref;
 /// Tree that can be compacted after leaf removal and reduced to a smaller tree
 pub struct CompactableHeaplessTree<
-    const BRANCH_FACTOR: usize,
+    const ARITY: usize,
     const HEIGHT: usize,
     H,
     const MAX_INPUT_LEN: usize,
-    PB = Proof<BRANCH_FACTOR, HEIGHT, H, MAX_INPUT_LEN>,
+    PB = Proof<ARITY, HEIGHT, H, MAX_INPUT_LEN>,
 > where
-    [(); num_of_prefixed!(BRANCH_FACTOR, HEIGHT)]: Sized,
-    [(); max_leaves!(BRANCH_FACTOR, HEIGHT)]: Sized,
-    Assert<{ is_pow2!(BRANCH_FACTOR) }>: IsTrue,
+    [(); num_of_prefixed!(ARITY, HEIGHT)]: Sized,
+    [(); max_leaves!(ARITY, HEIGHT)]: Sized,
+    Assert<{ is_pow2!(ARITY) }>: IsTrue,
     H: HashT,
-    PB: ProofBuilder<BRANCH_FACTOR, H>,
+    PB: ProofBuilder<ARITY, H>,
 {
-    tree: StaticTree<BRANCH_FACTOR, HEIGHT, H, MAX_INPUT_LEN, PB>,
+    tree: StaticTree<ARITY, HEIGHT, H, MAX_INPUT_LEN, PB>,
     num_of_leaves: usize,
-    leaves_present: [bool; max_leaves!(BRANCH_FACTOR, HEIGHT)],
+    leaves_present: [bool; max_leaves!(ARITY, HEIGHT)],
 }
 
-impl<const BRANCH_FACTOR: usize, const HEIGHT: usize, H, const MAX_INPUT_LEN: usize, PB>
-    CompactableHeaplessTree<BRANCH_FACTOR, HEIGHT, H, MAX_INPUT_LEN, PB>
+impl<const ARITY: usize, const HEIGHT: usize, H, const MAX_INPUT_LEN: usize, PB>
+    CompactableHeaplessTree<ARITY, HEIGHT, H, MAX_INPUT_LEN, PB>
 where
-    [(); num_of_prefixed!(BRANCH_FACTOR, HEIGHT)]: Sized,
-    [(); max_leaves!(BRANCH_FACTOR, HEIGHT)]: Sized,
-    Assert<{ is_pow2!(BRANCH_FACTOR) }>: IsTrue,
+    [(); num_of_prefixed!(ARITY, HEIGHT)]: Sized,
+    [(); max_leaves!(ARITY, HEIGHT)]: Sized,
+    Assert<{ is_pow2!(ARITY) }>: IsTrue,
     H: HashT,
-    PB: ProofBuilder<BRANCH_FACTOR, H>,
+    PB: ProofBuilder<ARITY, H>,
 {
     /// creates a tree from an input if possible
     pub fn try_from<T: AsRef<[u8]> + Deref<Target = [u8]>>(input: &[T]) -> Result<Self, Error> {
         let mut this = Self {
             tree: StaticTree::try_from(input)?,
             num_of_leaves: input.len(),
-            leaves_present: [false; max_leaves!(BRANCH_FACTOR, HEIGHT)],
+            leaves_present: [false; max_leaves!(ARITY, HEIGHT)],
         };
         for i in 0..input.len() {
             this.leaves_present[i] = true;
@@ -82,19 +82,19 @@ where
         let mut this = Self {
             tree: StaticTree::from(input),
             num_of_leaves: input.len(),
-            leaves_present: [false; max_leaves!(BRANCH_FACTOR, HEIGHT)],
+            leaves_present: [false; max_leaves!(ARITY, HEIGHT)],
         };
         for i in 0..input.len() {
             this.leaves_present[i] = true;
         }
         this
     }
-    
+
     /// creates a tree from hashed leaves (of another tree)
-    pub fn try_from_leaves(prefixed: &[Prefixed<BRANCH_FACTOR, H>]) -> Result<Self, Error> {
-        let mut leaves_present = [false; max_leaves!(BRANCH_FACTOR, HEIGHT)];
+    pub fn try_from_leaves(prefixed: &[Prefixed<ARITY, H>]) -> Result<Self, Error> {
+        let mut leaves_present = [false; max_leaves!(ARITY, HEIGHT)];
         let mut num_of_leaves = 0;
-        let default_hash = Prefixed::<BRANCH_FACTOR, H>::default_hash();
+        let default_hash = Prefixed::<ARITY, H>::default_hash();
         let mut j = 0;
         for leaf in prefixed {
             num_of_leaves += leaf
@@ -106,7 +106,7 @@ where
                     leaves_present[i + j] = true;
                 })
                 .count();
-            j += BRANCH_FACTOR;
+            j += ARITY;
         }
         Ok(Self {
             tree: StaticTree::try_from_leaves(prefixed)?,
@@ -116,14 +116,14 @@ where
     }
 
     fn try_from_compacted(
-        leaves: &[Prefixed<BRANCH_FACTOR, H>; layer_size!(BRANCH_FACTOR, HEIGHT, 0)],
+        leaves: &[Prefixed<ARITY, H>; layer_size!(ARITY, HEIGHT, 0)],
         num_of_leaves: usize,
     ) -> Result<Self, Error> {
-        (num_of_leaves <= max_leaves!(BRANCH_FACTOR, HEIGHT))
+        (num_of_leaves <= max_leaves!(ARITY, HEIGHT))
             .then_some(())
             .ok_or(Error::Create)
             .and_then(|()| {
-                let mut leaves_present = [false; max_leaves!(BRANCH_FACTOR, HEIGHT)];
+                let mut leaves_present = [false; max_leaves!(ARITY, HEIGHT)];
                 for present in leaves_present.iter_mut().take(num_of_leaves) {
                     *present = true;
                 }
@@ -137,20 +137,19 @@ where
 
     fn compacted_leaves<const EXPECTED_HEIGHT: usize>(
         &self,
-    ) -> Result<[Prefixed<BRANCH_FACTOR, H>; layer_size!(BRANCH_FACTOR, EXPECTED_HEIGHT, 0)], Error>
-    {
-        if self.num_of_leaves > max_leaves!(BRANCH_FACTOR, EXPECTED_HEIGHT) {
+    ) -> Result<[Prefixed<ARITY, H>; layer_size!(ARITY, EXPECTED_HEIGHT, 0)], Error> {
+        if self.num_of_leaves > max_leaves!(ARITY, EXPECTED_HEIGHT) {
             return Err(Error::Create);
         }
 
-        let mut prefixed = [Prefixed::<BRANCH_FACTOR, H>::default();
-            layer_size!(BRANCH_FACTOR, EXPECTED_HEIGHT, 0)];
+        let mut prefixed =
+            [Prefixed::<ARITY, H>::default(); layer_size!(ARITY, EXPECTED_HEIGHT, 0)];
 
         let mut j = 0;
         for i in 0..self.leaves_present.len() {
             if self.leaves_present[i] {
-                let (old_index, old_offset) = location_in_prefixed::<BRANCH_FACTOR>(i);
-                let (new_index, new_offset) = location_in_prefixed::<BRANCH_FACTOR>(j);
+                let (old_index, old_offset) = location_in_prefixed::<ARITY>(i);
+                let (new_index, new_offset) = location_in_prefixed::<ARITY>(j);
 
                 prefixed[new_index].hashes[new_offset] =
                     self.tree.leaves()[old_index].hashes[old_offset];
@@ -163,10 +162,10 @@ where
     /// move all existing leaves leftwards
     pub fn compact(&mut self)
     where
-        [(); num_of_prefixed!(BRANCH_FACTOR, HEIGHT)]: Sized,
-        [(); max_leaves!(BRANCH_FACTOR, HEIGHT)]: Sized,
+        [(); num_of_prefixed!(ARITY, HEIGHT)]: Sized,
+        [(); max_leaves!(ARITY, HEIGHT)]: Sized,
         H: HashT,
-        PB: ProofBuilder<BRANCH_FACTOR, H>,
+        PB: ProofBuilder<ARITY, H>,
     {
         *self = self
             .compacted_leaves::<HEIGHT>()
@@ -178,16 +177,16 @@ where
     /// to prevent being any longer available
     pub fn try_reduce(
         self,
-    ) -> Result<CompactableHeaplessTree<BRANCH_FACTOR, { HEIGHT - 1 }, H, MAX_INPUT_LEN, PB>, Self>
+    ) -> Result<CompactableHeaplessTree<ARITY, { HEIGHT - 1 }, H, MAX_INPUT_LEN, PB>, Self>
     where
-        [(); num_of_prefixed!(BRANCH_FACTOR, { HEIGHT - 1 })]: Sized,
-        [(); max_leaves!(BRANCH_FACTOR, { HEIGHT - 1 })]: Sized,
+        [(); num_of_prefixed!(ARITY, { HEIGHT - 1 })]: Sized,
+        [(); max_leaves!(ARITY, { HEIGHT - 1 })]: Sized,
         H: HashT,
-        PB: ProofBuilder<BRANCH_FACTOR, H>,
+        PB: ProofBuilder<ARITY, H>,
     {
         self.compacted_leaves::<{ HEIGHT - 1 }>()
             .and_then(|leaves| {
-                CompactableHeaplessTree::<BRANCH_FACTOR, { HEIGHT - 1 }, H, MAX_INPUT_LEN, PB>::try_from_compacted(
+                CompactableHeaplessTree::<ARITY, { HEIGHT - 1 }, H, MAX_INPUT_LEN, PB>::try_from_compacted(
                     &leaves,
                     self.num_of_leaves(),
                 )
@@ -196,15 +195,14 @@ where
     }
 }
 
-impl<const BRANCH_FACTOR: usize, const HEIGHT: usize, H, const MAX_INPUT_LEN: usize, PB>
-    StaticTreeTrait<BRANCH_FACTOR, H, PB>
-    for CompactableHeaplessTree<BRANCH_FACTOR, HEIGHT, H, MAX_INPUT_LEN, PB>
+impl<const ARITY: usize, const HEIGHT: usize, H, const MAX_INPUT_LEN: usize, PB>
+    StaticTreeTrait<ARITY, H, PB> for CompactableHeaplessTree<ARITY, HEIGHT, H, MAX_INPUT_LEN, PB>
 where
-    [(); num_of_prefixed!(BRANCH_FACTOR, HEIGHT)]: Sized,
-    [(); max_leaves!(BRANCH_FACTOR, HEIGHT)]: Sized,
-    Assert<{ is_pow2!(BRANCH_FACTOR) }>: IsTrue,
+    [(); num_of_prefixed!(ARITY, HEIGHT)]: Sized,
+    [(); max_leaves!(ARITY, HEIGHT)]: Sized,
+    Assert<{ is_pow2!(ARITY) }>: IsTrue,
     H: HashT,
-    PB: ProofBuilder<BRANCH_FACTOR, H>,
+    PB: ProofBuilder<ARITY, H>,
 {
     fn generate_proof(&self, index: usize) -> PB {
         self.tree.generate_proof(index)
@@ -228,28 +226,28 @@ where
     fn root(&self) -> H::Output {
         self.tree.root()
     }
-    fn leaves(&self) -> &[Prefixed<BRANCH_FACTOR, H>] {
-        &self.tree.prefixed[..layer_size!(BRANCH_FACTOR, HEIGHT, 0)]
+    fn leaves(&self) -> &[Prefixed<ARITY, H>] {
+        &self.tree.prefixed[..layer_size!(ARITY, HEIGHT, 0)]
     }
     fn base_layer_size(&self) -> usize {
-        layer_size!(BRANCH_FACTOR, HEIGHT, 0)
+        layer_size!(ARITY, HEIGHT, 0)
     }
-    fn branch_factor(&self) -> usize {
-        BRANCH_FACTOR
+    fn arity(&self) -> usize {
+        ARITY
     }
     fn height(&self) -> usize {
         HEIGHT
     }
 }
 
-impl<const BRANCH_FACTOR: usize, const HEIGHT: usize, H, const MAX_INPUT_LEN: usize, PB> CanRemove
-    for CompactableHeaplessTree<BRANCH_FACTOR, HEIGHT, H, MAX_INPUT_LEN, PB>
+impl<const ARITY: usize, const HEIGHT: usize, H, const MAX_INPUT_LEN: usize, PB> CanRemove
+    for CompactableHeaplessTree<ARITY, HEIGHT, H, MAX_INPUT_LEN, PB>
 where
-    [(); num_of_prefixed!(BRANCH_FACTOR, HEIGHT)]: Sized,
-    [(); max_leaves!(BRANCH_FACTOR, HEIGHT)]: Sized,
-    Assert<{ is_pow2!(BRANCH_FACTOR) }>: IsTrue,
+    [(); num_of_prefixed!(ARITY, HEIGHT)]: Sized,
+    [(); max_leaves!(ARITY, HEIGHT)]: Sized,
+    Assert<{ is_pow2!(ARITY) }>: IsTrue,
     H: HashT,
-    PB: ProofBuilder<BRANCH_FACTOR, H>,
+    PB: ProofBuilder<ARITY, H>,
 {
     // remove element by replacing with nothing
     // panics if index is out of leaf layer bound
@@ -267,14 +265,14 @@ where
     }
 }
 
-impl<const BRANCH_FACTOR: usize, const HEIGHT: usize, H, const MAX_INPUT_LEN: usize, PB> Clone
-    for CompactableHeaplessTree<BRANCH_FACTOR, HEIGHT, H, MAX_INPUT_LEN, PB>
+impl<const ARITY: usize, const HEIGHT: usize, H, const MAX_INPUT_LEN: usize, PB> Clone
+    for CompactableHeaplessTree<ARITY, HEIGHT, H, MAX_INPUT_LEN, PB>
 where
-    [(); num_of_prefixed!(BRANCH_FACTOR, HEIGHT)]: Sized,
-    [(); max_leaves!(BRANCH_FACTOR, HEIGHT)]: Sized,
-    Assert<{ is_pow2!(BRANCH_FACTOR) }>: IsTrue,
+    [(); num_of_prefixed!(ARITY, HEIGHT)]: Sized,
+    [(); max_leaves!(ARITY, HEIGHT)]: Sized,
+    Assert<{ is_pow2!(ARITY) }>: IsTrue,
     H: HashT,
-    PB: ProofBuilder<BRANCH_FACTOR, H>,
+    PB: ProofBuilder<ARITY, H>,
 {
     fn clone(&self) -> Self {
         Self {
@@ -285,32 +283,32 @@ where
     }
 }
 
-impl<const BRANCH_FACTOR: usize, const HEIGHT: usize, H, const MAX_INPUT_LEN: usize, PB> Default
-    for CompactableHeaplessTree<BRANCH_FACTOR, HEIGHT, H, MAX_INPUT_LEN, PB>
+impl<const ARITY: usize, const HEIGHT: usize, H, const MAX_INPUT_LEN: usize, PB> Default
+    for CompactableHeaplessTree<ARITY, HEIGHT, H, MAX_INPUT_LEN, PB>
 where
-    [(); num_of_prefixed!(BRANCH_FACTOR, HEIGHT)]: Sized,
-    [(); max_leaves!(BRANCH_FACTOR, HEIGHT)]: Sized,
-    Assert<{ is_pow2!(BRANCH_FACTOR) }>: IsTrue,
+    [(); num_of_prefixed!(ARITY, HEIGHT)]: Sized,
+    [(); max_leaves!(ARITY, HEIGHT)]: Sized,
+    Assert<{ is_pow2!(ARITY) }>: IsTrue,
     H: HashT,
-    PB: ProofBuilder<BRANCH_FACTOR, H>,
+    PB: ProofBuilder<ARITY, H>,
 {
     fn default() -> Self {
         Self {
             tree: Default::default(),
             num_of_leaves: 0,
-            leaves_present: [false; max_leaves!(BRANCH_FACTOR, HEIGHT)],
+            leaves_present: [false; max_leaves!(ARITY, HEIGHT)],
         }
     }
 }
 
-impl<const BRANCH_FACTOR: usize, const HEIGHT: usize, H, const MAX_INPUT_LEN: usize, PB> Debug
-    for CompactableHeaplessTree<BRANCH_FACTOR, HEIGHT, H, MAX_INPUT_LEN, PB>
+impl<const ARITY: usize, const HEIGHT: usize, H, const MAX_INPUT_LEN: usize, PB> Debug
+    for CompactableHeaplessTree<ARITY, HEIGHT, H, MAX_INPUT_LEN, PB>
 where
-    [(); num_of_prefixed!(BRANCH_FACTOR, HEIGHT)]: Sized,
-    [(); max_leaves!(BRANCH_FACTOR, HEIGHT)]: Sized,
-    Assert<{ is_pow2!(BRANCH_FACTOR) }>: IsTrue,
+    [(); num_of_prefixed!(ARITY, HEIGHT)]: Sized,
+    [(); max_leaves!(ARITY, HEIGHT)]: Sized,
+    Assert<{ is_pow2!(ARITY) }>: IsTrue,
     H: HashT,
-    PB: ProofBuilder<BRANCH_FACTOR, H>,
+    PB: ProofBuilder<ARITY, H>,
 {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> Result<(), core::fmt::Error> {
         writeln!(f, "{:?}", self.tree)?;
